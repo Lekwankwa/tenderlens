@@ -1,0 +1,13 @@
+# The sample pack contains real personal and company identifiers. Never commit it.
+samples/response/
+samples/rfq/
+out/
+.cache/
+__pycache__/
+
+# local config and environments
+.env
+.venv/
+
+# pilot access codes and usage (hashes and fingerprints only, but still not for git)
+pilot/
