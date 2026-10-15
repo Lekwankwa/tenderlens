@@ -127,10 +127,6 @@ with st.sidebar:
             with st.expander("Pilot terms"):
                 st.caption(pilot.PILOT_TERMS)
         rfq_ups = st.file_uploader("RFQ documents (PDF)", type="pdf", key="rfq", accept_multiple_files=True)
-        st.caption("The buyer's cover email or letter, plus anything it came with as a separate file - annexures, "
-                  "a BOQ, blank SBD templates if sent that way. Up to 10 files; order matters only in that the "
-                  "closing date and other requirements are found wherever they are, in whichever file they're in. "
-                  "Not the specification (below) and not the bidder's own response pack.")
         if len(rfq_ups) > 10:
             st.error(f"{len(rfq_ups)} files selected; at most 10 RFQ documents are read.", icon=None)
         spec_up = st.file_uploader("Specification (PDF, optional)", type="pdf", key="spec",
