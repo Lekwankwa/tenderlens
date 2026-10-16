@@ -31,6 +31,7 @@ import json
 import os
 import re
 import ssl
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -201,12 +202,21 @@ class LlamaClient:
             raise
 
     def ping(self) -> str:
-        """One tiny call, to tell the user whether the endpoint and model are reachable. Returns '' if fine."""
-        try:
-            self.complete_json("Reply with JSON only.", 'Return {"ok": true}')
-            return ""
-        except Exception as err:  # noqa: BLE001
-            return f"{type(err).__name__}: {str(err)[:200]}"
+        """One tiny call, to tell the user whether the endpoint and model are reachable. Returns '' if fine.
+        A 429 ("model busy") is the provider's shared capacity for this model at this moment, not a real
+        outage - it clears on its own, often within seconds, so one retry after a short pause avoids the
+        status flipping to "Missing" over what is usually a passing blip."""
+        for attempt in (1, 2):
+            try:
+                self.complete_json("Reply with JSON only.", 'Return {"ok": true}')
+                return ""
+            except LLMError as err:
+                if err.status_code == 429 and attempt == 1:
+                    time.sleep(2)
+                    continue
+                return f"{type(err).__name__}: {str(err)[:200]}"
+            except Exception as err:  # noqa: BLE001
+                return f"{type(err).__name__}: {str(err)[:200]}"
 
 
 def parse_json_loose(text: str) -> dict:

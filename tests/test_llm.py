@@ -189,3 +189,33 @@ def test_json_mode_falls_back_when_the_server_rejects_response_format():
     assert c.complete_json("sys", "u") == {"a": 1}
     assert "response_format" in m.requests[0] and "response_format" not in m.requests[1]
     m.close()
+
+
+# --------------------------------------------------------------------------- ping() retries a 429 once
+
+def test_ping_retries_once_on_a_429_and_succeeds(monkeypatch):
+    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)  # don't actually wait in tests
+    m = Mock([(429, {"error": {"message": "Model busy, retry later"}}), ok({"ok": True})])
+    c = client(m)
+    assert c.ping() == ""  # the retry succeeded, so no error is reported
+    assert len(m.requests) == 2
+    m.close()
+
+
+def test_ping_reports_the_error_if_the_429_does_not_clear(monkeypatch):
+    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)
+    m = Mock([(429, {"error": {"message": "Model busy, retry later"}})])  # busy both times
+    c = client(m)
+    err = c.ping()
+    assert "429" in err and "busy" in err.lower()
+    assert len(m.requests) == 2  # tried twice, not endlessly
+    m.close()
+
+
+def test_ping_does_not_retry_a_non_429_error(monkeypatch):
+    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)
+    m = Mock([(401, {"error": "bad key"})])
+    c = client(m)
+    err = c.ping()
+    assert "401" in err
+    assert len(m.requests) == 1  # a bad key won't fix itself on retry
