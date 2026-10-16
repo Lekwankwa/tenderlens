@@ -31,6 +31,7 @@ import json
 import os
 import re
 import ssl
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -131,6 +132,7 @@ class LlamaClient:
         self.prompt_tokens = 0
         self.completion_tokens = 0
         self.errors: list[str] = []  # why calls failed, so the report can say so instead of failing silently
+        self._lock = threading.Lock()  # calls/prompt_tokens/completion_tokens are updated from worker threads
 
     @property
     def estimated_cost(self) -> float | None:
@@ -164,12 +166,28 @@ class LlamaClient:
                 **({"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}),
             },
         )
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout, context=_HTTPS_CTX) as r:
-                return json.load(r)
-        except urllib.error.HTTPError as err:
-            body_text = _read_error_body(err, self.api_key)
-            raise LLMError(f"HTTP {err.code} from {self.base_url} ({self.model}): {body_text}", err.code) from None
+        # 429 ("model busy") and 5xx are the provider's shared capacity at that moment, not a real outage -
+        # often gone within seconds, so up to 3 retries with back-off before this call counts as failed.
+        # Anything else (a bad key, a malformed request, ...) fails immediately: retrying it can't help.
+        for attempt in range(4):
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout, context=_HTTPS_CTX) as r:
+                    return json.load(r)
+            except urllib.error.HTTPError as err:
+                body_text = _read_error_body(err, self.api_key)
+                last_err = LLMError(f"HTTP {err.code} from {self.base_url} ({self.model}): {body_text}", err.code)
+                retryable = err.code == 429 or 500 <= err.code < 600
+                if not retryable or attempt == 3:
+                    raise last_err from None
+                wait = None
+                retry_after = err.headers.get("Retry-After") if err.headers else None
+                if retry_after:
+                    try:
+                        wait = float(retry_after)
+                    except ValueError:
+                        wait = None
+                time.sleep(wait if wait is not None else 2 ** attempt)  # 1s, 2s, 4s if no Retry-After
+        raise last_err  # unreachable - the loop above always returns or raises
 
     def complete_json(self, system: str, user: str, images: list[str] | None = None) -> dict:
         if not self.configured:
@@ -188,7 +206,8 @@ class LlamaClient:
                 {"role": "user", "content": content if images else user},
             ],
         }
-        self.calls += 1
+        with self._lock:
+            self.calls += 1
         try:
             if self.json_mode:
                 try:
@@ -200,29 +219,67 @@ class LlamaClient:
             else:
                 payload = self._post(body)
             usage = payload.get("usage") or {}
-            self.prompt_tokens += int(usage.get("prompt_tokens") or 0)
-            self.completion_tokens += int(usage.get("completion_tokens") or 0)
+            with self._lock:
+                self.prompt_tokens += int(usage.get("prompt_tokens") or 0)
+                self.completion_tokens += int(usage.get("completion_tokens") or 0)
             return parse_json_loose(payload["choices"][0]["message"]["content"])
         except Exception as err:  # noqa: BLE001 - recorded, then re-raised for the caller to decide
-            self.errors.append(str(err)[:300] if isinstance(err, LLMError) else f"{type(err).__name__}: {str(err)[:160]}")
+            msg = str(err)[:300] if isinstance(err, LLMError) else f"{type(err).__name__}: {str(err)[:160]}"
+            with self._lock:
+                self.errors.append(msg)
             raise
 
     def ping(self) -> str:
         """One tiny call, to tell the user whether the endpoint and model are reachable. Returns '' if fine.
-        A 429 ("model busy") is the provider's shared capacity for this model at this moment, not a real
-        outage - it clears on its own, often within seconds, so one retry after a short pause avoids the
-        status flipping to "Missing" over what is usually a passing blip."""
-        for attempt in (1, 2):
-            try:
-                self.complete_json("Reply with JSON only.", 'Return {"ok": true}')
-                return ""
-            except LLMError as err:
-                if err.status_code == 429 and attempt == 1:
-                    time.sleep(2)
-                    continue
-                return f"{type(err).__name__}: {str(err)[:200]}"
-            except Exception as err:  # noqa: BLE001
-                return f"{type(err).__name__}: {str(err)[:200]}"
+        _post() already retries a 429/5xx with back-off, so one call here is enough - a second, outer retry
+        would just double up on the same wait."""
+        try:
+            self.complete_json("Reply with JSON only.", 'Return {"ok": true}')
+            return ""
+        except Exception as err:  # noqa: BLE001
+            return f"{type(err).__name__}: {str(err)[:200]}"
+
+
+def vision_concurrency() -> int:
+    """TENDERLENS_VISION_CONCURRENCY, default 8, clamped to [1, 32]."""
+    raw = os.environ.get("TENDERLENS_VISION_CONCURRENCY", "8").strip()
+    try:
+        n = int(raw)
+    except ValueError:
+        n = 8
+    return max(1, min(32, n))
+
+
+def run_concurrent(tasks: list, max_workers: int, on_done=None) -> list:
+    """Each task is a zero-arg callable (typically one model call). Runs them on a thread pool - or
+    sequentially if max_workers <= 1 or there is only one task - and returns results in the SAME order as
+    `tasks`, regardless of which one actually finishes first: that is ThreadPoolExecutor.map()'s own
+    ordering guarantee, not something this function has to arrange. A caller that then processes results in
+    that order (e.g. by page number, since `tasks` is built in page order) sees exactly what a sequential
+    run would have produced - independent vision calls, not independent findings.
+    on_done(), if given, is called with no arguments once per task as it actually completes (real
+    completion order, which is not task order under concurrency, and is already thread-safe to call) - a
+    caller tracking "N of M" across several calls to this function (e.g. several forms' worth of pages)
+    keeps that N and M itself; this function only knows about its own batch."""
+    if max_workers <= 1 or len(tasks) <= 1:
+        out = []
+        for t in tasks:
+            out.append(t())
+            if on_done:
+                on_done()
+        return out
+    lock = threading.Lock()
+
+    def wrapped(t):
+        r = t()
+        if on_done:
+            with lock:
+                on_done()
+        return r
+
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        return list(ex.map(wrapped, tasks))
 
 
 def parse_json_loose(text: str) -> dict:

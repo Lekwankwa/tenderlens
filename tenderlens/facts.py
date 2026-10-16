@@ -10,12 +10,14 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from . import forms as F
 from .ingest import Page
-from .llm import LlamaClient, LLMError, LLMUnavailable
+from .llm import LlamaClient, LLMError, LLMUnavailable, run_concurrent, vision_concurrency
 
 
 @dataclass
@@ -37,6 +39,8 @@ class Facts:
         self.vision_log: dict = {"calls": 0, "failed": 0, "pages_read": 0, "pages_inspected": 0, "errors": [],
                                  "stopped_early": ""}
         self.misread_variants: list[str] = []  # handwriting a focused crop re-read cleared or set aside (Step 3B)
+        self.stage_times: dict[str, float] = {}  # seconds per pipeline stage; filled in by cli.audit_pack
+        self._lock = threading.Lock()  # protects vision_log, touched from worker threads by _ask (see below)
 
     def add(self, *a, **k):
         f = Fact(*a, **k)
@@ -407,15 +411,22 @@ VISION_SYSTEM = (
 
 
 def _ask(llm: LlamaClient, facts: Facts, prompt: str, images: list[str]):
-    facts.vision_log["calls"] += 1
+    """Called from worker threads under concurrency (vision_extract/inspect_pages/signature_match each run
+    a wave of these on a thread pool), so facts.vision_log is updated under a lock, and the catch is
+    deliberately broad (not a specific allowlist): a call that fails in a way nobody anticipated must still
+    be isolated and recorded here, not propagate up through the thread pool and abandon every other page's
+    result that was already in - the exact "a call that still fails must not stop the run" requirement."""
+    with facts._lock:
+        facts.vision_log["calls"] += 1
     try:
         return llm.complete_json(VISION_SYSTEM, prompt, images=images)
-    except (LLMUnavailable, OSError, ValueError, KeyError, IndexError) as err:
-        facts.vision_log["failed"] += 1
+    except Exception as err:  # noqa: BLE001 - intentionally broad; see docstring
         # an LLMError's own str() already is the server's message, shortened and with the key scrubbed
         msg = str(err)[:300] if isinstance(err, LLMError) else f"{type(err).__name__}: {str(err)[:140]}"
-        if msg not in facts.vision_log["errors"] and len(facts.vision_log["errors"]) < 4:
-            facts.vision_log["errors"].append(msg)
+        with facts._lock:
+            facts.vision_log["failed"] += 1
+            if msg not in facts.vision_log["errors"] and len(facts.vision_log["errors"]) < 4:
+                facts.vision_log["errors"].append(msg)
         return None
 
 
@@ -440,15 +451,17 @@ def _answer(data, key="answer"):
     return v.get("value") if isinstance(v, dict) else v
 
 
-def _second_look(llm: LlamaClient, facts: Facts, page: Page, entry: F.Entry, fact: Fact) -> None:
-    """A reading that would raise an issue (blank, Yes, both boxes, an impossible date) is asked again as a single,
-    differently worded question. Agreement makes it a verified reading; disagreement leaves it as an observation."""
-    prompt = (f"This is page {page.number} of a bid pack. Question [{entry.key}]: {entry.desc}. "
-              "Answer with JSON {\"answer\": \"...\"}. For a yes/no question answer exactly Yes, No, Both (both "
-              "boxes marked) or blank (neither marked). For anything else write exactly what is written, or "
-              "blank if the field is on this page and empty, or "
-              "'not on this page' if it is not on this page.")
-    data = _ask(llm, facts, prompt, [page.image_path])
+def _second_look_prompt(entry: F.Entry, page: Page) -> str:
+    return (f"This is page {page.number} of a bid pack. Question [{entry.key}]: {entry.desc}. "
+            "Answer with JSON {\"answer\": \"...\"}. For a yes/no question answer exactly Yes, No, Both (both "
+            "boxes marked) or blank (neither marked). For anything else write exactly what is written, or "
+            "blank if the field is on this page and empty, or "
+            "'not on this page' if it is not on this page.")
+
+
+def _apply_second_look(fact: Fact, entry: F.Entry, data) -> None:
+    """Agreement with the first reading makes it a verified reading; disagreement (or no answer at all)
+    leaves it as an observation."""
     if data is None:
         fact.confidence, fact.note = 0.5, "the second look could not be made"
         return
@@ -460,27 +473,64 @@ def _second_look(llm: LlamaClient, facts: Facts, page: Page, entry: F.Entry, fac
         fact.note = "a second, differently worded look read this differently"
 
 
-def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_content: bool = True, verify: bool = True):
-    """Read every handwritten entry in forms.FORMS. One call per PAGE (small local models cope badly with several
-    images and long answers), then merge: a value on any page beats a 'blank' on another, because each entry
-    lives on one page only. Any reading that would raise an issue gets a second look (see _second_look)."""
+def _second_look(llm: LlamaClient, facts: Facts, page: Page, entry: F.Entry, fact: Fact) -> None:
+    """A reading that would raise an issue (blank, Yes, both boxes, an impossible date) is asked again as a
+    single, differently worded question. Kept for anything that still calls a single second look directly
+    (tests, other callers); vision_extract itself runs a whole wave of these concurrently - see
+    _apply_second_look / _second_look_prompt."""
+    data = _ask(llm, facts, _second_look_prompt(entry, page), [page.image_path])
+    _apply_second_look(fact, entry, data)
+
+
+def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_content: bool = True,
+                   verify: bool = True, progress=None, timing: dict | None = None):
+    """Read every handwritten entry in forms.FORMS. One call per PAGE (small local models cope badly with
+    several images and long answers), then merge: a value on any page beats a 'blank' on another, because
+    each entry lives on one page only. Any reading that would raise an issue gets a second look, all run as
+    one concurrent wave after every form's first reading is in (see _apply_second_look).
+
+    The first-reading calls (one per page, independent of each other) and the second-look calls (one per
+    deviating field, independent of each other) each run on a thread pool sized by
+    TENDERLENS_VISION_CONCURRENCY. Results are always matched back up by page/field - the dict a page's
+    answer gets merged into and the order facts are added in do not depend on which call finishes first, so
+    this gives the same findings a sequential run would, not just the same final report.
+
+    progress(done, total), if given, is called as each first-reading page call finishes, counted across
+    every form (not reset per form) - so it tracks the "vision first readings" stage as a whole."""
     from collections import Counter
-    for dtype, entries in F.FORMS.items():
-        entries = [e for e in entries if local_content or not e.applies]
+
+    forms_here = []
+    for dtype, raw_entries in F.FORMS.items():
+        entries = [e for e in raw_entries if local_content or not e.applies]
         pgs = [p for p in pages if p.doc_type == dtype]
-        if not pgs or not entries:
-            continue
+        if pgs and entries:
+            forms_here.append((dtype, entries, pgs))
+    total_pages = sum(len(pgs) for _, _, pgs in forms_here)
+    done = [0]
+
+    def tick():
+        done[0] += 1
+        if progress:
+            progress(done[0], total_pages)
+
+    t0 = time.time()
+    pending: list[tuple[F.Entry, Fact, Page]] = []
+    for dtype, entries, pgs in forms_here:
         reads: dict[str, list] = {}
         fields = {e.key: f"[{e.kind}] {e.desc}" for e in entries}
-        for p in pgs:
-            prompt = (
+
+        def make_prompt(p, dtype=dtype, fields=fields):
+            return (
                 f"This image is page {p.number} of a bid pack and belongs to the form '{dtype}'. For EACH field "
                 "listed, write what is handwritten, ticked or stamped on THIS page. Use \"not on this page\" if the "
                 "field is not on this page, \"blank\" if it is on this page but nothing is written in it, \"unreadable\" if you "
                 "cannot read it. For yes/no questions answer exactly Yes, No, Both (both boxes marked) or blank. "
                 "Dates: copy them as written. Return JSON of the form {\"<field>\": \"<answer>\"}.\nFields:\n"
                 + json.dumps(fields, indent=1))
-            data = _ask(llm, facts, prompt, [p.image_path])
+
+        tasks = [(lambda p=p: _ask(llm, facts, make_prompt(p), [p.image_path])) for p in pgs]
+        datas = run_concurrent(tasks, vision_concurrency(), tick)
+        for p, data in zip(pgs, datas):
             if not isinstance(data, dict):
                 continue
             facts.vision_log["pages_read"] += 1
@@ -512,7 +562,19 @@ def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_cont
                 page_no = pgs[-1].number if e.where == "last" else got[0][1]
                 fact = facts.add(e.key, F.BLANK, page_no, "vision", 0.6)
             if verify and F.is_deviation(e, fact.value):
-                _second_look(llm, facts, next(p for p in pgs if p.number == fact.page), e, fact)
+                pending.append((e, fact, next(p for p in pgs if p.number == fact.page)))
+    if timing is not None:
+        timing["vision_first"] = timing.get("vision_first", 0.0) + (time.time() - t0)
+
+    if pending:
+        t1 = time.time()
+        tasks = [(lambda e=e, p=p: _ask(llm, facts, _second_look_prompt(e, p), [p.image_path]))
+                for e, _, p in pending]
+        results = run_concurrent(tasks, vision_concurrency())
+        for (e, fact, _), data in zip(pending, results):
+            _apply_second_look(fact, e, data)
+        if timing is not None:
+            timing["vision_second"] = timing.get("vision_second", 0.0) + (time.time() - t1)
 
 
 # ---------------------------------------------------------------------------
@@ -694,17 +756,25 @@ def verify_yesno(llm: LlamaClient, pages: list[Page], facts: Facts) -> None:
             facts.items.remove(fact)
 
 
-def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int = 2) -> None:
+def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int = 2, progress=None,
+                  timing: dict | None = None) -> None:
     """Ask a vision model what no rule can see: crossed-out print, correction fluid, notes in the margin, pages
     that are rotated or cut off, scans too poor to read, and whether the signing line holds a real pen signature.
     A 'yes' is a lead. With passes=2 it is repeated as a differently worded question and only a second 'yes'
-    makes it a verified reading."""
+    makes it a verified reading. The first wave (one call per page) and the second-look wave (one call per
+    lead) each run concurrently - see vision_extract's docstring for why that gives the same findings a
+    sequential run would. progress(done, total) tracks the first wave only, across every page. This whole
+    function (not just its second-look wave) counts as "vision second looks and checks" in `timing` -
+    "vision first readings" is specifically vision_extract's reading of the forms' own fields."""
+    t_start = time.time()
     from . import vision as V
     signing = {}
     for dtype, idx in F.SIGNING_PAGE.items():
         pgs = [p for p in pages if p.doc_type == dtype]
         if pgs:
             signing[pgs[idx].number] = dtype
+
+    targets = []  # (page, its own question set)
     for p in pages:
         if p.doc_type not in F.INSPECTION_FORMS:
             continue
@@ -720,10 +790,25 @@ def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int
         if p.number in signing:
             qs["signature_seen"] = ("Is there a handwritten pen signature (not a typed name, and not only a printed "
                                     "line) beside or above the word 'Signature'?")
-        prompt = (f"This image is page {p.number} of a bid pack (form '{p.doc_type}'). Answer each question with "
-                  "exactly yes or no. Say yes only if you can clearly see it. Return JSON {\"<key>\": \"yes\" or "
-                  "\"no\"}.\n" + json.dumps(qs, indent=1))
-        data = _ask(llm, facts, prompt, [p.image_path])
+        targets.append((p, qs))
+
+    done = [0]
+
+    def tick():
+        done[0] += 1
+        if progress:
+            progress(done[0], len(targets))
+
+    def make_prompt(p, qs):
+        return (f"This image is page {p.number} of a bid pack (form '{p.doc_type}'). Answer each question with "
+                "exactly yes or no. Say yes only if you can clearly see it. Return JSON {\"<key>\": \"yes\" or "
+                "\"no\"}.\n" + json.dumps(qs, indent=1))
+
+    tasks = [(lambda p=p, qs=qs: _ask(llm, facts, make_prompt(p, qs), [p.image_path])) for p, qs in targets]
+    datas = run_concurrent(tasks, vision_concurrency(), tick)
+
+    pending: list[tuple[Fact, Page, str]] = []
+    for (p, qs), data in zip(targets, datas):
         if not isinstance(data, dict):
             continue
         facts.vision_log["pages_inspected"] += 1
@@ -739,17 +824,30 @@ def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int
                 continue
             fact = facts.add(field, True, p.number, "vision", 0.6)
             if passes >= 2:
-                again = F.clean(F.BOOL, _answer(_ask(llm, facts, f"Page {p.number}. {second_q} Answer JSON "
-                                                     "{\"answer\": \"yes\" or \"no\"}.", [p.image_path])))
-                if again is True:
-                    fact.verified, fact.confidence = True, 0.9
-                else:
-                    fact.confidence, fact.note = 0.4, "a second, differently worded look did not confirm it"
+                pending.append((fact, p, second_q))
+
+    if pending:
+        tasks2 = [(lambda p=p, second_q=second_q: _ask(
+                      llm, facts, f"Page {p.number}. {second_q} Answer JSON {{\"answer\": \"yes\" or \"no\"}}.",
+                      [p.image_path]))
+                 for _, p, second_q in pending]
+        results = run_concurrent(tasks2, vision_concurrency())
+        for (fact, _, _), data in zip(pending, results):
+            again = F.clean(F.BOOL, _answer(data))
+            if again is True:
+                fact.verified, fact.confidence = True, 0.9
+            else:
+                fact.confidence, fact.note = 0.4, "a second, differently worded look did not confirm it"
+    if timing is not None:
+        timing["vision_second"] = timing.get("vision_second", 0.0) + (time.time() - t_start)
 
 
-def signature_match(llm: LlamaClient, pages: list[Page], facts: Facts) -> None:
+def signature_match(llm: LlamaClient, pages: list[Page], facts: Facts, progress=None,
+                    timing: dict | None = None) -> None:
     """Compare each signing page's signature with the quotation's, as one picture with the two stacked (A over B).
-    Handwriting similarity is a lead for a person, never proof, so the audit only ever reports it as an observation."""
+    Handwriting similarity is a lead for a person, never proof, so the audit only ever reports it as an observation.
+    Every comparison's two orderings (A-over-B and B-over-A) run concurrently, across every form being compared."""
+    t_start = time.time()
     from PIL import Image, ImageDraw
     from . import vision as V
     crops = {}
@@ -784,13 +882,32 @@ def signature_match(llm: LlamaClient, pages: list[Page], facts: Facts) -> None:
 
     ask = ("The image shows two handwritten signatures, A on top and B below. Ignore any printed words. Were they "
            "written by the same person? Return JSON {\"answer\": \"same\", \"different\" or \"unsure\"}.")
+    targets = []  # (dtype, page, A-over-B stacked image, B-over-A stacked image)
     for dtype, (p, im) in crops.items():
         if dtype == ref:
             continue
         base = Path(p.image_path).parent
-        ab = _answer(_ask(llm, facts, ask, [stacked(crops[ref][1], im, base / f"sig-{ref}-{dtype}.png")]))
-        ba = _answer(_ask(llm, facts, ask, [stacked(im, crops[ref][1], base / f"sig-{dtype}-{ref}.png")]))
-        a, b = str(ab or "").lower(), str(ba or "").lower()
+        ab_path = stacked(crops[ref][1], im, base / f"sig-{ref}-{dtype}.png")
+        ba_path = stacked(im, crops[ref][1], base / f"sig-{dtype}-{ref}.png")
+        targets.append((dtype, p, ab_path, ba_path))
+    if not targets:
+        return
+
+    tasks = []
+    for _, _, ab_path, ba_path in targets:
+        tasks.append(lambda path=ab_path: _ask(llm, facts, ask, [path]))
+        tasks.append(lambda path=ba_path: _ask(llm, facts, ask, [path]))
+    done = [0]
+
+    def tick():
+        done[0] += 1
+        if progress:
+            progress(done[0], len(tasks))
+
+    results = run_concurrent(tasks, vision_concurrency(), tick)
+    for i, (dtype, p, _, _) in enumerate(targets):
+        a = str(_answer(results[2 * i]) or "").lower()
+        b = str(_answer(results[2 * i + 1]) or "").lower()
         if a.startswith("diff") and b.startswith("diff"):
             f = facts.add(f"sigmatch.{dtype}", "different", p.number, "vision", 0.9, verified=True)
         elif a.startswith("diff") or b.startswith("diff"):
@@ -799,3 +916,5 @@ def signature_match(llm: LlamaClient, pages: list[Page], facts: Facts) -> None:
         else:
             continue
         f.note = f.note or f"compared with the {ref} signature"
+    if timing is not None:
+        timing["vision_second"] = timing.get("vision_second", 0.0) + (time.time() - t_start)

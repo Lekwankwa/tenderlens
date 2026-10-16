@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import threading
+import time
 from datetime import date
 from pathlib import Path
 
@@ -16,7 +18,7 @@ from .report import render_html, to_json
 from .requirements import build_requirements
 
 def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm=None, local_content="auto",
-               vision=None, inspect="forms", passes=2, extra_facts=None):
+               vision=None, inspect="forms", passes=2, extra_facts=None, progress=None):
     """The whole pipeline, returning (requirements, audit result, facts, pages). Used by the CLI, the app and the tests.
 
     rfq      the buyer's RFQ, as one path or a list: the cover email/letter plus any attachments it came
@@ -29,28 +31,58 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
              vision model is set the text model is used; when neither is configured the handwriting comes from
              the transcript, or is reported as not read.
     inspect  "forms" = look for crossed-out text, notes, rotation etc. on the handwritten forms, "off" = skip
-    passes   2 = a vision 'yes' needs a second, differently worded look to count as an issue"""
+    passes   2 = a vision 'yes' needs a second, differently worded look to count as an issue
+    progress, if given, is called as progress(stage, done, total) from whichever stage is currently running
+             ("ocr", "vision_first", "vision_second"/"vision_checks") - for a live "page N of M" indicator.
+
+    Timing: facts.stage_times ends up with seconds spent in "render", "ocr", "text_model" (the RFQ/spec
+    reading, including any separate spec file's own render+OCR), "vision_first" and "vision_second" (second
+    looks AND the inspect_pages/signature_match checks - see vision_extract's and inspect_pages' own
+    docstrings for exactly what each covers). "report" is added by the caller (cli.py's main() / app.py),
+    since building the report happens after this function returns. The requirements step (text_model) and
+    the pack's own render+OCR are independent of each other and run concurrently in two threads; nothing
+    past that point can start until both are done (vision needs the classified pack pages AND
+    req.local_content_required), so there is no further overlap opportunity in this pipeline."""
     llm = llm or LlamaClient()
     vision = vision or LlamaClient.for_vision(llm)
-    spec_text, spec_name = "", ""
-    if spec:
-        spec_pages = load_pdf(spec, work)
-        spec_text, spec_name = spec_pages[0].text, spec.name
-    req = build_requirements(rfq, spec_text, spec_name, llm if llm.configured else None, local_content)
-    pages = load_pdf(pack, work)
+    timing: dict[str, float] = {}
+
+    req_box: dict = {}
+
+    def build_req():
+        t0 = time.time()
+        spec_text, spec_name = "", ""
+        if spec:
+            spec_pages = load_pdf(spec, work, timing=timing)
+            spec_text, spec_name = spec_pages[0].text, spec.name
+        req_box["req"] = build_requirements(rfq, spec_text, spec_name, llm if llm.configured else None, local_content)
+        timing["text_model"] = timing.get("text_model", 0.0) + (time.time() - t0)
+
+    req_thread = threading.Thread(target=build_req)
+    req_thread.start()
+    pages = load_pdf(pack, work, progress=(lambda d, t: progress("ocr", d, t)) if progress else None, timing=timing)
+    req_thread.join()
+    req = req_box["req"]
+
     classify_pages(pages, load_templates(blank))
     facts = Facts()
     ocr_facts(pages, facts)
     if vision.configured:
         facts.vision_log["model"] = vision.model
         if vision_precheck(vision, pages, facts):
-            vision_extract(vision, pages, facts, local_content=req.local_content_required, verify=passes >= 2)
+            vision_extract(vision, pages, facts, local_content=req.local_content_required, verify=passes >= 2,
+                           progress=(lambda d, t: progress("vision_first", d, t)) if progress else None,
+                           timing=timing)
             if passes >= 2 and CROP_VERIFY_ENABLED:
                 verify_identifiers(vision, pages, facts)
                 verify_yesno(vision, pages, facts)
             if inspect != "off":
-                inspect_pages(vision, pages, facts, passes)
-                signature_match(vision, pages, facts)
+                inspect_pages(vision, pages, facts, passes,
+                              progress=(lambda d, t: progress("vision_checks", d, t)) if progress else None,
+                              timing=timing)
+                signature_match(vision, pages, facts,
+                                progress=(lambda d, t: progress("vision_checks", d, t)) if progress else None,
+                                timing=timing)
     tinfo = {"unmatched": {}}
     if transcript:
         tinfo = load_transcript(transcript, facts, pages)
@@ -58,6 +90,7 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
         extra_facts(facts, pages)
     res = Auditor(req, pages, facts, blank, tinfo["unmatched"]).run()
     res.ocr_variants.extend(facts.misread_variants)
+    facts.stage_times = timing
     return req, res, facts, pages
 
 
@@ -206,13 +239,23 @@ def main(argv=None):
     llm_mode = ("Llama (" + llm.model + ") cross-checked with rules" if llm.configured
                else "rules only: no Llama endpoint configured (set TENDERLENS_LLM_BASE_URL / _MODEL)")
     print(f"{check_mode.capitalize()} check. " + page_count_estimate(pdf_page_count(a.pack), check_mode))
+
+    STAGE_LABEL = {"ocr": "OCR", "vision_first": "vision first readings", "vision_checks": "vision checks"}
+
+    def cli_progress(stage, done, total):
+        print(f"\r  {STAGE_LABEL.get(stage, stage)}: {done} of {total}" + (" " * 10), end="", flush=True)
+
     a.out.mkdir(parents=True, exist_ok=True)
     req, res, facts, pages = audit_pack(a.rfq, a.spec, a.pack, a.blank, a.transcript, a.work, llm,
-                                        a.local_content, vision=vision, inspect=a.vision_inspect, passes=a.passes)
+                                        a.local_content, vision=vision, inspect=a.vision_inspect, passes=a.passes,
+                                        progress=cli_progress)
+    print()  # end the last \r-updated progress line
+    t_report = time.time()
     html = render_html(req, res, facts, pages, a.bidder, req.reference, llm_mode,
                        redact=not a.no_redact, strict=a.strict_redact, check_mode=check_mode)
     (a.out / "report.html").write_text(html)
     (a.out / "report.json").write_text(to_json(req, res))
+    facts.stage_times["report"] = time.time() - t_report
     n_issue = sum(1 for f in res.findings if f.tier == "issue")
     n_obs = len(res.findings) - n_issue
     print(f"{n_issue} issues, {n_obs} observations; {len(res.passed)} checks passed -> {a.out / 'report.html'}")
@@ -225,6 +268,16 @@ def main(argv=None):
     vl = facts.vision_log
     if vl.get("stopped_early"):
         print(f"  vision stopped early: {vl['stopped_early']}")
+    STAGE_NAMES = {"render": "page rendering", "ocr": "OCR", "text_model": "text model (requirements)",
+                  "vision_first": "vision first readings", "vision_second": "vision second looks and checks",
+                  "report": "report"}
+    times = facts.stage_times
+    if times:
+        total = sum(times.values())
+        print("  timing (" + f"{total:.1f}s total, stages that ran concurrently overlap in wall-clock time" + "):")
+        for key in ("render", "ocr", "text_model", "vision_first", "vision_second", "report"):
+            if key in times:
+                print(f"    {STAGE_NAMES[key]}: {times[key]:.1f}s")
 
 
 if __name__ == "__main__":

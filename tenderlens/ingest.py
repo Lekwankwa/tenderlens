@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -140,17 +141,36 @@ def ocr_image(png: Path, cache: Path | None = None) -> tuple[str, list[Word]]:
     return text, words
 
 
-def load_pdf(pdf: Path, workdir: Path) -> list[Page]:
+def _ocr_workers() -> int:
+    raw = os.environ.get("TENDERLENS_OCR_WORKERS", "").strip()
+    if raw:
+        try:
+            return max(1, int(raw))
+        except ValueError:
+            pass
+    return max(1, (os.cpu_count() or 2) - 1)
+
+
+def load_pdf(pdf: Path, workdir: Path, progress=None, timing: dict | None = None) -> list[Page]:
+    """progress(done, total), if given, is called as each page's OCR finishes (real completion order under
+    concurrency, not necessarily page order) - for a live "page N of M" indicator. The returned Page list is
+    always in page order regardless. timing, if given, gets timing["render"] and timing["ocr"] (seconds, this
+    call's own rendering and OCR phases) added to it - not overwritten, so a caller loading more than one PDF
+    (the RFQ/spec files, then the pack) can pass the same dict and see each phase's total across all of them."""
+    t0 = time.time()
     stem = pdf.stem.replace(" ", "_") + "-" + sha1_file(pdf)[:8]
     imgdir = workdir / stem
     pngs = render_pdf(pdf, imgdir)
+    if timing is not None:
+        timing["render"] = timing.get("render", 0.0) + (time.time() - t0)
+    t1 = time.time()
     want = pdf_page_count(pdf)
     if len(pngs) != want:
         raise RuntimeError(
             f"{pdf.name}: read {len(pngs)} page(s) but the PDF has {want}. Stopping rather than auditing a "
             "partial pack - delete the cached render under .cache and try again.")
     ocr_dir = workdir / "ocr"
-    pages = []
+    jobs = []  # (page number, png path, content hash, cache path)
     for i, png in enumerate(pngs, 1):
         sha = sha1_file(png)
         cache = ocr_dir / f"{sha}.json"
@@ -158,9 +178,36 @@ def load_pdf(pdf: Path, workdir: Path) -> list[Page]:
         if not cache.exists() and legacy.exists():
             cache.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(legacy, cache)
-        text, words = ocr_image(png, cache)
-        pages.append(Page(i, str(png), text, words, sha=sha))
-    return pages
+        jobs.append((i, png, sha, cache))
+
+    workers = _ocr_workers()
+    results: list = [None] * len(jobs)
+    if workers > 1 and len(jobs) > 1:
+        # a thread pool, not a process pool: pytesseract shells out to the real tesseract binary via
+        # subprocess.Popen, releasing the GIL while it waits, so threads already get genuine concurrent
+        # OCR processes. A process pool was tried first, but on macOS (and anywhere the default start
+        # method is "spawn") a worker process re-executes this program's own entry point to set itself up -
+        # which is app.py's whole top-level script when run under Streamlit (it has no
+        # `if __name__ == "__main__":` guard, nor should it), so every OCR call crashed the app.
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futs = {ex.submit(ocr_image, png, cache): idx for idx, (_, png, _, cache) in enumerate(jobs)}
+            done = 0
+            for fut in as_completed(futs):
+                results[futs[fut]] = fut.result()
+                done += 1
+                if progress:
+                    progress(done, len(jobs))
+    else:
+        for idx, (_, png, _, cache) in enumerate(jobs):
+            results[idx] = ocr_image(png, cache)
+            if progress:
+                progress(idx + 1, len(jobs))
+
+    if timing is not None:
+        timing["ocr"] = timing.get("ocr", 0.0) + (time.time() - t1)
+    return [Page(i, str(png), text, words, sha=sha)
+           for (i, png, sha, _), (text, words) in zip(jobs, results)]
 
 
 def first_page_text(pdf: Path, workdir: Path) -> str:

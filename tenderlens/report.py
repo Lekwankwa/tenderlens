@@ -229,6 +229,15 @@ def render_html(req: Requirements, res: AuditResult, facts: Facts, pages: list[P
                "Signature, stray-mark and highlight findings come from image analysis of the scan, which is "
                "probabilistic. Llama is used to interpret the RFQ and (when attached) read the forms; all comparisons, "
                "sums and date checks are ordinary code so they are repeatable.</div>")
+    STAGE_ORDER = [("render", "page rendering"), ("ocr", "OCR"), ("text_model", "text model (requirements)"),
+                  ("vision_first", "vision first readings"), ("vision_second", "vision second looks and checks")]
+    times = facts.stage_times or {}
+    if any(k in times for k, _ in STAGE_ORDER):
+        out.append("<div class=note><b>Timing</b> (page rendering and the text model ran concurrently, so they "
+                   "overlap in wall-clock time rather than add up; this report's own generation time isn't "
+                   "known until after it's written, so it isn't included here):<ul>"
+                   + "".join(f"<li>{e(label)}: {times[k]:.1f}s</li>" for k, label in STAGE_ORDER if k in times)
+                   + "</ul></div>")
 
     # appendix
     cited |= {ev.page for f in res.findings for ev in f.evidence if ev.box is None}

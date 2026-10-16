@@ -21,7 +21,8 @@ from tenderlens.llm import LLMError, LlamaClient
 
 
 class Mock:
-    """script: list of (status, body) answered in order; the last one repeats for any extra requests."""
+    """script: list of (status, body) or (status, body, extra_headers), answered in order; the last one
+    repeats for any extra requests."""
 
     def __init__(self, script):
         self.script, self.requests = list(script), []
@@ -34,11 +35,15 @@ class Mock:
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 outer.requests.append(body)
-                status, resp = outer.script[min(len(outer.requests) - 1, len(outer.script) - 1)]
+                entry = outer.script[min(len(outer.requests) - 1, len(outer.script) - 1)]
+                status, resp = entry[0], entry[1]
+                extra = entry[2] if len(entry) > 2 else {}
                 data = json.dumps(resp).encode()
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(data)))
+                for k, v in extra.items():
+                    self.send_header(k, v)
                 self.end_headers()
                 self.wfile.write(data)
 
@@ -76,7 +81,8 @@ def client(m, **kw):
 
 # --------------------------------------------------------------------------- failure visibility (Step 3)
 
-def test_failed_call_keeps_the_servers_own_reason_not_just_the_status():
+def test_failed_call_keeps_the_servers_own_reason_not_just_the_status(monkeypatch):
+    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)  # a 500 is retried; don't wait for real
     m = Mock([(500, {"error": {"message": "the model is overloaded, try again"}})])
     c = client(m)
     with pytest.raises(LLMError) as exc:
@@ -98,7 +104,8 @@ def test_error_message_is_cut_to_about_300_characters_and_key_is_scrubbed():
     m.close()
 
 
-def test_vision_precheck_stops_a_failing_endpoint_before_the_full_run(tmp_path):
+def test_vision_precheck_stops_a_failing_endpoint_before_the_full_run(tmp_path, monkeypatch):
+    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)  # a 500 is retried; don't wait for real
     m = Mock([(500, {"error": {"message": "unknown model architecture"}})])
     c = client(m)
     img = tmp_path / "p1.png"
@@ -111,7 +118,7 @@ def test_vision_precheck_stops_a_failing_endpoint_before_the_full_run(tmp_path):
     ok_ = vision_precheck(c, [FakePage()], facts)
     assert ok_ is False
     assert "unknown model architecture" in facts.vision_log["stopped_early"]
-    assert len(m.requests) == 1  # exactly the one pre-check call, not 50 failing ones
+    assert len(m.requests) == 4  # 1 try + 3 retries (a 500 is retryable), not a 500-call flood
     m.close()
 
 
@@ -193,29 +200,59 @@ def test_json_mode_falls_back_when_the_server_rejects_response_format():
 
 # --------------------------------------------------------------------------- ping() retries a 429 once
 
-def test_ping_retries_once_on_a_429_and_succeeds(monkeypatch):
-    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)  # don't actually wait in tests
+def test_a_429_is_retried_and_then_succeeds(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr("tenderlens.llm.time.sleep", sleeps.append)
     m = Mock([(429, {"error": {"message": "Model busy, retry later"}}), ok({"ok": True})])
     c = client(m)
-    assert c.ping() == ""  # the retry succeeded, so no error is reported
+    assert c.complete_json("sys", "u") == {"ok": True}
+    assert len(m.requests) == 2
+    assert sleeps == [1]  # no Retry-After header in this script, so the 2**attempt backoff (1s) is used
+    m.close()
+
+
+def test_a_429_that_never_clears_is_retried_3_times_then_fails(monkeypatch):
+    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)
+    m = Mock([(429, {"error": {"message": "Model busy, retry later"}})])  # busy every time
+    c = client(m)
+    with pytest.raises(LLMError) as exc:
+        c.complete_json("sys", "u")
+    assert "429" in str(exc.value) and "busy" in str(exc.value).lower()
+    assert len(m.requests) == 4  # 1 try + 3 retries, not endless
+    m.close()
+
+
+def test_a_5xx_is_retried_the_same_as_a_429(monkeypatch):
+    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)
+    m = Mock([(503, {"error": "overloaded"}), ok({"ok": True})])
+    c = client(m)
+    assert c.complete_json("sys", "u") == {"ok": True}
     assert len(m.requests) == 2
     m.close()
 
 
-def test_ping_reports_the_error_if_the_429_does_not_clear(monkeypatch):
-    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)
-    m = Mock([(429, {"error": {"message": "Model busy, retry later"}})])  # busy both times
-    c = client(m)
-    err = c.ping()
-    assert "429" in err and "busy" in err.lower()
-    assert len(m.requests) == 2  # tried twice, not endlessly
-    m.close()
-
-
-def test_ping_does_not_retry_a_non_429_error(monkeypatch):
+def test_a_non_retryable_error_is_not_retried(monkeypatch):
     monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)
     m = Mock([(401, {"error": "bad key"})])
     c = client(m)
-    err = c.ping()
-    assert "401" in err
+    with pytest.raises(LLMError):
+        c.complete_json("sys", "u")
     assert len(m.requests) == 1  # a bad key won't fix itself on retry
+
+
+def test_retry_after_header_is_honoured_over_the_default_backoff(monkeypatch):
+    waits = []
+    monkeypatch.setattr("tenderlens.llm.time.sleep", waits.append)
+    m = Mock([(429, {"error": "busy"}, {"Retry-After": "5"}), ok({"ok": True})])
+    c = client(m)
+    c.complete_json("sys", "u")
+    assert waits == [5.0]  # the header's value, not the 1s default backoff for attempt 0
+    m.close()
+
+
+def test_ping_still_works_through_the_post_level_retry(monkeypatch):
+    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)
+    m = Mock([(429, {"error": {"message": "Model busy, retry later"}}), ok({"ok": True})])
+    c = client(m)
+    assert c.ping() == ""
+    m.close()

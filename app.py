@@ -232,13 +232,23 @@ if run:
             check_mode = "fast" if fast_mode else "complete"
             run_vision = LlamaClient(base_url="", model="") if fast_mode else vision
             st.write(f"Reading the buyer's documents and the response pack, then running the checks ({check_mode} check).")
+            progress_line = st.empty()
+            stage_label = {"ocr": "OCR", "vision_first": "vision first readings", "vision_checks": "vision checks"}
+
+            def app_progress(stage, done, total):
+                progress_line.caption(f"{stage_label.get(stage, stage)}: {done} of {total}")
+
             req, res, facts, pages = audit_pack(rfq, spec, pack, BLANK, transcript, WORK, llm, lc, vision=run_vision,
-                                                inspect="forms" if inspect else "off", passes=2 if second else 1)
+                                                inspect="forms" if inspect else "off", passes=2 if second else 1,
+                                                progress=app_progress)
+            progress_line.empty()
             st.write("Building the report.")
+            t_report = time.time()
             R = Renderer(pages, redact, strict)
             html = render_html(req, res, facts, pages, bidder or "Bidder", req.reference,
                                "Llama + rules" if llm.configured else "rules only", redact=redact, strict=strict,
                                check_mode=check_mode)
+            facts.stage_times["report"] = time.time() - t_report
             if claim_kind == "new":
                 n_issue = sum(1 for f in res.findings if f.tier == "issue")
                 claim_store.finalize_pack(claim_hash, claim_file_sha, req.reference, n_issue)
@@ -458,6 +468,18 @@ with tab_how:
                     f"{vl['pages_inspected']} inspected, {vl['calls']} calls, {vl['failed']} failed)")
         if vl.get("failed"):
             st.caption("Some calls failed: " + "; ".join(vl.get("errors") or []))
+
+    stage_names = [("render", "Page rendering"), ("ocr", "OCR"), ("text_model", "Text model (requirements)"),
+                  ("vision_first", "Vision first readings"), ("vision_second", "Vision second looks and checks"),
+                  ("report", "Report")]
+    times = getattr(facts, "stage_times", None) or {}
+    if any(k in times for k, _ in stage_names):
+        st.markdown("#### Timing")
+        st.caption("Page rendering and the text model ran concurrently, so they overlap in wall-clock time "
+                  "rather than add up.")
+        for key, label in stage_names:
+            if key in times:
+                st.write(f"• {label}: {times[key]:.1f}s")
 
     u = out.get("usage") or {}
     if u.get("text_calls") or u.get("vision_calls"):
