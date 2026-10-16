@@ -15,5 +15,8 @@ tests/fixtures/v2/*.pdf
 .venv/
 .DS_Store
 
-# pilot access codes and usage (hashes and fingerprints only, but still not for git)
-pilot/
+# pilot access codes and usage (hashes and fingerprints only - codes themselves are never stored).
+# pilot.db itself IS committed on purpose: Streamlit Community Cloud wipes local disk on every redeploy,
+# so this is how the pilot codes survive a redeploy at all. Everything else here stays out of git.
+pilot/*
+!pilot/pilot.db
