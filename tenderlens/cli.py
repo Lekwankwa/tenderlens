@@ -3,13 +3,14 @@ python -m tenderlens ui | check-llm | eval-vision | pilot"""
 from __future__ import annotations
 
 import argparse
+import os
 from datetime import date
 from pathlib import Path
 
 from .audit import Auditor
 from .facts import (CROP_VERIFY_ENABLED, Facts, inspect_pages, load_transcript, ocr_facts, signature_match,
                     verify_identifiers, verify_yesno, vision_extract, vision_precheck)
-from .ingest import classify_pages, load_pdf, load_templates
+from .ingest import classify_pages, load_pdf, load_templates, page_count_estimate, pdf_page_count
 from .llm import LlamaClient, load_env
 from .report import render_html, to_json
 from .requirements import build_requirements
@@ -145,6 +146,9 @@ def main(argv=None):
     r.add_argument("--strict-redact", action="store_true", help="also mask registration and CSD numbers")
     r.add_argument("--no-vision", action="store_true",
                    help="text and rules only, even if a vision endpoint is configured (for a side-by-side comparison)")
+    r.add_argument("--mode", choices=["fast", "complete"], default="complete",
+                   help="fast = text and rules only, no vision calls. complete = text and vision, both vision "
+                        "options always on (default). Same effect as --no-vision when set to fast.")
     c = sub.add_parser("check-llm", help="check tools, endpoints and models, and read one page")
     c.add_argument("--pack", type=Path, default=Path("samples/response/pack.pdf"))
     c.add_argument("--work", type=Path, default=Path(".cache"))
@@ -193,14 +197,20 @@ def main(argv=None):
         return
 
     llm = LlamaClient()
-    vision = LlamaClient(base_url="", model="") if a.no_vision else LlamaClient.for_vision(llm)
-    mode = ("Llama (" + llm.model + ") cross-checked with rules" if llm.configured
-            else "rules only: no Llama endpoint configured (set TENDERLENS_LLM_BASE_URL / _MODEL)")
+    fast = a.mode == "fast" or a.no_vision
+    check_mode = "fast" if fast else "complete"
+    vision = LlamaClient(base_url="", model="") if fast else LlamaClient.for_vision(llm)
+    if not fast and not vision.configured:
+        print("No vision model is connected, so Complete check can't read handwriting, ticks or stamps. "
+              "Add --mode fast, or set TENDERLENS_VISION_BASE_URL / _MODEL (see OLLAMA.md).")
+    llm_mode = ("Llama (" + llm.model + ") cross-checked with rules" if llm.configured
+               else "rules only: no Llama endpoint configured (set TENDERLENS_LLM_BASE_URL / _MODEL)")
+    print(f"{check_mode.capitalize()} check. " + page_count_estimate(pdf_page_count(a.pack), check_mode))
     a.out.mkdir(parents=True, exist_ok=True)
     req, res, facts, pages = audit_pack(a.rfq, a.spec, a.pack, a.blank, a.transcript, a.work, llm,
                                         a.local_content, vision=vision, inspect=a.vision_inspect, passes=a.passes)
-    html = render_html(req, res, facts, pages, a.bidder, req.reference, mode,
-                       redact=not a.no_redact, strict=a.strict_redact)
+    html = render_html(req, res, facts, pages, a.bidder, req.reference, llm_mode,
+                       redact=not a.no_redact, strict=a.strict_redact, check_mode=check_mode)
     (a.out / "report.html").write_text(html)
     (a.out / "report.json").write_text(to_json(req, res))
     n_issue = sum(1 for f in res.findings if f.tier == "issue")

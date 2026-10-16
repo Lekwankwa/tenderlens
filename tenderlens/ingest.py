@@ -64,6 +64,22 @@ def pdf_page_count(pdf: Path) -> int:
     return int(m.group(1))
 
 
+def page_count_estimate(n_pages: int, check_mode: str) -> str:
+    """The page count, shown before a run starts (fast or complete). With
+    TENDERLENS_SECONDS_PER_PAGE_FAST/_COMPLETE set, also "About N minutes..."; unset (the default), just the
+    count - no number is ever invented."""
+    raw = os.environ.get(f"TENDERLENS_SECONDS_PER_PAGE_{check_mode.upper()}", "").strip()
+    try:
+        secs_per_page = float(raw) if raw else None
+    except ValueError:
+        secs_per_page = None
+    if secs_per_page is None:
+        return f"{n_pages} page(s)."
+    minutes = max(1, round(secs_per_page * n_pages / 60))
+    return (f"{n_pages} page(s). About {minutes} minute(s) for {n_pages} pages. Larger packs take longer, "
+           "roughly in proportion. This is an estimate, not a promise.")
+
+
 def render_pdf(pdf: Path, outdir: Path, dpi: int = DPI) -> list[Path]:
     """Page images for `pdf`, cached under outdir by the PDF's own content hash (the caller picks outdir's
     name for that). The cache is trusted only when it holds exactly as many usable images as the PDF has
@@ -145,6 +161,46 @@ def load_pdf(pdf: Path, workdir: Path) -> list[Page]:
         text, words = ocr_image(png, cache)
         pages.append(Page(i, str(png), text, words, sha=sha))
     return pages
+
+
+def first_page_text(pdf: Path, workdir: Path) -> str:
+    """Enough text to tell a buyer's RFQ email/letter apart from their specification sheet, without
+    rendering and OCRing the whole document: the first page's own text layer (fast, most RFQ covering
+    emails/letters have one), or - for a scan with no text layer, such as a specification sheet that is
+    itself a scanned, signed-off form - that one page rendered and OCR'd."""
+    out = subprocess.run(["pdftotext", "-layout", "-f", "1", "-l", "1", str(pdf), "-"],
+                         capture_output=True, text=True).stdout
+    if len(out.strip()) >= 20:
+        return out
+    tmp = workdir / f"classify-{sha1_file(pdf)[:8]}"
+    tmp.mkdir(parents=True, exist_ok=True)
+    png = tmp / "p-1.png"
+    if not png.exists() or not _usable_png(png):
+        subprocess.run(["pdftoppm", "-r", str(DPI), "-png", "-f", "1", "-l", "1", str(pdf), str(tmp / "p")],
+                       check=True)
+    pngs = sorted(tmp.glob("p-*.png"))
+    return ocr_image(pngs[0])[0] if pngs else ""
+
+
+# A buyer's own RFQ-bundle document (the covering email/letter, or the specification sheet) is classified
+# by wording each conventionally carries in South African government procurement documents generally - not
+# anything specific to one buyer's tender - so this works on a document this code has never seen.
+_RFQ_EMAIL_HINTS = re.compile(
+    r"closing date|quotation (?:date|reference)|request for (?:procurement|quotation)|"
+    r"quotations? (?:must|which)|\bRFQ\b|central supplier database", re.I)
+_SPEC_HINTS = re.compile(r"SPECS VERIFIED|\bMOTIVATION\b|Description\s+Quantity|Delivery adress|Delivery address", re.I)
+
+
+def classify_rfq_document(text: str) -> str | None:
+    """'email' (the RFQ covering letter), 'spec' (the specification sheet), or None if the wording in the
+    first page isn't a clear enough signal either way - the caller should ask, not guess."""
+    t = text[:3000]
+    spec_hit, email_hit = bool(_SPEC_HINTS.search(t)), bool(_RFQ_EMAIL_HINTS.search(t))
+    if spec_hit and not email_hit:
+        return "spec"
+    if email_hit and not spec_hit:
+        return "email"
+    return None
 
 
 # --- classification -------------------------------------------------------

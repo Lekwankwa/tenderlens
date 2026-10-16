@@ -40,6 +40,16 @@ DISCLAIMER_LONG = (
     "genuine, does not check live registers, and is not legal advice. The buyer decides what disqualifies a bid.")
 NO_ISSUES_NOTE = "No issues found. That is not a guarantee that the bid complies."
 
+# What Fast check (no vision calls) cannot do, shown in the report so a clean Fast result is never mistaken
+# for a clean Complete one.
+VISION_DEPENDENT_CHECKS = [
+    "Handwritten entries on SBD 4, 6.1, 8, 9 and the local content declaration (ticks, dates, names, amounts, witness counts)",
+    "Crossed-out or overwritten text, handwritten notes outside the form fields, rotated or cut-off pages",
+    "Whether a signing line holds a real pen signature",
+    "Whether two signatures may be in different hands",
+    "The B-BBEE sworn affidavit's commissioner stamp and signature",
+]
+
 
 def _jpeg_b64(im: Image.Image, q=72) -> str:
     buf = io.BytesIO()
@@ -103,7 +113,8 @@ details{margin:8px 0}summary{cursor:pointer;font-weight:600}ul{padding-left:1.2r
 
 
 def render_html(req: Requirements, res: AuditResult, facts: Facts, pages: list[Page], bidder: str,
-                rfq_ref: str, llm_mode: str, redact: bool = True, strict: bool = False) -> str:
+                rfq_ref: str, llm_mode: str, redact: bool = True, strict: bool = False,
+                check_mode: str = "complete") -> str:
     R = Renderer(pages, redact, strict)
     e = html.escape
     src_count = Counter(f.source for f in facts.items if f.field != "page.doc_type")
@@ -112,6 +123,13 @@ def render_html(req: Requirements, res: AuditResult, facts: Facts, pages: list[P
            f"<title>TenderLens audit</title><style>{CSS}</style></head><body><main>"]
     out.append(f"<h1>TenderLens audit report</h1><div class=sub>{e(bidder)} &middot; RFQ {e(rfq_ref)} &middot; "
                f"generated {datetime.now():%Y-%m-%d %H:%M}</div>")
+    if check_mode == "fast":
+        out.append("<p class=note><b>Mode: Fast check</b> (handwriting, ticks, stamps and names were not read)</p>"
+                   "<div class=note><b>Not checked in this mode:</b><ul>"
+                   + "".join(f"<li>{e(c)}</li>" for c in VISION_DEPENDENT_CHECKS)
+                   + "</ul><p>A clean Fast check says nothing about handwriting, ticks, stamps or names.</p></div>")
+    else:
+        out.append("<p class=note><b>Mode: Complete check</b></p>")
     out.append(f"<div class=banner>{e(DISCLAIMER_SHORT)}</div>")
     out.append("<p class=note>Each item says what was found, where, which rule it relates to and how the fact was "
                "read. The buyer decides what disqualifies a bid. Images below "

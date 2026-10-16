@@ -249,7 +249,7 @@ def test_app_in_pilot_mode_gates_upload_and_hides_transcript(tmp_path, monkeypat
     at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
     assert not at.exception
     uploader_labels = [u.label for u in at.get("file_uploader")]
-    assert "RFQ documents (PDF)" in uploader_labels and "Response pack (PDF, scans are fine)" in uploader_labels
+    assert "RFQ/Tender documents (PDF)" in uploader_labels and "Response pack (PDF, scans are fine)" in uploader_labels
     assert not any("transcript" in lbl.lower() for lbl in uploader_labels)
     assert any(b.label == "Audit the pack" and b.disabled for b in at.button)  # no files yet, even with a code
 

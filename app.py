@@ -19,8 +19,9 @@ from pypdf import PdfWriter
 
 from tenderlens import pilot
 from tenderlens.audit import DOC_LABEL
-from tenderlens.bootstrap import ensure_local_models, remote_warning, system_check
+from tenderlens.bootstrap import remote_warning, system_check
 from tenderlens.cli import audit_pack
+from tenderlens.ingest import page_count_estimate, pdf_page_count
 from tenderlens.llm import LlamaClient, load_env
 from tenderlens.report import DISCLAIMER_LONG, DISCLAIMER_SHORT, NO_ISSUES_NOTE, SEV, SRC_LABEL, Renderer, render_html, to_json
 
@@ -119,12 +120,11 @@ with st.sidebar:
                 (st.success if code_status.ok else st.error)(code_status.message(), icon=None)
         with st.expander("Pilot terms"):
             st.caption(pilot.PILOT_TERMS)
-    rfq_ups = st.file_uploader("RFQ documents (PDF)", type="pdf", key="rfq", accept_multiple_files=True)
-    if len(rfq_ups) > 10:
-        st.error(f"{len(rfq_ups)} files selected; at most 10 RFQ documents are read.", icon=None)
-    spec_up = st.file_uploader("Specification (PDF, optional)", type="pdf", key="spec",
-                               help="Only if the buyer issued one separately from the RFQ. Some RFQs state the "
-                                    "specification inline, or need none.")
+    rfqtender_ups = st.file_uploader("RFQ/Tender documents (PDF)", type="pdf", key="rfqtender",
+                                     accept_multiple_files=True, help="The covering email/letter and the "
+                                     "specification, if there is one - all in one place.")
+    if len(rfqtender_ups) > 10:
+        st.error(f"{len(rfqtender_ups)} files selected; at most 10 RFQ/Tender documents are read.", icon=None)
     st.markdown("<div class='tl-step'>2 &middot; The bidder's response pack</div>", unsafe_allow_html=True)
     pack_ups = st.file_uploader("Response pack (PDF, scans are fine)", type="pdf", key="pack",
                                 accept_multiple_files=True, help="Multiple files are read in the order "
@@ -142,18 +142,29 @@ with st.sidebar:
                                "buyer says local content applies.")
         redact = st.toggle("Hide IDs, tax numbers and signatures in page images", value=False)
         strict = False
-        inspect = st.toggle("Vision: look for crossed-out text, notes, rotated pages", value=True, disabled=not vision.configured,
-                            help="Needs a vision model. Adds one question per handwritten page (slow on a laptop CPU).")
-        second = st.toggle("Vision: second look at every suspicious reading", value=True, disabled=not vision.configured,
-                           help="A 'Yes', a blank or a double tick is asked again, worded differently, before it counts as an issue.")
+        check_choice = st.segmented_control("Check mode", ["Fast check", "Complete check"], default="Complete check",
+                                            help="Fast: text and rules only, no vision calls. Complete: text and "
+                                                 "vision together - handwriting, ticks, stamps and names are read "
+                                                 "too, both always on.")
+        fast_mode = check_choice == "Fast check"
+        if not fast_mode and not vision.configured:
+            st.warning("No vision model is connected, so Complete check can't read handwriting, ticks or stamps. "
+                      "Switch to Fast check, or connect a vision model.", icon=None)
+        inspect = not fast_mode
+        second = not fast_mode
 
-    ready = bool(rfq_ups and pack_ups and len(rfq_ups) <= 10 and len(pack_ups) <= 10)
+    if pack_ups:
+        try:
+            n_pages = sum(pdf_page_count(save_upload(f, f"pagecount-{f.name}", WORK / "uploads")) for f in pack_ups[:10])
+            check_mode_now = "fast" if fast_mode else "complete"
+            st.caption(page_count_estimate(n_pages, check_mode_now))
+        except Exception:
+            pass  # purely informational; a page-count problem surfaces properly when the real run reads the file
+
+    ready = bool(rfqtender_ups and pack_ups and len(rfqtender_ups) <= 10 and len(pack_ups) <= 10)
     if PILOT:
         ready = ready and bool(code_status and code_status.ok)
     run = st.button("Audit the pack", type="primary", width="stretch", disabled=not ready)
-    if not ready:
-        st.caption("Add at least one RFQ document and the response pack to begin (the specification is optional)."
-                  + (" A valid pilot code is also needed." if PILOT else ""))
 
     st.divider()
     same_model = llm.configured and vision.configured and llm.model == vision.model and llm.base_url == vision.base_url
@@ -182,18 +193,6 @@ with st.sidebar:
             st.write(("Ready: " if ok else "Missing: ") + item)
             if not ok and detail:
                 st.caption(detail)
-        if st.button("Start Ollama and fetch the model", width="stretch"):
-            log = st.empty()
-            lines = []
-
-            def add_line(msg):
-                lines.append(msg)
-                log.write("\n".join(lines))
-
-            good = ensure_local_models(log=add_line)
-            (st.success if good else st.error)("Ready." if good else "Still not ready; see the message above.")
-            if good:
-                st.rerun()
     note = remote_warning(vision)
     if note:
         st.warning(note, icon=None)
@@ -210,8 +209,8 @@ if run:
     claim_store = claim_hash = claim_file_sha = claim_kind = None
     with st.status("Auditing", expanded=True) as status:
         try:
-            rfq = [save_upload(f, f"rfq-{i}-{f.name}", tmp) for i, f in enumerate(rfq_ups)]
-            spec = save_upload(spec_up, "spec.pdf", tmp) if spec_up else None
+            rfq = [save_upload(f, f"rfq-{i}-{f.name}", tmp) for i, f in enumerate(rfqtender_ups)]
+            spec = None
             pack_sha = hashlib.sha1(b"".join(f.getvalue() for f in pack_ups)).hexdigest()[:8]
             pack = merge_uploads(pack_ups, f"pack-{pack_sha}.pdf", tmp)
             transcript = None
@@ -219,19 +218,22 @@ if run:
                 claim_store, claim_hash = pilot.PilotStore(), code_status.code_hash
                 claim_file_sha = pilot.file_sha256(pack)
                 claim_kind = claim_store.claim_pack(claim_hash, claim_file_sha)  # raises NoPacksLeft on a race
-            st.write("Reading the buyer's documents and the response pack, then running the checks.")
-            req, res, facts, pages = audit_pack(rfq, spec, pack, BLANK, transcript, WORK, llm, lc, vision=vision,
+            check_mode = "fast" if fast_mode else "complete"
+            run_vision = LlamaClient(base_url="", model="") if fast_mode else vision
+            st.write(f"Reading the buyer's documents and the response pack, then running the checks ({check_mode} check).")
+            req, res, facts, pages = audit_pack(rfq, spec, pack, BLANK, transcript, WORK, llm, lc, vision=run_vision,
                                                 inspect="forms" if inspect else "off", passes=2 if second else 1)
             st.write("Building the report.")
             R = Renderer(pages, redact, strict)
             html = render_html(req, res, facts, pages, bidder or "Bidder", req.reference,
-                               "Llama + rules" if llm.configured else "rules only", redact=redact, strict=strict)
+                               "Llama + rules" if llm.configured else "rules only", redact=redact, strict=strict,
+                               check_mode=check_mode)
             if claim_kind == "new":
                 n_issue = sum(1 for f in res.findings if f.tier == "issue")
                 claim_store.finalize_pack(claim_hash, claim_file_sha, req.reference, n_issue)
             st.session_state["out"] = dict(req=req, res=res, facts=facts, pages=pages, R=R, html=html,
                                            json=to_json(req, res), secs=time.time() - t0, pack=pack.name,
-                                           bidder=bidder or "Bidder", redact=redact,
+                                           bidder=bidder or "Bidder", redact=redact, check_mode=check_mode,
                                            usage=dict(
                                                text_model=llm.model, text_calls=llm.calls,
                                                text_prompt_tokens=llm.prompt_tokens,
@@ -302,6 +304,11 @@ with dl2:
                        width="stretch")
 
 st.caption(DISCLAIMER_SHORT)
+if out.get("check_mode") == "fast":
+    st.info("**Mode: Fast check** (handwriting, ticks, stamps and names were not read). A clean Fast check "
+            "says nothing about handwriting, ticks, stamps or names.", icon=None)
+else:
+    st.caption("Mode: Complete check")
 if issues:
     st.markdown(f"<div class='tl-banner tl-bad'><b style='color:#b3261e'>{len(issues)} issue"
                 f"{'s' if len(issues) != 1 else ''} to review</b><br><span>{n_high} likely to matter &middot; "

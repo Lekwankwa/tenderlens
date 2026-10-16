@@ -91,3 +91,45 @@ def test_load_pdf_succeeds_when_the_count_matches(tmp_path):
 def test_pdf_page_count_reads_pdfinfo(tmp_path):
     pdf = _make_pdf(tmp_path / "pc_check.pdf", 4)
     assert ingest.pdf_page_count(pdf) == 4
+
+
+# --------------------------------------------------------------------------- RFQ document classification
+
+def test_classify_recognises_an_rfq_covering_letter():
+    text = ("Request for Procurement of Deep Cycle Battery\nClosing date: 2026/01/15\n"
+            "Quotations which are not received from this email address will be disqualified.")
+    assert ingest.classify_rfq_document(text) == "email"
+
+
+def test_classify_recognises_a_specification_sheet():
+    text = "Description             Quantity\n105AH Deep Cycle battery      30\n\nMotivation\nRequired for site lighting."
+    assert ingest.classify_rfq_document(text) == "spec"
+
+
+def test_classify_returns_none_when_unclear():
+    assert ingest.classify_rfq_document("Dear Sir, please find attached our requirements. Regards.") is None
+
+
+def test_classify_returns_none_when_both_signals_are_present():
+    text = "Closing date: 2026/01/15\nDescription             Quantity\nSPECS VERIFIED"
+    assert ingest.classify_rfq_document(text) is None
+
+
+# --------------------------------------------------------------------------- page count / time estimate
+
+def test_page_count_estimate_shows_only_the_count_when_the_rate_is_unset(monkeypatch):
+    monkeypatch.delenv("TENDERLENS_SECONDS_PER_PAGE_FAST", raising=False)
+    out = ingest.page_count_estimate(12, "fast")
+    assert out == "12 page(s)." and "minute" not in out  # no number is ever invented
+
+
+def test_page_count_estimate_shows_minutes_when_the_rate_is_set(monkeypatch):
+    monkeypatch.setenv("TENDERLENS_SECONDS_PER_PAGE_COMPLETE", "30")  # 30s/page
+    out = ingest.page_count_estimate(12, "complete")
+    assert "12 page(s)" in out and "About 6 minute(s)" in out  # 12 * 30s / 60 = 6
+
+
+def test_page_count_estimate_ignores_a_junk_rate_value(monkeypatch):
+    monkeypatch.setenv("TENDERLENS_SECONDS_PER_PAGE_FAST", "not-a-number")
+    out = ingest.page_count_estimate(5, "fast")
+    assert out == "5 page(s)."

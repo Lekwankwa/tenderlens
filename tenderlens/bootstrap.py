@@ -37,7 +37,7 @@ def remote_warning(vision: LlamaClient) -> str:
     host = urlparse(vision.base_url).hostname or ""
     if vision.configured and host not in ("localhost", "127.0.0.1", "::1"):
         return (f"NOTE: page images of the bid (IDs, tax numbers, signatures, unredacted) are sent to {host}, "
-                "a third party. Use a local endpoint (Ollama) to keep them on this machine.")
+                "a third party.")
     return ""
 
 
