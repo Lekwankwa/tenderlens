@@ -1,0 +1,18 @@
+name: Keep Streamlit app awake
+
+# Streamlit Community Cloud puts an app to sleep after a period with no visitors. There is no setting in
+# this repo or on Streamlit's side to turn that off - the standard workaround is a periodic visit that
+# resets its idle timer. Hourly is a wide safety margin under any reported sleep threshold, and costs only
+# a few Actions minutes a day.
+
+on:
+  schedule:
+    - cron: "0 * * * *"  # top of every hour
+  workflow_dispatch: {}  # lets you trigger a one-off run manually from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Visit the app
+        run: curl -fsS -m 30 -o /dev/null -w "HTTP %{http_code}\n" "https://tenderlens-lc.streamlit.app/"

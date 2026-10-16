@@ -42,6 +42,8 @@ st.set_page_config(page_title="TenderLens", page_icon=None, layout="wide", initi
 st.markdown("""
 <style>
 #MainMenu, footer {visibility:hidden}
+/* the floating "Hosted with Streamlit" badge Community Cloud injects, bottom right */
+[class*="viewerBadge"], a[href^="https://streamlit.io/cloud"] {display:none !important}
 .block-container {padding-top:2.2rem; max-width:1180px}
 .tl-brand {font-size:1.7rem; font-weight:700; letter-spacing:-.02em; margin:0}
 .tl-sub {color:var(--text-color); opacity:.65; margin:.1rem 0 1.1rem}
