@@ -26,6 +26,20 @@ SEV = {
 SRC_LABEL = {"ocr": "read by OCR", "manual": "manual transcription", "vision": "read by Llama vision",
              "image": "image analysis"}
 
+# One wording, used everywhere a disclaimer is shown (report banner, "How this was read", the demo, the README),
+# so it never drifts between places. See Step 5 of FIX_ALL_PROMPT.md.
+DISCLAIMER_SHORT = (
+    "This report was produced with AI (Meta's Llama 4 Scout) and fixed rules. AI can make mistakes and miss things. "
+    "TenderLens is a review aid, not a verdict: check anything that matters against the original documents.")
+DISCLAIMER_LONG = (
+    "Handwriting, ticks, stamps and signatures are read by an AI vision model and can be misread, including digits, "
+    "yes/no answers and names. Anything based on handwriting is a lead to check against the page image, not a finding "
+    "of fact. The AI may also misread the buyer's requirements, even though they are cross-checked against rules and "
+    "a source quotation. A report with no issues does not mean the bid is compliant or will be accepted, and a report "
+    "with issues may contain false alarms. TenderLens does not judge whether a signature, stamp or certificate is "
+    "genuine, does not check live registers, and is not legal advice. The buyer decides what disqualifies a bid.")
+NO_ISSUES_NOTE = "No issues found. That is not a guarantee that the bid complies."
+
 
 def _jpeg_b64(im: Image.Image, q=72) -> str:
     buf = io.BytesIO()
@@ -98,8 +112,9 @@ def render_html(req: Requirements, res: AuditResult, facts: Facts, pages: list[P
            f"<title>TenderLens audit</title><style>{CSS}</style></head><body><main>"]
     out.append(f"<h1>TenderLens audit report</h1><div class=sub>{e(bidder)} &middot; RFQ {e(rfq_ref)} &middot; "
                f"generated {datetime.now():%Y-%m-%d %H:%M}</div>")
-    out.append("<p class=note><b>This is a review aid, not a verdict.</b> Each item says what was found, where, which rule it "
-               "relates to and how the fact was read. The buyer decides what disqualifies a bid. Images below "
+    out.append(f"<div class=banner>{e(DISCLAIMER_SHORT)}</div>")
+    out.append("<p class=note>Each item says what was found, where, which rule it relates to and how the fact was "
+               "read. The buyer decides what disqualifies a bid. Images below "
                f"{'have personal identifiers and signatures blacked out' if redact else 'are NOT redacted: do not share this file'}.</p>")
     issues = [f for f in res.findings if f.tier == "issue"]
     obs = [f for f in res.findings if f.tier != "issue"]
@@ -111,7 +126,7 @@ def render_html(req: Requirements, res: AuditResult, facts: Facts, pages: list[P
     else:
         out.append(f"<div class=banner style='border-color:#2e7d32'><b style='color:#2e7d32'>No issues found</b> "
                    f"&middot; {len(res.passed)} checks passed &middot; {len(obs)} observation"
-                   f"{'s' if len(obs) != 1 else ''} for information</div>")
+                   f"{'s' if len(obs) != 1 else ''} for information<br><span class=sub>{e(NO_ISSUES_NOTE)}</span></div>")
     out.append("<div class=stats>"
                f"<div class=stat><b style='color:#b3261e'>{n_high}</b>Likely to matter</div>"
                f"<div class=stat><b style='color:#b26a00'>{len(issues) - n_high}</b>Worth checking</div>"
@@ -180,11 +195,11 @@ def render_html(req: Requirements, res: AuditResult, facts: Facts, pages: list[P
     out.append("</ul></details>")
 
     if res.ocr_variants:
-        out.append("<h2>4. Possible OCR misreads that were set aside</h2><details><summary>Show</summary><ul>"
+        out.append("<h2>4. Possible misreads that were set aside</h2><details><summary>Show</summary><ul>"
                    + "".join(f"<li>{e(v)}</li>" for v in res.ocr_variants) + "</ul></details>")
     out.append("<h2>5. Only a person can confirm</h2><ul>" + "".join(f"<li>{e(h)}</li>" for h in res.human_only) + "</ul>")
 
-    out.append("<h2>6. How this was produced</h2><div class=note>"
+    out.append(f"<h2>6. How this was produced</h2><p class=note>{e(DISCLAIMER_LONG)}</p><div class=note>"
                f"Facts by source: {', '.join(f'{k} {v}' for k, v in sorted(src_count.items()))}. "
                + (f"Handwriting was read by {facts.vision_log['model']} ({facts.vision_log['pages_read']} pages read, "
                   f"{facts.vision_log['pages_inspected']} inspected, {facts.vision_log['failed']} calls failed). "

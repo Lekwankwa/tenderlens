@@ -239,6 +239,11 @@ def test_app_in_pilot_mode_gates_upload_and_hides_transcript(tmp_path, monkeypat
 
     monkeypatch.setenv("TENDERLENS_PILOT", "1")
     monkeypatch.setenv("TENDERLENS_PILOT_DB", str(tmp_path / "pilot.db"))
+    # app.py's sidebar calls system_check(), which pings whatever endpoint is configured - blank it so this
+    # test never makes a real network call (slow, and not free) regardless of what's in .env.
+    for k in ("TENDERLENS_LLM_BASE_URL", "TENDERLENS_LLM_MODEL", "TENDERLENS_LLM_API_KEY",
+             "TENDERLENS_VISION_BASE_URL", "TENDERLENS_VISION_MODEL", "TENDERLENS_VISION_API_KEY"):
+        monkeypatch.delenv(k, raising=False)
     code = pilot.PilotStore(tmp_path / "pilot.db").create_code("Contractor", packs=2, days=5)
 
     at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
@@ -256,27 +261,32 @@ def test_app_in_pilot_mode_gates_upload_and_hides_transcript(tmp_path, monkeypat
 
 
 def test_pilot_integration_claim_audit_finalize(tmp_path):
-    """The exact sequence app.py's run button performs, with the real pipeline. Skipped without samples/,
-    same as the rest of this suite - the pilot bookkeeping itself is already fully covered above without
-    needing them."""
+    """The exact sequence app.py's run button performs, with the real pipeline - but llm/vision are forced to
+    unconfigured clients (rules + OCR only), so this never touches a real endpoint or spends real money
+    regardless of what's in .env. That also means it does not assert 0 issues: without a vision model or a
+    transcript, handwritten entries are not read the same way the winning pack's own report was produced, so
+    the count here is whatever rules + OCR alone give it, not the full pipeline's result.
+    Skipped without samples/ - the pilot bookkeeping itself is already fully covered above without needing them."""
     if not (S / "response" / "pack.pdf").is_file():
         pytest.skip("samples/response/pack.pdf not present (git-ignored, not shipped with the code)")
     from tenderlens.cli import audit_pack
+    from tenderlens.llm import LlamaClient
 
     store = pilot.PilotStore(tmp_path / "pilot.db")
     code = store.create_code("Contractor", packs=1, days=5)
     h = store.validate(code).code_hash
     pack = S / "response" / "pack.pdf"
     file_sha = pilot.file_sha256(pack)
+    transcript = S / "response" / "pack.transcript.json"
 
     assert store.claim_pack(h, file_sha) == "new"
     req, res, facts, pages = audit_pack(S / "rfq" / "rfq_email.pdf", S / "rfq" / "spec_0310.pdf", pack, S / "blank",
-                                        S / "response" / "pack.transcript.json")
+                                        transcript if transcript.is_file() else None,
+                                        llm=LlamaClient(base_url="", model=""),
+                                        vision=LlamaClient(base_url="", model=""))
     n_issues = sum(1 for f in res.findings if f.tier == "issue")
     store.finalize_pack(h, file_sha, req.reference, n_issues)
 
     row = store.show_code(code)
     assert row["used"] == 1 and row["uses"][0]["n_issues"] == n_issues and row["uses"][0]["rfq_reference"] == req.reference
     assert store.validate(code).status == "used_up"
-    # the only hashes/fingerprints for this pack are in pack_uses; the audit itself still found 0 issues
-    assert n_issues == 0, "the winning sample pack must still come back with 0 issues under pilot mode"

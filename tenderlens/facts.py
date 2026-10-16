@@ -15,7 +15,7 @@ from pathlib import Path
 
 from . import forms as F
 from .ingest import Page
-from .llm import LlamaClient, LLMUnavailable
+from .llm import LlamaClient, LLMError, LLMUnavailable
 
 
 @dataclass
@@ -34,7 +34,9 @@ class Facts:
     def __init__(self):
         self.items: list[Fact] = []
         self.unread: list[tuple[str, int, str]] = []  # (field, page, why) entries a reader could not read
-        self.vision_log: dict = {"calls": 0, "failed": 0, "pages_read": 0, "pages_inspected": 0, "errors": []}
+        self.vision_log: dict = {"calls": 0, "failed": 0, "pages_read": 0, "pages_inspected": 0, "errors": [],
+                                 "stopped_early": ""}
+        self.misread_variants: list[str] = []  # handwriting a focused crop re-read cleared or set aside (Step 3B)
 
     def add(self, *a, **k):
         f = Fact(*a, **k)
@@ -87,6 +89,32 @@ def locate_value(page: Page, value: str, max_words: int = 6) -> tuple | None:
                         max(w.left + w.width for w in grp), max(w.top + w.height for w in grp))
             if len(joined) > len(target) + 2:
                 break
+    return None
+
+
+def label_box(page: Page, label: str, side: str = "right", w: int = 440, h: int = 55) -> tuple | None:
+    """A box near a printed label (found the same way value_right_of finds one: consecutive words on one
+    OCR row), sized to hold a short handwritten answer. side='right': the box starts just past the label,
+    on the same row. side='below': the box starts under the label's row (for a heading like 'WITNESSES'
+    with the answer written below it, not beside it). None if the label is not on this page."""
+    toks = label.split()
+    for w0 in page.words:
+        if not re.fullmatch(re.escape(toks[0]), w0.text, re.I):
+            continue
+        cy = w0.top + w0.height / 2
+        row = sorted((wd for wd in page.words if abs(wd.top + wd.height / 2 - cy) < max(12, w0.height * 0.7)),
+                     key=lambda wd: wd.left)
+        i = row.index(w0)
+        if not all(i + k < len(row) and re.fullmatch(re.escape(t), row[i + k].text, re.I) for k, t in enumerate(toks)):
+            continue
+        grp = row[i:i + len(toks)]
+        top, bottom = min(wd.top for wd in grp), max(wd.top + wd.height for wd in grp)
+        if side == "below":
+            x0 = min(wd.left for wd in grp)
+            return (x0, bottom + 2, x0 + w, bottom + 2 + h)
+        lab = grp[-1]
+        x0 = lab.left + lab.width + 5
+        return (x0, top, x0 + w, bottom + h)
     return None
 
 
@@ -203,7 +231,9 @@ def ocr_facts(pages: list[Page], facts: Facts) -> None:
             facts.add("quote.validity_days", int(m.group(1)), p.number, "ocr", 0.9, qb.get("validity"))
         if re.search(r"not VAT registered", t, re.I):
             facts.add("quote.vat_registered", False, p.number, "ocr", 0.9)
-        m = re.search(r"Closing date\W+(\d{4}/\d{2}/\d{2})", t, re.I)
+        # [^\d]+, not \W+: a ruled line under "Closing date" sometimes OCRs as a literal underscore,
+        # which \W does not match, so the date was silently never read.
+        m = re.search(r"Closing date[^\d]+(\d{4}/\d{2}/\d{2})", t, re.I)
         if m:
             facts.add("quote.closing_date", m.group(1).replace("/", "-"), p.number, "ocr", 0.9)
         m = re.search(r"Quotation date:\s*(\d{4}/\d{2}/\d{2})", t, re.I)
@@ -360,6 +390,15 @@ def load_transcript(path: Path, facts: Facts, pages: list[Page] | None = None) -
 
 # --- vision (multimodal Llama) ---------------------------------------------------------------------
 
+# Off for this round: a real-scan check (see tests/fixtures/baseline/crops/) found that label_box() locates
+# a field's printed label by requiring an exact OCR word match on one row, which fails on a filled-in,
+# handwritten form far more often than it works (6 of 7 labels tried were not even found; the one that was
+# produced a crop that did not frame the answer). verify_identifiers and verify_yesno (below) are otherwise
+# complete and unit-tested, and nothing calls them while this is False - re-enabling them needs the labels
+# to be found a more robust way first (aligning the scan to its blank template and cutting fields out by
+# fixed position, not locating text by OCR on a page that may have handwriting obscuring it).
+CROP_VERIFY_ENABLED = False
+
 VISION_SYSTEM = (
     "You read scanned South African government tender forms. Look ONLY at the page image you are given. "
     "Report what is actually written, ticked or stamped on the page. Never guess a value that is not visible, "
@@ -373,10 +412,25 @@ def _ask(llm: LlamaClient, facts: Facts, prompt: str, images: list[str]):
         return llm.complete_json(VISION_SYSTEM, prompt, images=images)
     except (LLMUnavailable, OSError, ValueError, KeyError, IndexError) as err:
         facts.vision_log["failed"] += 1
-        msg = f"{type(err).__name__}: {str(err)[:140]}"
+        # an LLMError's own str() already is the server's message, shortened and with the key scrubbed
+        msg = str(err)[:300] if isinstance(err, LLMError) else f"{type(err).__name__}: {str(err)[:140]}"
         if msg not in facts.vision_log["errors"] and len(facts.vision_log["errors"]) < 4:
             facts.vision_log["errors"].append(msg)
         return None
+
+
+def vision_precheck(llm: LlamaClient, pages: list[Page], facts: Facts) -> bool:
+    """Before committing to a full run (which can be 50+ calls), send one real page image and see whether
+    the vision model answers at all. If it doesn't, the vision steps are skipped with the reason recorded
+    in facts.vision_log['stopped_early'], instead of making every one of those calls fail the same way."""
+    if not pages:
+        return True
+    data = _ask(llm, facts, 'Reply with JSON only: {"ok": true}', [pages[0].image_path])
+    if data is None:
+        facts.vision_log["stopped_early"] = (llm.errors[-1] if llm.errors else
+                                             "the vision model did not answer the test call")
+        return False
+    return True
 
 
 def _answer(data, key="answer"):
@@ -444,6 +498,11 @@ def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_cont
             got = reads.get(e.key)
             if not got:
                 continue
+            if e.where == "last":
+                # this entry only legitimately exists on the form's last/signing page; a reading claimed on
+                # any other page is the model mistakenly answering a field that was "not on this page" (the
+                # cause of e.g. a witness count being attributed to a page with no witness section at all)
+                got = [(c, pg) for c, pg in got if pg == pgs[-1].number] or got
             values = [(c, pg) for c, pg in got if c is not F.BLANK]
             if values:
                 top = Counter(c for c, _ in values).most_common(1)[0][0]
@@ -456,11 +515,191 @@ def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_cont
                 _second_look(llm, facts, next(p for p in pgs if p.number == fact.page), e, fact)
 
 
+# ---------------------------------------------------------------------------
+# Step 3B (FIX_ALL_PROMPT.md): a handwritten identifier that disagrees with the printed copies elsewhere in
+# the pack does not go straight into a finding. A focused, enlarged crop of just that field is read twice,
+# differently worded, before the disagreement is trusted. Scoped to the fields whose printed label is
+# confirmed word-for-word in the blank form templates (samples/blank/*.txt) - not guessed from any pack.
+# --------------------------------------------------------------------------
+
+# field key -> (the pool label audit.identifiers() groups it under, the field's printed label as it reads
+# in samples/blank, which OCR-sourced field pool to compare against, a shape check or None)
+_CROP_FIELDS = {
+    "sbd4.id_no": ("SA ID number", "Identity Number", "id.sa_id", "sa_id"),
+    "sbd4.reg_no": ("Company registration number", "Company Registration Number", "id.reg_no", None),
+    "sbd4.tax_no": ("Tax reference number", "Tax Reference Number", "id.tax_no", "tax_no"),
+    "sbd6_1.reg_no": ("Company registration number", "Company registration number", "id.reg_no", None),
+}
+
+
+def _shape_ok(kind: str, digits: str) -> bool:
+    from .audit import luhn_ok  # deferred: audit.py imports Facts from this module at load time
+    if kind == "sa_id":
+        return len(digits) == 13 and luhn_ok(digits)
+    if kind == "tax_no":
+        return len(digits) == 10
+    return True
+
+
+def _crop_ask_twice(llm: LlamaClient, facts: Facts, page: Page, box, label: str) -> tuple[str, str, str]:
+    """Cut `box` out of the page's own rendered scan (not a resized copy), enlarge it, and ask what it says
+    twice, worded differently - the same kind of independent-enough second opinion _second_look gives a
+    whole-page reading, but focused tightly enough that a misread has a real chance of being corrected."""
+    from PIL import Image
+    x0, y0, x1, y1 = box
+    im = Image.open(page.image_path).convert("RGB")
+    pad = 8
+    crop = im.crop((max(0, x0 - pad), max(0, y0 - pad), min(im.width, x1 + pad), min(im.height, y1 + pad)))
+    crop = crop.resize((crop.width * 3, crop.height * 3), Image.LANCZOS)
+    tag = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")
+    crop_path = Path(page.image_path).parent / f"crop-{tag}-{page.number}.png"
+    crop.save(crop_path)
+    q1 = (f"This is a cropped, enlarged part of a government bid form, showing the '{label}' field. What is "
+          "written there? Reply with JSON {\"answer\": \"...\"}: exactly what is written, digits only if it "
+          "is a number.")
+    q2 = ("Zoomed-in crop of one handwritten entry on a form. Transcribe exactly what is written, character "
+          "by character. Reply with JSON {\"answer\": \"...\"}.")
+    a1 = _answer(_ask(llm, facts, q1, [str(crop_path)]))
+    a2 = _answer(_ask(llm, facts, q2, [str(crop_path)]))
+    return str(a1 or "").strip(), str(a2 or "").strip(), str(crop_path)
+
+
+def verify_identifiers(llm: LlamaClient, pages: list[Page], facts: Facts) -> None:
+    """Run after vision_extract. Mutates facts in place: a whole-page identifier reading that a focused crop
+    (asked twice) clears against the printed value is corrected; one the crop confirms is kept, now with the
+    crop itself as its evidence; one the crop cannot settle either way is removed and logged under 'possible
+    misreads set aside' instead, with every reading shown, so nothing is silently dropped."""
+    from collections import Counter
+
+    from .audit import mask
+    if not llm.configured:
+        return
+    by_no = {p.number: p for p in pages}
+    for key, (pool_label, label_text, ocr_field, shape) in _CROP_FIELDS.items():
+        candidates = [f for f in facts.items if f.field == key and f.source == "vision"]
+        if not candidates:
+            continue
+        ocr_vals = [f.value.replace(" ", "") for f in facts.items if f.field == ocr_field and f.source == "ocr"]
+        if not ocr_vals:
+            continue  # nothing printed to compare against; leave this to the rules' own vote
+        consensus = Counter(ocr_vals).most_common(1)[0][0]
+        for fact in candidates:
+            v = str(fact.value).replace(" ", "")
+            if v.upper() == consensus.upper():
+                continue  # already agrees with print, nothing to verify
+            page = by_no.get(fact.page)
+            box = page and label_box(page, label_text, "right")
+            if not page or not box:
+                continue  # can't locate the field on this page; leave the whole-page reading as is
+            a1, a2, crop_path = _crop_ask_twice(llm, facts, page, box, label_text)
+            n1 = re.sub(r"[^A-Za-z0-9/]", "", a1).upper()
+            n2 = re.sub(r"[^A-Za-z0-9/]", "", a2).upper()
+            if n1 and n1 == n2 == consensus.upper():
+                fact.value = consensus
+                fact.note = "a focused, enlarged re-read of just this field (asked twice) matches the printed value elsewhere"
+                facts.misread_variants.append(
+                    f"{pool_label}: page {fact.page} first read (whole page) as {mask(v)}; a focused re-read of "
+                    f"just this field, asked twice, gives {mask(consensus)}, matching the printed value "
+                    "elsewhere. Handwriting misread, no action.")
+            elif n1 and n1 == n2 and (shape is None or _shape_ok(shape, re.sub(r"\D", "", n1))):
+                fact.value, fact.box, fact.verified = n1, box, True
+                fact.note = "confirmed by a focused, enlarged re-read of just this field, asked twice"
+            else:
+                reason = ("the two close-up readings disagree with each other" if n1 != n2 else
+                          "the close-up reading does not have the right shape for this field")
+                facts.misread_variants.append(
+                    f"{pool_label}: page {fact.page} whole-page reading was {mask(v)}; a focused re-read gives "
+                    f"'{a1}' then '{a2}' - {reason}. Set aside rather than reported either way; see the crop "
+                    f"({Path(crop_path).name}).")
+                facts.items.remove(fact)
+
+
+# ---------------------------------------------------------------------------
+# Step 4 item 3 (FIX_ALL_PROMPT.md), scoped to SBD 4: a whole-page reading of a tiny YES/NO tick or circle
+# is asked a second time on the same whole page already (_second_look), but that is the same reader looking
+# at the same small mark, not a genuinely independent check. These three questions' numbers sit inline, on
+# the same printed line as their own 'YES / NO', confirmed word for word in
+# samples/blank/SCM-Bid_documents_SBD_4_doc.txt - so a crop of just that line can be anchored on the number
+# reliably. Questions 2.7.2, 2.8 and 2.9 are deliberately excluded: their question text has no leading
+# number on the line that carries 'YES / NO' at all (checked directly against that template, not assumed -
+# an earlier version of this code wrongly included 2.8 on a stray OCR fragment and produced a crop centred
+# on the question's paragraph text instead of its answer area).
+# --------------------------------------------------------------------------
+
+_SBD4_YESNO = {
+    "sbd4.q2_7_state_employed": "2.7",
+    "sbd4.q2_10_aware_of_other_bidder_relationship": "2.10",
+    "sbd4.q2_11_interest_in_related_companies": "2.11",
+}
+
+
+def _crop_ask_yesno_twice(llm: LlamaClient, facts: Facts, page: Page, box) -> tuple:
+    from PIL import Image
+    x0, y0, x1, y1 = box
+    im = Image.open(page.image_path).convert("RGB")
+    pad = 8
+    crop = im.crop((max(0, x0 - pad), max(0, y0 - pad), min(im.width, x1 + pad), min(im.height, y1 + pad)))
+    crop = crop.resize((crop.width * 3, crop.height * 3), Image.LANCZOS)
+    crop_path = Path(page.image_path).parent / f"crop-yesno-{page.number}-{x0}-{y0}.png"
+    crop.save(crop_path)
+    q1 = ("This is a cropped, enlarged part of a bid form, showing one YES/NO question's answer area. Which "
+          "is marked: YES, NO, BOTH (both marked), or NEITHER (nothing marked)? Reply with JSON "
+          "{\"answer\": \"Yes\", \"No\", \"Both\" or \"Neither\"}.")
+    q2 = ("Zoomed-in crop of a YES/NO choice on a government bid form. Look only at what is circled, ticked "
+          "or crossed out here - nothing else. Is it Yes, No, Both, or Neither? Reply with JSON "
+          "{\"answer\": \"...\"}.")
+    a1 = _answer(_ask(llm, facts, q1, [str(crop_path)]))
+    a2 = _answer(_ask(llm, facts, q2, [str(crop_path)]))
+    return F.clean(F.YESNO, a1), F.clean(F.YESNO, a2), str(crop_path)
+
+
+def _yn_label(v) -> str:
+    return "blank (neither marked)" if v is F.BLANK else str(v)
+
+
+def verify_yesno(llm: LlamaClient, pages: list[Page], facts: Facts) -> None:
+    """SBD 4's yes/no questions, read a second, independent way when the whole-page reading (and its own
+    whole-page second look) came back as a deviation: a focused, enlarged crop of just that question's
+    answer area, asked twice, differently worded, allowing Yes, No, Both or Neither. A crop that settles on
+    one answer both times overrides the whole-page reading, since a small tick or circle is exactly what a
+    whole page cannot reliably resolve. A crop that cannot settle is removed and logged under 'possible
+    misreads set aside' instead; it then shows up as 'could not be read' rather than as a false finding."""
+    if not llm.configured:
+        return
+    by_no = {p.number: p for p in pages}
+    entries = {e.key: e for e in F.FORMS["sbd4"]}
+    for key, number in _SBD4_YESNO.items():
+        fact, entry = facts.best(key), entries.get(key)
+        if not fact or not entry or not F.is_deviation(entry, fact.value):
+            continue
+        page = by_no.get(fact.page)
+        box = page and label_box(page, number, "right", w=820, h=70)
+        if not page or not box:
+            continue
+        a1, a2, crop_path = _crop_ask_yesno_twice(llm, facts, page, box)
+        if a1 in (F.UNREAD, F.NOT_ON_PAGE) or a2 in (F.UNREAD, F.NOT_ON_PAGE):
+            continue  # the crop itself could not be read; leave the whole-page reading as is
+        if a1 == a2:
+            before = fact.value
+            fact.value, fact.box, fact.verified, fact.confidence = a1, box, True, 0.9
+            fact.note = (f"a focused, enlarged crop of question {number}'s answer area (asked twice) reads "
+                        f"{_yn_label(a1)}" + (f", not the whole-page reading of {_yn_label(before)}"
+                                               if before != a1 else ""))
+        else:
+            facts.misread_variants.append(
+                f"SBD 4 question {number}: the whole-page reading was {_yn_label(fact.value)}; a focused crop "
+                f"of just this question's answer area gives {_yn_label(a1)} then {_yn_label(a2)} - the two "
+                "close-up readings disagree, so this is set aside rather than reported either way. See the "
+                f"crop ({Path(crop_path).name}).")
+            facts.items.remove(fact)
+
+
 def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int = 2) -> None:
     """Ask a vision model what no rule can see: crossed-out print, correction fluid, notes in the margin, pages
     that are rotated or cut off, scans too poor to read, and whether the signing line holds a real pen signature.
     A 'yes' is a lead. With passes=2 it is repeated as a differently worded question and only a second 'yes'
     makes it a verified reading."""
+    from . import vision as V
     signing = {}
     for dtype, idx in F.SIGNING_PAGE.items():
         pgs = [p for p in pages if p.doc_type == dtype]
@@ -470,6 +709,14 @@ def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int
         if p.doc_type not in F.INSPECTION_FORMS:
             continue
         qs = {k: v[0] for k, v in F.INSPECTIONS.items()}
+        cutoff = V.page_cutoff(p, pages)
+        if cutoff is not None:
+            # settled without a model call: a real cut-off page is reported directly, a clearly whole one
+            # is simply not asked about (Step 4.5 - "use the vision model only if that check cannot decide")
+            qs.pop("cut_off", None)
+            if cutoff:
+                facts.add("inspect.cut_off", True, p.number, "image", 0.95, verified=True,
+                          note="confirmed by a non-AI check of the page size and margins, not a vision reading")
         if p.number in signing:
             qs["signature_seen"] = ("Is there a handwritten pen signature (not a typed name, and not only a printed "
                                     "line) beside or above the word 'Signature'?")

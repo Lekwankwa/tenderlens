@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -44,12 +45,55 @@ class Page:
         return sum(ws) / len(ws) if ws else 0.0
 
 
+def _usable_png(png: Path) -> bool:
+    """False for a page image left behind by a pdftoppm run that was interrupted partway (a killed
+    process, an app restart mid-render): present on disk but not a complete, openable PNG."""
+    try:
+        with Image.open(png) as im:
+            im.load()
+        return True
+    except Exception:
+        return False
+
+
+def pdf_page_count(pdf: Path) -> int:
+    out = subprocess.run(["pdfinfo", str(pdf)], check=True, capture_output=True, text=True).stdout
+    m = re.search(r"^Pages:\s*(\d+)", out, re.M)
+    if not m:
+        raise RuntimeError(f"pdfinfo did not report a page count for {pdf}")
+    return int(m.group(1))
+
+
 def render_pdf(pdf: Path, outdir: Path, dpi: int = DPI) -> list[Path]:
+    """Page images for `pdf`, cached under outdir by the PDF's own content hash (the caller picks outdir's
+    name for that). The cache is trusted only when it holds exactly as many usable images as the PDF has
+    pages - not just "the folder is non-empty" - because a render that was interrupted (a killed process, an
+    app restart mid-run) can leave a smaller, individually-valid set behind that would otherwise look
+    complete forever and quietly shortchange every future read of this same file.
+    A fresh render goes into a temporary sibling folder first and is moved into place only once every page
+    came out, so an interruption during THIS render leaves an orphaned temp folder, never a partial result
+    at outdir for the next call to wrongly trust."""
     outdir.mkdir(parents=True, exist_ok=True)
+    want = pdf_page_count(pdf)
     existing = sorted(outdir.glob("p-*.png"))
-    if existing:
+    if existing and len(existing) == want and all(_usable_png(p) for p in existing):
         return existing
-    subprocess.run(["pdftoppm", "-r", str(dpi), "-png", str(pdf), str(outdir / "p")], check=True)
+    for p in existing:
+        p.unlink()
+    tmp = outdir.parent / f".{outdir.name}.tmp-{os.getpid()}"
+    if tmp.exists():
+        shutil.rmtree(tmp)
+    tmp.mkdir(parents=True)
+    try:
+        subprocess.run(["pdftoppm", "-r", str(dpi), "-png", str(pdf), str(tmp / "p")], check=True)
+        rendered = sorted(tmp.glob("p-*.png"))
+        if len(rendered) != want or not all(_usable_png(p) for p in rendered):
+            raise RuntimeError(
+                f"pdftoppm rendered {len(rendered)} usable page(s) from {pdf.name}, but pdfinfo reports {want}.")
+        for p in rendered:
+            shutil.move(str(p), str(outdir / p.name))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     return sorted(outdir.glob("p-*.png"))
 
 
@@ -84,6 +128,11 @@ def load_pdf(pdf: Path, workdir: Path) -> list[Page]:
     stem = pdf.stem.replace(" ", "_") + "-" + sha1_file(pdf)[:8]
     imgdir = workdir / stem
     pngs = render_pdf(pdf, imgdir)
+    want = pdf_page_count(pdf)
+    if len(pngs) != want:
+        raise RuntimeError(
+            f"{pdf.name}: read {len(pngs)} page(s) but the PDF has {want}. Stopping rather than auditing a "
+            "partial pack - delete the cached render under .cache and try again.")
     ocr_dir = workdir / "ocr"
     pages = []
     for i, png in enumerate(pngs, 1):

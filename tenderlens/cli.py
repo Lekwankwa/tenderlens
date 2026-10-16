@@ -7,7 +7,8 @@ from datetime import date
 from pathlib import Path
 
 from .audit import Auditor
-from .facts import (Facts, inspect_pages, load_transcript, ocr_facts, signature_match, vision_extract)
+from .facts import (CROP_VERIFY_ENABLED, Facts, inspect_pages, load_transcript, ocr_facts, signature_match,
+                    verify_identifiers, verify_yesno, vision_extract, vision_precheck)
 from .ingest import classify_pages, load_pdf, load_templates
 from .llm import LlamaClient, load_env
 from .report import render_html, to_json
@@ -40,17 +41,22 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     facts = Facts()
     ocr_facts(pages, facts)
     if vision.configured:
-        vision_extract(vision, pages, facts, local_content=req.local_content_required, verify=passes >= 2)
-        if inspect != "off":
-            inspect_pages(vision, pages, facts, passes)
-            signature_match(vision, pages, facts)
         facts.vision_log["model"] = vision.model
+        if vision_precheck(vision, pages, facts):
+            vision_extract(vision, pages, facts, local_content=req.local_content_required, verify=passes >= 2)
+            if passes >= 2 and CROP_VERIFY_ENABLED:
+                verify_identifiers(vision, pages, facts)
+                verify_yesno(vision, pages, facts)
+            if inspect != "off":
+                inspect_pages(vision, pages, facts, passes)
+                signature_match(vision, pages, facts)
     tinfo = {"unmatched": {}}
     if transcript:
         tinfo = load_transcript(transcript, facts, pages)
     if extra_facts:
         extra_facts(facts, pages)
     res = Auditor(req, pages, facts, blank, tinfo["unmatched"]).run()
+    res.ocr_variants.extend(facts.misread_variants)
     return req, res, facts, pages
 
 
@@ -137,6 +143,8 @@ def main(argv=None):
                    help="2 = every suspicious vision reading gets a second, differently worded look before it can be an issue")
     r.add_argument("--no-redact", action="store_true", help="DO NOT use for anything you will share")
     r.add_argument("--strict-redact", action="store_true", help="also mask registration and CSD numbers")
+    r.add_argument("--no-vision", action="store_true",
+                   help="text and rules only, even if a vision endpoint is configured (for a side-by-side comparison)")
     c = sub.add_parser("check-llm", help="check tools, endpoints and models, and read one page")
     c.add_argument("--pack", type=Path, default=Path("samples/response/pack.pdf"))
     c.add_argument("--work", type=Path, default=Path(".cache"))
@@ -185,11 +193,12 @@ def main(argv=None):
         return
 
     llm = LlamaClient()
+    vision = LlamaClient(base_url="", model="") if a.no_vision else LlamaClient.for_vision(llm)
     mode = ("Llama (" + llm.model + ") cross-checked with rules" if llm.configured
             else "rules only: no Llama endpoint configured (set TENDERLENS_LLM_BASE_URL / _MODEL)")
     a.out.mkdir(parents=True, exist_ok=True)
     req, res, facts, pages = audit_pack(a.rfq, a.spec, a.pack, a.blank, a.transcript, a.work, llm,
-                                        a.local_content, inspect=a.vision_inspect, passes=a.passes)
+                                        a.local_content, vision=vision, inspect=a.vision_inspect, passes=a.passes)
     html = render_html(req, res, facts, pages, a.bidder, req.reference, mode,
                        redact=not a.no_redact, strict=a.strict_redact)
     (a.out / "report.html").write_text(html)
@@ -197,6 +206,15 @@ def main(argv=None):
     n_issue = sum(1 for f in res.findings if f.tier == "issue")
     n_obs = len(res.findings) - n_issue
     print(f"{n_issue} issues, {n_obs} observations; {len(res.passed)} checks passed -> {a.out / 'report.html'}")
+    for label, c in (("text", llm), ("vision", vision)):
+        if not c.calls:
+            continue
+        cost = f", est. ${c.estimated_cost:.4f}" if c.estimated_cost is not None else ""
+        print(f"  {label}: {c.model}, {c.calls} call(s), {c.prompt_tokens:,} prompt tokens, "
+             f"{c.completion_tokens:,} completion tokens{cost}")
+    vl = facts.vision_log
+    if vl.get("stopped_early"):
+        print(f"  vision stopped early: {vl['stopped_early']}")
 
 
 if __name__ == "__main__":

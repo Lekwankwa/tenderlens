@@ -2,5 +2,8 @@ pytesseract
 Pillow
 opencv-python-headless
 numpy
+certifi
+python-dotenv
+pypdf
 # system: tesseract-ocr, poppler-utils (pdftoppm, pdftotext)
 streamlit>=1.50

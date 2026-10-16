@@ -4,6 +4,10 @@ Audits a South African RFQ response pack against what the buyer asked for, and r
 potential issue with the page it appears on, the rule it relates to, and what a person should check.
 It is a review aid: it says "needs review", never "disqualified".
 
+> This report was produced with AI (Meta's Llama 4 Scout) and fixed rules. AI can make mistakes and miss
+> things. TenderLens is a review aid, not a verdict: check anything that matters against the original
+> documents.
+
 ## Quick start
 ```
 ./install.sh                                # macOS / Linux.  Windows: .\install.ps1 in PowerShell
@@ -110,26 +114,29 @@ sector or a stated threshold). The RFQ's "where there is local content" wording 
 does a percentage the bidder wrote on a form. Override with `--local-content yes|no`.
 
 ## Using Llama
-Any OpenAI-compatible endpoint works (Meta's Llama API, Together, Groq, Fireworks, or Ollama on your own machine). Settings
-go in `.env` (copy `.env.example`; needs `python-dotenv`, in `requirements-dev.txt`) or the environment; real environment
-variables win over the file either way:
+Any OpenAI-compatible endpoint works. The default in `.env.example` is **DeepInfra**, with **one model for both
+steps: Llama 4 Scout** (multimodal - replaces Llama 3.2 Vision, used everywhere in this project now; text and
+vision use the same base URL, model and key on purpose). Settings go in `.env` (copy `.env.example`; needs
+`python-dotenv`, in `requirements-dev.txt`) or the environment; real environment variables win over the file either way:
 ```
-export TENDERLENS_LLM_BASE_URL=https://.../v1          # the model that reads the buyer's documents
-export TENDERLENS_LLM_MODEL=<a Llama model>
+export TENDERLENS_LLM_BASE_URL=https://api.deepinfra.com/v1/openai
+export TENDERLENS_LLM_MODEL=meta-llama/Llama-4-Scout-17B-16E-Instruct
 export TENDERLENS_LLM_API_KEY=...
-export TENDERLENS_VISION_BASE_URL=http://localhost:11434/v1   # the model that reads page images (optional)
-export TENDERLENS_VISION_MODEL=llama3.2-vision
+export TENDERLENS_VISION_BASE_URL=https://api.deepinfra.com/v1/openai   # optional: falls back to the text model
+export TENDERLENS_VISION_MODEL=meta-llama/Llama-4-Scout-17B-16E-Instruct
+export TENDERLENS_VISION_API_KEY=...
 ```
-With no endpoint set the tool runs rules-only and says so at the top of the report. Step-by-step setup for Ollama, the
-`check-llm` and `eval-vision` commands, and what to expect on a slow laptop are in `OLLAMA.md`.
-Self-hosting Llama keeps bid documents on your own infrastructure.
+With no endpoint set the tool runs rules-only and says so at the top of the report. Other OpenAI-compatible hosts
+(Meta's own Llama API, Together, Groq, Fireworks) work the same way - just change the base URL, model name and key.
+`check-llm` tests both endpoints with one tiny call each; `eval-vision` scores the vision model against a manual
+transcript. Token totals (and an estimated cost, if you've set a price per million tokens) are printed by `run` and
+shown in the app's "How this was read" tab.
 
-**A known Ollama bug, not ours:** `llama3.2-vision`'s architecture ("mllama") fails to load on several recent Ollama
-releases with `unknown model architecture: 'mllama'` (confirmed by an Ollama maintainer, see
-[ollama/ollama#16490](https://github.com/ollama/ollama/issues/16490); still open). `check-llm` / the System panel will show
-this as the vision model failing while the text model (a plain, non-vision Llama) works fine. The maintainer's suggested
-fix is rolling Ollama back to v0.24.0; `.env.example` defaults the text model to a separate, working model so the
-requirements-reading step isn't blocked by it either way.
+**Local alternative: Ollama.** Self-hosting keeps bid documents on your own infrastructure, at the cost of being
+much slower on ordinary laptop hardware (see "Known limits"), and Llama 4 Scout is too large to run that way - the
+local path still uses Llama 3.2 Vision. Step-by-step setup, `check-llm`/`eval-vision` with Ollama, and a known Ollama
+bug with `llama3.2-vision` (`unknown model architecture: 'mllama'`, not this project's bug - see
+[ollama/ollama#16490](https://github.com/ollama/ollama/issues/16490)) are all in `OLLAMA.md`.
 
 ## Privacy
 `samples/response` and `samples/rfq` hold real identifiers and are git-ignored. Analysis runs on the originals; images in the
@@ -137,7 +144,16 @@ report have IDs, tax numbers, bank numbers, phone numbers, PINs, handwritten ID/
 signatures blacked out. `--strict-redact` also masks registration and CSD numbers. `--no-redact` is for private use only.
 Redaction is layered but not perfect: look at the report before you share it.
 
+**With a hosted model connected (DeepInfra by default), page images are NOT redacted before being sent** - the model
+has to see the handwriting, IDs and signatures to read them. That's a third party outside South Africa. The app
+shows a short reminder of this near the upload boxes; self-hosting with Ollama (see `OLLAMA.md`) keeps everything
+on your own machine instead.
+
 ## Pilot mode
+**Off by default.** With `TENDERLENS_PILOT` unset (or anything other than `1`), the app is the plain demo: no code
+box, no pack counting, the handwriting transcript upload is back. Set `TENDERLENS_PILOT=1` (locally, or as a Secret
+on a host) to turn the gate back on when you're ready to run a pilot.
+
 `TENDERLENS_PILOT=1` gates "Upload my own files" behind a one-time invite code; "Use the sample RFQ" stays free for
 everyone, and the handwriting transcript upload is hidden (contractors don't get to hand-feed answers). With it unset
 or `0`, the app behaves exactly as it does without this section.
@@ -167,10 +183,12 @@ of running this prototype there, not something this code works around - use a ho
 
 ## Known limits (be honest about these in a pitch)
 - Built and tested on one pack. Thresholds in `vision.py` (stray marks, signatures) were tuned on it.
-- **The live Llama calls have not been run.** The vision path is tested with a scripted stand-in for the model
+- **As of this commit, the live Llama calls against the configured vision model have not yet been run** (DeepInfra
+  linking is prepared and unit-tested against a mock server; the real run against `tests/fixtures/v2/` and the
+  clean pack is the next step). The vision path is tested with a scripted stand-in for the model
   (`tests/test_vision.py`), which proves the prompts' answers are parsed, cleaned, merged, double-checked and tiered
-  correctly. How well Llama 3.2 vision actually reads these scans is unknown until `eval-vision` is run against it.
-  Sample reports use rules plus a manual transcription of the handwriting.
+  correctly, but not how well a real model reads these scans - that's what `eval-vision` and the clean-pack run are
+  for. Sample reports use rules plus a manual transcription of the handwriting.
 - Tesseract misreads things (it read "5/2/1" as "5/2/4"). See the rule above; the report lists what was set aside.
 - Without a vision model, a pen strike-through over printed text and scribbles in white space inside a form are not detected
   (the image rules only see margin marks). With one, they are leads that need a second confirming look.

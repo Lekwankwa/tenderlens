@@ -393,10 +393,20 @@ class Auditor:
         f = self.f.best(key)
         return f if f and f.source in ("manual", "vision") else None
 
-    @staticmethod
-    def _tier(f):
+    # These SBD 4 yes/no questions have no focused crop check (facts.verify_yesno): their printed number has
+    # no inline anchor on the same line as their own "YES / NO" (checked directly against samples/blank, not
+    # assumed). A demonstrated case (question 2.8) showed a whole-page reading of a small tick is not
+    # reliable enough to trust even when the model's own whole-page second look agrees with itself - so these
+    # three never reach "issue" tier, however confident the whole-page reading claims to be.
+    _NO_CROP_COVERAGE = {"sbd4.q2_7_2_outside_work_authority", "sbd4.q2_8_business_with_state_12m",
+                        "sbd4.q2_9_relationship_with_evaluator"}
+
+    @classmethod
+    def _tier(cls, f):
         """A reading is an issue when a person gave it or a second vision look confirmed it; otherwise it is only
         something to look at, because a single model reading is not proof."""
+        if f.field in cls._NO_CROP_COVERAGE:
+            return "observation"
         return "issue" if f.confidence >= 0.8 else "observation"
 
     def handwritten_entries(self):
@@ -495,11 +505,15 @@ class Auditor:
             ref = next((lab, f) for lab, f in people if norm_name(f.value) == top)
         off = [(lab, f) for lab, f in people if not same(f.value, ref[1].value)]
         if off:
+            # a disagreement is only an issue when every name in it is printed/typed text (OCR); a name read
+            # from handwriting by the vision model can be misread, so that disagreement is a lead, not a fact
+            all_ocr = ref[1].source == "ocr" and all(f.source == "ocr" for _, f in off)
             self.find("medium", "inconsistency", "The person who signed differs between documents",
                       f"{ref[0]} gives '{ref[1].value}'. Different: " + "; ".join(f"{lab}: '{f.value}'" for lab, f in off),
                       "Check who signed each document; the signatory should be the director or authorised person.",
                       "Cross-document consistency",
-                      [self.E(f.page, lab, source=f.source) for lab, f in [ref] + off][:5])
+                      [self.E(f.page, lab, source=f.source) for lab, f in [ref] + off][:5],
+                      tier="issue" if all_ocr else "observation")
         else:
             self.ok(f"Everyone who signed or swore is the same person ({ref[0]} agrees)",
                     pages=sorted({f.page for _, f in people}))
@@ -636,7 +650,11 @@ class Auditor:
                 continue
             if label == "Email address":
                 vals = [(v.lower(), f) for v, f in vals]
-            counts = Counter(v for v, _ in vals)
+            # the reference value comes from printed/typed text (OCR) whenever any exists - a handwritten
+            # reading (vision) must never outvote it just because more pages happen to carry it
+            ocr_vals = [(v, f) for v, f in vals if f.source == "ocr"]
+            pool = ocr_vals or vals
+            counts = Counter(v for v, _ in pool)
             consensus, n = counts.most_common(1)[0]
             pages = sorted({f.page for v, f in vals if v == consensus})
             others = [(v, f) for v, f in vals if v != consensus]
@@ -665,12 +683,16 @@ class Auditor:
                 else:
                     far.append((v, f))
             if far:
+                # a handwritten (vision) reading can be misread, so a mismatch it is part of is a lead, not a
+                # fact - only a mismatch where every differing page is printed/typed text (OCR) is an issue
+                all_ocr = all(f.source == "ocr" for v, f in far)
                 self.find("medium", "inconsistency", f"{label} differs between documents",
                           f"Most pages agree on {mask(consensus)} (pages {pages}). Different values: "
                           + "; ".join(f"{mask(v)} on page {f.page}" for v, f in far),
                           "Open the pages and compare. If it is a misread, ignore; if not, correct the form.",
                           "Cross-document consistency",
-                          [self.E(f.page, source=f.source, box=f.box) for v, f in far])
+                          [self.E(f.page, source=f.source, box=f.box) for v, f in far],
+                          tier="issue" if all_ocr else "observation")
             elif len({f.page for _, f in vals}) >= 2:
                 self.ok(f"{label} consistent across {len({f.page for _, f in vals})} pages",
                         f"{mask(consensus)}", pages)
@@ -1026,6 +1048,12 @@ class Auditor:
                           [self.E(self.f.best("bbbee_affidavit.recognition_pct").page, "recognition")])
 
     # -- what only a vision model can see on the page --------------------------------------
+    # A vision-only "yes" to these two is never enough for an issue: asking the same model the same
+    # page again in different words is not an independent check, it is the same reader with the same
+    # blind spot. They need the non-AI image-analysis check (V.stray_marks: ink outside the printed
+    # text/entry fields) to also find a mark on the same page before they count as more than a lead.
+    _NEEDS_IMAGE_CORROBORATION = {"annotation", "overwritten"}
+
     def vision_inspection(self):
         sev = {"crossed_out": "medium", "overwritten": "medium", "annotation": "medium", "rotated": "low",
                "cut_off": "medium", "illegible": "low"}
@@ -1033,11 +1061,20 @@ class Auditor:
         for key, (_q, _q2, title) in F.INSPECTIONS.items():
             for f in self.f.all(f"inspect.{key}"):
                 found += 1
-                issue = f.confidence >= 0.8
-                form = DOC_LABEL.get(self.by_no[f.page].doc_type, "page")
+                page = self.by_no[f.page]
+                corroborated = ""
+                if key in self._NEEDS_IMAGE_CORROBORATION:
+                    issue = any(r.kind in ("margin", "overwrite") for r in V.stray_marks(page, self.vocab))
+                    if issue:
+                        corroborated = "; a non-AI check of the page image also found ink there"
+                else:
+                    issue = f.confidence >= 0.8
+                form = DOC_LABEL.get(page.doc_type, "page")
+                checker = "A vision check" if f.source == "vision" else "A check"
                 self.find(sev[key], "stray_mark", f"{title} on {form} (page {f.page})",
-                          f"A vision check of the page found this ({f.source}"
+                          f"{checker} of the page found this ({f.source}"
                           + (", confirmed by a second look" if f.verified and f.source == "vision" else "")
+                          + corroborated
                           + (f"; {f.note}" if f.note else "") + "). Alterations to a standard form should be "
                           "initialled by the bidder.", "Look at the page. If the alteration is real, ask for it to be "
                           "initialled or re-issued.", "Standard form must be returned unaltered",

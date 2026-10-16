@@ -76,6 +76,9 @@ class ScriptedVision(LlamaClient):
 
 
 def run(vision, **kw):
+    # llm is forced to an unconfigured client: this suite must never touch a real endpoint, whatever is in
+    # .env or the environment - vision is the scripted stand-in passed in; the text step stays rules-only.
+    kw.setdefault("llm", LlamaClient(base_url="", model=""))
     return audit_pack(S / "rfq" / "rfq_email.pdf", S / "rfq" / "spec_0310.pdf", S / "response" / "pack.pdf", S / "blank",
                       None, ROOT / ".cache", vision=vision, **kw)
 
@@ -149,9 +152,12 @@ def test_a_dead_endpoint_is_reported_not_silent():
 
 
 def test_transcript_outranks_a_model_reading():
+    if not (S / "response" / "pack.transcript.json").is_file():
+        pytest.skip("samples/response/pack.transcript.json not present (git-ignored, not shipped with the code)")
     v = ScriptedVision(override={"sbd4.q2_7_state_employed": "Yes"})
     req, res, facts, _ = audit_pack(S / "rfq" / "rfq_email.pdf", S / "rfq" / "spec_0310.pdf", S / "response" / "pack.pdf",
-                                    S / "blank", S / "response" / "pack.transcript.json", ROOT / ".cache", vision=v)
+                                    S / "blank", S / "response" / "pack.transcript.json", ROOT / ".cache", vision=v,
+                                    llm=LlamaClient(base_url="", model=""))  # never touch a real endpoint
     assert facts.best("sbd4.q2_7_state_employed").value == "No"
 
 

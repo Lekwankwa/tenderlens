@@ -1,13 +1,19 @@
 # The sample pack contains real personal and company identifiers. Never commit it.
 samples/response/
 samples/rfq/
+documents/
 out/
 .cache/
 __pycache__/
 
+# saved reports contain unredacted page images and personal details
+tests/fixtures/baseline/
+tests/fixtures/v2/*.pdf
+
 # local config and environments
 .env
 .venv/
+.DS_Store
 
 # pilot access codes and usage (hashes and fingerprints only, but still not for git)
 pilot/

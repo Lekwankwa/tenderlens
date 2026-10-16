@@ -321,6 +321,26 @@ def stray_marks(page: Page, vocab: set[str]) -> list[Region]:
     return out
 
 
+# --- page cut off at an edge: non-AI first, the model only if this can't decide --------
+
+def page_cutoff(page: Page, siblings: list[Page]) -> bool | None:
+    """True/False when this can be decided without a model: the page is noticeably shorter than the other
+    pages in the same pack (a scan fed in short), or confidently-read text sits flush against an edge (the
+    scanner bed clipped it). None means neither signal fired either way - ask the vision model instead."""
+    from PIL import Image
+    w, h = Image.open(page.image_path).size
+    heights = sorted(Image.open(p.image_path).size[1] for p in siblings if p.doc_type != "blank")
+    if len(heights) >= 3:
+        median_h = heights[len(heights) // 2]
+        if h < median_h * 0.85:
+            return True
+    margin = 6
+    if any(wd.conf >= 60 and (wd.left <= margin or wd.top <= margin or wd.left + wd.width >= w - margin
+                              or wd.top + wd.height >= h - margin) for wd in page.words):
+        return True
+    return None
+
+
 # --- second look at a disputed value -------------------------------------------
 
 def reread(page: Page, box, whitelist: str = "0123456789/()", scale: int = 3, pad: int = 10) -> str:

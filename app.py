@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import os
 import re
 import time
@@ -14,13 +15,14 @@ from collections import Counter
 from pathlib import Path
 
 import streamlit as st
+from pypdf import PdfWriter
 
 from tenderlens import pilot
 from tenderlens.audit import DOC_LABEL
 from tenderlens.bootstrap import ensure_local_models, remote_warning, system_check
 from tenderlens.cli import audit_pack
 from tenderlens.llm import LlamaClient, load_env
-from tenderlens.report import SEV, SRC_LABEL, Renderer, render_html, to_json
+from tenderlens.report import DISCLAIMER_LONG, DISCLAIMER_SHORT, NO_ISSUES_NOTE, SEV, SRC_LABEL, Renderer, render_html, to_json
 
 load_env()
 try:  # hosted (e.g. Streamlit Community Cloud): its Secrets become env vars our config already reads.
@@ -33,11 +35,6 @@ PILOT = pilot.pilot_enabled()  # TENDERLENS_PILOT=1. Off: the app behaves exactl
 ROOT = Path(__file__).resolve().parent
 WORK = ROOT / ".cache"
 BLANK = ROOT / "samples" / "blank"
-SAMPLE_RFQ = ROOT / "samples" / "rfq" / "rfq_email.pdf"
-SAMPLE_SPEC = ROOT / "samples" / "rfq" / "spec_0310.pdf"
-SAMPLE_PACK = ROOT / "samples" / "response" / "pack.pdf"
-SAMPLE_TRANSCRIPT = ROOT / "samples" / "response" / "pack.transcript.json"
-TAMPER_DIR = ROOT / "out" / "tamper"
 
 st.set_page_config(page_title="TenderLens", page_icon=None, layout="wide", initial_sidebar_state="expanded")
 
@@ -74,25 +71,28 @@ def save_upload(up, name: str, folder: Path) -> Path:
     return p
 
 
+def merge_uploads(ups: list, name: str, folder: Path) -> Path:
+    """One or more uploaded PDFs, concatenated in the order given into a single file (so a pack split
+    across several uploads still reads as one continuous set of pack pages)."""
+    folder.mkdir(parents=True, exist_ok=True)
+    p = folder / name
+    if len(ups) == 1:
+        p.write_bytes(ups[0].getvalue())
+        return p
+    writer = PdfWriter()
+    for up in ups:
+        writer.append(io.BytesIO(up.getvalue()))
+    with open(p, "wb") as f:
+        writer.write(f)
+    return p
+
+
 def b64_to_bytes(b64: str) -> bytes:
     return base64.b64decode(b64)
 
 
 def chip(label: str, color: str) -> str:
     return f"<span class='tl-chip' style='background:{color}'>{label}</span>"
-
-
-def pretty(folder: str) -> str:
-    """'01_remove_sbd8_signing_page' -> 'Remove SBD 8 signing page'"""
-    t = folder[3:].replace("sbd6_1", "SBD 6.1").replace("sbd6_2", "SBD 6.2")
-    t = re.sub(r"sbd(\d)", r"SBD \1", t).replace("_", " ")
-    for a, b in (("bbbee", "B-BBEE"), ("csd", "CSD"), ("cipc", "CIPC"), ("sa id", "SA ID"), ("id number", "ID number")):
-        t = re.sub(rf"\b{a}\b", b, t)
-    return t[:1].upper() + t[1:]
-
-
-def tamper_variants() -> list[Path]:
-    return sorted(TAMPER_DIR.glob("*/pack.pdf")) if TAMPER_DIR.exists() else []
 
 
 # ----------------------------------------------------------------------------------- sidebar
@@ -102,80 +102,73 @@ vision = LlamaClient.for_vision(llm)
 with st.sidebar:
     st.markdown("<p class='tl-brand'>TenderLens</p><p class='tl-sub'>Audit an RFQ response before you submit it</p>",
                 unsafe_allow_html=True)
+    st.caption(DISCLAIMER_SHORT)
 
     st.markdown("<div class='tl-step'>1 &middot; What the buyer sent</div>", unsafe_allow_html=True)
-    have_sample = SAMPLE_RFQ.exists() and SAMPLE_SPEC.exists() and SAMPLE_PACK.exists()
-    options = ["Upload my own files"] + (["Use the sample RFQ (0310)"] if have_sample else [])
-    mode = st.radio("Source", options, label_visibility="collapsed")
-
-    rfq_ups: list = []
-    spec_up = pack_up = transcript_up = None
-    pack_choice: Path | None = None
     code_status: pilot.CodeStatus | None = None
-    if mode == "Upload my own files":
-        if PILOT:
-            store = pilot.PilotStore()
-            locked = pilot.lockout_remaining(st.session_state)
-            if locked:
-                st.error(f"Too many wrong codes. Try again in {locked:.0f}s.", icon=None)
-            else:
-                raw_code = st.text_input("Pilot access code", key="pilot_code", placeholder="TL-XXXX-XXXX-XXXX-XXXX")
-                if raw_code:
-                    code_status = store.validate(raw_code)
-                    pilot.record_attempt(st.session_state, code_status.ok)
-                    (st.success if code_status.ok else st.error)(code_status.message(), icon=None)
-            with st.expander("Pilot terms"):
-                st.caption(pilot.PILOT_TERMS)
-        rfq_ups = st.file_uploader("RFQ documents (PDF)", type="pdf", key="rfq", accept_multiple_files=True)
-        if len(rfq_ups) > 10:
-            st.error(f"{len(rfq_ups)} files selected; at most 10 RFQ documents are read.", icon=None)
-        spec_up = st.file_uploader("Specification (PDF, optional)", type="pdf", key="spec",
-                                   help="Only if the buyer issued one separately from the RFQ. Some RFQs state the "
-                                        "specification inline, or need none.")
-        st.markdown("<div class='tl-step'>2 &middot; The bidder's response pack</div>", unsafe_allow_html=True)
-        pack_up = st.file_uploader("Response pack (PDF, scans are fine)", type="pdf", key="pack")
-        if not PILOT:
-            transcript_up = st.file_uploader("Handwriting transcript (optional, JSON)", type="json", key="tr",
-                                             help="Only needed while no vision model is attached.")
-    else:
-        st.markdown("<div class='tl-step'>2 &middot; The bidder's response pack</div>", unsafe_allow_html=True)
-        variants = {"The pack that won (untouched)": SAMPLE_PACK}
-        variants.update({pretty(p.parent.name): p for p in tamper_variants() if not p.parent.name.startswith("00")})
-        label = st.selectbox("Pack", list(variants), help="The other entries are the winning pack with one thing "
-                             "changed, to show what TenderLens catches.")
-        pack_choice = variants[label]
+    if PILOT:
+        store = pilot.PilotStore()
+        locked = pilot.lockout_remaining(st.session_state)
+        if locked:
+            st.error(f"Too many wrong codes. Try again in {locked:.0f}s.", icon=None)
+        else:
+            raw_code = st.text_input("Pilot access code", key="pilot_code", placeholder="TL-XXXX-XXXX-XXXX-XXXX")
+            if raw_code:
+                code_status = store.validate(raw_code)
+                pilot.record_attempt(st.session_state, code_status.ok)
+                (st.success if code_status.ok else st.error)(code_status.message(), icon=None)
+        with st.expander("Pilot terms"):
+            st.caption(pilot.PILOT_TERMS)
+    rfq_ups = st.file_uploader("RFQ documents (PDF)", type="pdf", key="rfq", accept_multiple_files=True)
+    if len(rfq_ups) > 10:
+        st.error(f"{len(rfq_ups)} files selected; at most 10 RFQ documents are read.", icon=None)
+    spec_up = st.file_uploader("Specification (PDF, optional)", type="pdf", key="spec",
+                               help="Only if the buyer issued one separately from the RFQ. Some RFQs state the "
+                                    "specification inline, or need none.")
+    st.markdown("<div class='tl-step'>2 &middot; The bidder's response pack</div>", unsafe_allow_html=True)
+    pack_ups = st.file_uploader("Response pack (PDF, scans are fine)", type="pdf", key="pack",
+                                accept_multiple_files=True, help="Multiple files are read in the order "
+                                "you add them, as one combined pack.")
+    if len(pack_ups) > 10:
+        st.error(f"{len(pack_ups)} files selected; at most 10 response pack files are read.", icon=None)
+    if "deepinfra" in (llm.base_url + vision.base_url).lower():
+        st.caption("A connected model reads your files off-device, at DeepInfra. Upload only what you're "
+                  "allowed to share.")
 
     with st.expander("Settings"):
-        bidder = st.text_input("Bidder name (for the report)", value="Excel Supply Holdings" if mode != "Upload my own files" else "")
+        bidder = st.text_input("Bidder name (for the report)")
         lc = st.selectbox("Local content applies?", ["auto", "yes", "no"],
                           help="auto reads the buyer's documents. SBD 6.2 and Annexure C are only required when the "
                                "buyer says local content applies.")
-        redact = st.toggle("Hide IDs, tax numbers and signatures in page images", value=True)
-        strict = st.toggle("Also hide registration and CSD numbers", value=False, disabled=not redact)
+        redact = st.toggle("Hide IDs, tax numbers and signatures in page images", value=False)
+        strict = False
         inspect = st.toggle("Vision: look for crossed-out text, notes, rotated pages", value=True, disabled=not vision.configured,
                             help="Needs a vision model. Adds one question per handwritten page (slow on a laptop CPU).")
         second = st.toggle("Vision: second look at every suspicious reading", value=True, disabled=not vision.configured,
                            help="A 'Yes', a blank or a double tick is asked again, worded differently, before it counts as an issue.")
 
-    ready = (mode != "Upload my own files") or bool(rfq_ups and pack_up and len(rfq_ups) <= 10)
-    if mode == "Upload my own files" and PILOT:
+    ready = bool(rfq_ups and pack_ups and len(rfq_ups) <= 10 and len(pack_ups) <= 10)
+    if PILOT:
         ready = ready and bool(code_status and code_status.ok)
     run = st.button("Audit the pack", type="primary", width="stretch", disabled=not ready)
-    if mode == "Upload my own files" and not ready:
+    if not ready:
         st.caption("Add at least one RFQ document and the response pack to begin (the specification is optional)."
                   + (" A valid pilot code is also needed." if PILOT else ""))
 
     st.divider()
-    if llm.configured:
-        st.success(f"Llama (text): {llm.model}", icon=None)
+    same_model = llm.configured and vision.configured and llm.model == vision.model and llm.base_url == vision.base_url
+    if same_model:
+        st.success(f"Llama ({llm.model}) connected for both text and vision.", icon=None)
     else:
-        st.info("No Llama text endpoint set. Running on rules and OCR only. Set TENDERLENS_LLM_BASE_URL and "
-                "TENDERLENS_LLM_MODEL to use Meta Llama.", icon=None)
-    if vision.configured:
-        st.success(f"Llama (vision): {vision.model}", icon=None)
-    else:
-        st.info("No vision model set, so handwriting, ticks and stamps are not read (a transcript can stand in). "
-                "See OLLAMA.md.", icon=None)
+        if llm.configured:
+            st.success(f"Llama (text): {llm.model}", icon=None)
+        else:
+            st.info("No Llama text endpoint set. Running on rules and OCR only. Set TENDERLENS_LLM_BASE_URL and "
+                    "TENDERLENS_LLM_MODEL to use Meta Llama.", icon=None)
+        if vision.configured:
+            st.success(f"Llama (vision): {vision.model}", icon=None)
+        else:
+            st.info("No vision model set, so handwriting, ticks and stamps are not read. See OLLAMA.md.", icon=None)
 
     st.markdown("<div class='tl-step'>System</div>", unsafe_allow_html=True)
     rows = system_check()
@@ -217,20 +210,15 @@ if run:
     claim_store = claim_hash = claim_file_sha = claim_kind = None
     with st.status("Auditing", expanded=True) as status:
         try:
-            if mode == "Upload my own files":
-                rfq = [save_upload(f, f"rfq-{i}-{f.name}", tmp) for i, f in enumerate(rfq_ups)]
-                spec = save_upload(spec_up, "spec.pdf", tmp) if spec_up else None
-                pack_bytes = pack_up.getvalue()
-                pack = save_upload(pack_up, f"pack-{hashlib.sha1(pack_bytes).hexdigest()[:8]}.pdf", tmp)
-                transcript = save_upload(transcript_up, "transcript.json", tmp) if transcript_up else None
-                if PILOT:
-                    claim_store, claim_hash = pilot.PilotStore(), code_status.code_hash
-                    claim_file_sha = pilot.file_sha256(pack)
-                    claim_kind = claim_store.claim_pack(claim_hash, claim_file_sha)  # raises NoPacksLeft on a race
-            else:
-                rfq, spec, pack = SAMPLE_RFQ, SAMPLE_SPEC, pack_choice
-                own = pack.parent / "transcript.json"   # a tamper variant may carry its own handwriting reading
-                transcript = own if own.exists() else (SAMPLE_TRANSCRIPT if SAMPLE_TRANSCRIPT.exists() else None)
+            rfq = [save_upload(f, f"rfq-{i}-{f.name}", tmp) for i, f in enumerate(rfq_ups)]
+            spec = save_upload(spec_up, "spec.pdf", tmp) if spec_up else None
+            pack_sha = hashlib.sha1(b"".join(f.getvalue() for f in pack_ups)).hexdigest()[:8]
+            pack = merge_uploads(pack_ups, f"pack-{pack_sha}.pdf", tmp)
+            transcript = None
+            if PILOT:
+                claim_store, claim_hash = pilot.PilotStore(), code_status.code_hash
+                claim_file_sha = pilot.file_sha256(pack)
+                claim_kind = claim_store.claim_pack(claim_hash, claim_file_sha)  # raises NoPacksLeft on a race
             st.write("Reading the buyer's documents and the response pack, then running the checks.")
             req, res, facts, pages = audit_pack(rfq, spec, pack, BLANK, transcript, WORK, llm, lc, vision=vision,
                                                 inspect="forms" if inspect else "off", passes=2 if second else 1)
@@ -243,7 +231,16 @@ if run:
                 claim_store.finalize_pack(claim_hash, claim_file_sha, req.reference, n_issue)
             st.session_state["out"] = dict(req=req, res=res, facts=facts, pages=pages, R=R, html=html,
                                            json=to_json(req, res), secs=time.time() - t0, pack=pack.name,
-                                           bidder=bidder or "Bidder", redact=redact)
+                                           bidder=bidder or "Bidder", redact=redact,
+                                           usage=dict(
+                                               text_model=llm.model, text_calls=llm.calls,
+                                               text_prompt_tokens=llm.prompt_tokens,
+                                               text_completion_tokens=llm.completion_tokens,
+                                               text_cost=llm.estimated_cost,
+                                               vision_model=vision.model, vision_calls=vision.calls,
+                                               vision_prompt_tokens=vision.prompt_tokens,
+                                               vision_completion_tokens=vision.completion_tokens,
+                                               vision_cost=vision.estimated_cost))
             status.update(label=f"Done in {time.time() - t0:.0f} s", state="complete", expanded=False)
         except pilot.NoPacksLeft:
             status.update(label="No packs left", state="error")
@@ -304,6 +301,7 @@ with dl2:
     st.download_button("Data (JSON)", out["json"], file_name="tenderlens_report.json", mime="application/json",
                        width="stretch")
 
+st.caption(DISCLAIMER_SHORT)
 if issues:
     st.markdown(f"<div class='tl-banner tl-bad'><b style='color:#b3261e'>{len(issues)} issue"
                 f"{'s' if len(issues) != 1 else ''} to review</b><br><span>{n_high} likely to matter &middot; "
@@ -312,7 +310,8 @@ if issues:
 else:
     st.markdown(f"<div class='tl-banner tl-ok'><b style='color:#2e7d32'>No issues found</b><br>"
                 f"<span>{len(res.passed)} checks passed &middot; {len(obs)} observation"
-                f"{'s' if len(obs) != 1 else ''} for information</span></div>", unsafe_allow_html=True)
+                f"{'s' if len(obs) != 1 else ''} for information</span><br>"
+                f"<span>{NO_ISSUES_NOTE}</span></div>", unsafe_allow_html=True)
 
 m = st.columns(4)
 m[0].metric("Issues", len(issues))
@@ -396,7 +395,7 @@ with tab_pass:
         if p.note:
             st.caption(p.note)
     if res.ocr_variants:
-        with st.expander("Possible scanner misreads that were set aside"):
+        with st.expander("Possible misreads that were set aside"):
             for v in res.ocr_variants:
                 st.write("• " + v)
 
@@ -422,14 +421,44 @@ with tab_pages:
             st.caption(f"{p.number} · {DOC_LABEL.get(p.doc_type, p.doc_type)}{mark}")
 
 with tab_how:
+    st.info(DISCLAIMER_LONG, icon=None)
     src = Counter(f.source for f in facts.items if f.field != "page.doc_type")
     st.markdown("**Facts by source:** " + ", ".join(f"{k} {v}" for k, v in sorted(src.items())))
     st.markdown("**Requirements read by:** " + (f"Llama ({llm.model}) cross-checked with rules" if llm.configured
                                                else "rules only (no Llama endpoint configured)"))
     vl = facts.vision_log
-    if vl.get("calls"):
+    if vl.get("stopped_early"):
+        st.warning(f"A vision model is connected ({vl.get('model', vision.model)}) but its calls failed, so the "
+                   f"handwriting steps were stopped early rather than repeating the same failure: "
+                   f"{vl['stopped_early']}", icon=None)
+    elif vl.get("calls") and not vl.get("pages_read") and vl.get("failed") == vl.get("calls"):
+        st.warning(f"A vision model is connected ({vl.get('model', vision.model)}) but every one of its "
+                   f"{vl['calls']} call(s) failed. Reason(s): " + "; ".join(vl.get("errors") or ["not recorded"]),
+                   icon=None)
+    elif vl.get("calls"):
         st.markdown(f"**Handwriting read by:** {vl.get('model', vision.model)} ({vl['pages_read']} pages read, "
                     f"{vl['pages_inspected']} inspected, {vl['calls']} calls, {vl['failed']} failed)")
+        if vl.get("failed"):
+            st.caption("Some calls failed: " + "; ".join(vl.get("errors") or []))
+
+    u = out.get("usage") or {}
+    if u.get("text_calls") or u.get("vision_calls"):
+        st.markdown("#### API usage")
+        rows = []
+        for label, prefix in (("Text", "text"), ("Vision", "vision")):
+            calls = u.get(f"{prefix}_calls", 0)
+            if not calls:
+                continue
+            pin, pout = u.get(f"{prefix}_prompt_tokens", 0), u.get(f"{prefix}_completion_tokens", 0)
+            cost = u.get(f"{prefix}_cost")
+            rows.append(f"{label} ({u.get(f'{prefix}_model')}): {calls} call(s), {pin:,} prompt tokens, "
+                       f"{pout:,} completion tokens" + (f", est. ${cost:.4f}" if cost is not None else ""))
+        for r in rows:
+            st.write("• " + r)
+        if u.get("text_cost") is None and u.get("vision_cost") is None:
+            st.caption("No price per token is set (TENDERLENS_LLM_PRICE_IN/_OUT, TENDERLENS_VISION_PRICE_IN/_OUT), "
+                      "so only token counts are shown, not an estimated cost.")
+
     st.write("Printed text is read by OCR. Handwriting and ticks are read by a multimodal Llama model or a human "
              "transcription; anything marked manual should be spot-checked. Signature, stray-mark and blank-page "
              "findings come from image analysis, which is probabilistic. All comparisons, sums and date checks are "
