@@ -77,6 +77,12 @@ class LLMUnavailable(RuntimeError):
     pass
 
 
+# Shown in place of the raw error whenever a status line reports a 429 (shared provider capacity, not an
+# outage of ours) - one wording, so it reads the same everywhere a model shows as unavailable.
+BUSY_MESSAGE = ("The AI service is busy right now because of heavy demand on our third-party provider. "
+               "Please wait a minute and try again.")
+
+
 class LLMError(LLMUnavailable):
     """An HTTP error from the endpoint. str(err) includes the server's own message (not just the status
     code), with any API key scrubbed and the body cut to about 300 characters."""

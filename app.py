@@ -22,7 +22,7 @@ from tenderlens.audit import DOC_LABEL
 from tenderlens.bootstrap import remote_warning, system_check
 from tenderlens.cli import audit_pack
 from tenderlens.ingest import page_count_estimate, pdf_page_count
-from tenderlens.llm import LlamaClient, load_env
+from tenderlens.llm import BUSY_MESSAGE, LlamaClient, load_env
 from tenderlens.report import DISCLAIMER_LONG, DISCLAIMER_SHORT, NO_ISSUES_NOTE, SEV, SRC_LABEL, Renderer, render_html, to_json
 
 load_env()
@@ -143,8 +143,8 @@ with st.sidebar:
     if len(pack_ups) > 10:
         st.error(f"{len(pack_ups)} files selected; at most 10 response pack files are read.", icon=None)
     if "deepinfra" in (llm.base_url + vision.base_url).lower():
-        st.caption("A connected model reads your files off-device, at DeepInfra. Upload only what you're "
-                  "allowed to share.")
+        st.caption("A connected model reads your files off-device, at DeepInfra (USA). Upload only what "
+                  "you're allowed to share.")
 
     with st.expander("Settings"):
         bidder = st.text_input("Bidder name (for the report)")
@@ -203,7 +203,7 @@ with st.sidebar:
         for item, ok, detail in rows:
             st.write(("Ready: " if ok else "Missing: ") + item)
             if not ok and detail:
-                st.caption(detail)
+                st.caption(BUSY_MESSAGE if "429" in detail else detail)
     note = remote_warning(vision)
     if note:
         st.warning(note, icon=None)
