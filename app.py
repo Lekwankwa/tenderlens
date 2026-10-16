@@ -94,6 +94,15 @@ def b64_to_bytes(b64: str) -> bytes:
     return base64.b64decode(b64)
 
 
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_system_check():
+    """system_check() pings the real text/vision endpoints - without caching this ran on every single
+    Streamlit rerun (every widget interaction, every viewer, plus the hourly keep-alive load), which adds
+    up to real, avoidable traffic against a shared model endpoint. Re-checked at most once every 2 minutes;
+    `python -m tenderlens check-llm` (which calls system_check() directly, not this) always checks live."""
+    return system_check()
+
+
 def chip(label: str, color: str) -> str:
     return f"<span class='tl-chip' style='background:{color}'>{label}</span>"
 
@@ -184,7 +193,7 @@ with st.sidebar:
             st.info("No vision model set, so handwriting, ticks and stamps are not read. See OLLAMA.md.", icon=None)
 
     st.markdown("<div class='tl-step'>System</div>", unsafe_allow_html=True)
-    rows = system_check()
+    rows = _cached_system_check()
     bad = [item for item, ok, _ in rows if not ok]
     if not bad:
         st.success("Tesseract, Poppler and both Llama models are ready.", icon=None)
