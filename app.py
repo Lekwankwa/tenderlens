@@ -76,6 +76,18 @@ def save_upload(up, name: str, folder: Path) -> Path:
     return p
 
 
+@st.cache_data(show_spinner=False)
+def _cached_page_count(data: bytes) -> int:
+    """pdf_page_count() shells out to pdfinfo, so without caching this re-saved and re-ran it for every
+    uploaded pack file on every single rerun of the page (any widget change, not just a new upload) - the
+    page-count caption doesn't need that work redone when the same files are still attached."""
+    p = WORK / "uploads" / f"pagecount-{hashlib.sha1(data).hexdigest()[:12]}.pdf"
+    if not p.exists():
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(data)
+    return pdf_page_count(p)
+
+
 def merge_uploads(ups: list, name: str, folder: Path) -> Path:
     """One or more uploaded PDFs, concatenated in the order given into a single file (so a pack split
     across several uploads still reads as one continuous set of pack pages)."""
@@ -134,8 +146,7 @@ with st.sidebar:
         with st.expander("Pilot terms"):
             st.caption(pilot.PILOT_TERMS)
     rfqtender_ups = st.file_uploader("RFQ/Tender documents (PDF)", type="pdf", key="rfqtender",
-                                     accept_multiple_files=True, help="The covering email/letter and the "
-                                     "specification, if there is one - all in one place.")
+                                     accept_multiple_files=True, help="Insert the original RFQ/Tender document(s).")
     if len(rfqtender_ups) > 10:
         st.error(f"{len(rfqtender_ups)} files selected; at most 10 RFQ/Tender documents are read.", icon=None)
     st.markdown("<div class='tl-step'>2 &middot; The bidder's response pack</div>", unsafe_allow_html=True)
@@ -148,11 +159,35 @@ with st.sidebar:
         st.caption("A connected model reads your files off-device, at DeepInfra (USA). Upload only what "
                   "you're allowed to share.")
 
+    st.markdown("<div class='tl-step'>3 &middot; Pack stage</div>", unsafe_allow_html=True)
+    stage_col1, stage_col2 = st.columns(2)
+    with stage_col1:
+        b1, h1 = st.columns([5, 1])
+        with b1:
+            if st.button("Draft pack", width="stretch",
+                        type="primary" if st.session_state.get("pack_stage") == "draft" else "secondary"):
+                st.session_state["pack_stage"] = "draft"
+        with h1:
+            with st.popover("❓"):
+                st.caption("Initials are skipped at this stage. A page with no initials in the bottom-right "
+                          "corner is not flagged as an issue.")
+    with stage_col2:
+        b2, h2 = st.columns([5, 1])
+        with b2:
+            if st.button("Final pack", width="stretch",
+                        type="primary" if st.session_state.get("pack_stage") == "final" else "secondary"):
+                st.session_state["pack_stage"] = "final"
+        with h2:
+            with st.popover("❓"):
+                st.caption("Initials are checked at this stage. A page with no initials in the bottom-right "
+                          "corner is flagged as an issue.")
+    pack_stage = st.session_state.get("pack_stage")
+    if pack_stage is None:
+        st.caption("Choose Draft pack or Final pack before auditing.")
+
     with st.expander("Settings"):
         bidder = st.text_input("Bidder name (for the report)")
-        lc = st.selectbox("Local content applies?", ["auto", "yes", "no"],
-                          help="auto reads the buyer's documents. SBD 6.2 and Annexure C are only required when the "
-                               "buyer says local content applies.")
+        lc = "auto"  # always read from the buyer's own documents and the pack itself - never hand-set
         redact = st.toggle("Hide IDs, tax numbers and signatures in page images", value=False)
         strict = False
         check_choice = st.segmented_control("Check mode", ["Fast check", "Complete check"], default="Complete check",
@@ -168,13 +203,14 @@ with st.sidebar:
 
     if pack_ups:
         try:
-            n_pages = sum(pdf_page_count(save_upload(f, f"pagecount-{f.name}", WORK / "uploads")) for f in pack_ups[:10])
+            n_pages = sum(_cached_page_count(f.getvalue()) for f in pack_ups[:10])
             check_mode_now = "fast" if fast_mode else "complete"
             st.caption(page_count_estimate(n_pages, check_mode_now))
         except Exception:
             pass  # purely informational; a page-count problem surfaces properly when the real run reads the file
 
-    ready = bool(rfqtender_ups and pack_ups and len(rfqtender_ups) <= 10 and len(pack_ups) <= 10)
+    ready = bool(rfqtender_ups and pack_ups and len(rfqtender_ups) <= 10 and len(pack_ups) <= 10
+                and pack_stage is not None)
     if PILOT:
         ready = ready and bool(code_status and code_status.ok)
     run = st.button("Audit the pack", type="primary", width="stretch", disabled=not ready)
@@ -246,7 +282,7 @@ if run:
 
             req, res, facts, pages = audit_pack(rfq, spec, pack, BLANK, transcript, WORK, llm, lc, vision=run_vision,
                                                 inspect="forms" if inspect else "off", passes=2 if second else 1,
-                                                progress=app_progress)
+                                                progress=app_progress, pack_stage=pack_stage)
             progress_line.empty()
             st.write("Building the report.")
             t_report = time.time()
@@ -295,14 +331,14 @@ out = st.session_state.get("out")
 
 if not out:
     st.markdown("<p class='tl-brand'>Catch what the buyer would catch, before they do.</p>"
-                "<p class='tl-sub'>TenderLens reads the RFQ, then checks your response pack against it: missing "
+                "<p class='tl-sub'>TenderLens reads the RFQ/Tender, then checks your response pack against it: missing "
                 "documents and pages, unsigned forms, quote arithmetic, spec mismatches, numbers that disagree "
                 "between documents, and stray marks.</p>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.markdown("**1. Understand the RFQ**")
-        st.caption("Meta Llama reads the buyer's RFQ documents and specification into a checklist. Every item must quote "
-                   "its source, or it is dropped.")
+        st.markdown("**1. Understand the RFQ/Tender**")
+        st.caption("Meta Llama reads the buyer's RFQ/Tender documents and specification into a checklist. Every item "
+                   "must quote its source, or it is dropped.")
     with c2:
         st.markdown("**2. Read the response pack**")
         st.caption("Printed text is read by OCR. Handwriting and ticks are read by a vision model.")

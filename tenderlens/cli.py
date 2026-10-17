@@ -18,7 +18,7 @@ from .report import render_html, to_json
 from .requirements import build_requirements
 
 def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm=None, local_content="auto",
-               vision=None, inspect="forms", passes=2, extra_facts=None, progress=None):
+               vision=None, inspect="forms", passes=2, extra_facts=None, progress=None, pack_stage="final"):
     """The whole pipeline, returning (requirements, audit result, facts, pages). Used by the CLI, the app and the tests.
 
     rfq      the buyer's RFQ, as one path or a list: the cover email/letter plus any attachments it came
@@ -88,7 +88,7 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
         tinfo = load_transcript(transcript, facts, pages)
     if extra_facts:
         extra_facts(facts, pages)
-    res = Auditor(req, pages, facts, blank, tinfo["unmatched"]).run()
+    res = Auditor(req, pages, facts, blank, tinfo["unmatched"], pack_stage=pack_stage).run()
     res.ocr_variants.extend(facts.misread_variants)
     facts.stage_times = timing
     return req, res, facts, pages
@@ -171,6 +171,9 @@ def main(argv=None):
     r.add_argument("--bidder", default="Bidder")
     r.add_argument("--local-content", choices=["auto", "yes", "no"], default="auto",
                    help="does local content apply to this bid? auto = decide from the buyer's documents")
+    r.add_argument("--pack-stage", choices=["draft", "final"], default="final",
+                   help="draft = initials aren't expected yet, a missing one isn't flagged. final = they are, a "
+                        "missing one is an issue.")
     r.add_argument("--vision-inspect", choices=["forms", "off"], default="forms",
                    help="with a vision model: also look for crossed-out text, notes, rotated pages (one more call per page)")
     r.add_argument("--passes", type=int, choices=[1, 2], default=2,
@@ -248,7 +251,7 @@ def main(argv=None):
     a.out.mkdir(parents=True, exist_ok=True)
     req, res, facts, pages = audit_pack(a.rfq, a.spec, a.pack, a.blank, a.transcript, a.work, llm,
                                         a.local_content, vision=vision, inspect=a.vision_inspect, passes=a.passes,
-                                        progress=cli_progress)
+                                        progress=cli_progress, pack_stage=a.pack_stage)
     print()  # end the last \r-updated progress line
     t_report = time.time()
     html = render_html(req, res, facts, pages, a.bidder, req.reference, llm_mode,

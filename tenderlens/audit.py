@@ -140,8 +140,9 @@ def iso(s: str) -> date | None:
 
 class Auditor:
     def __init__(self, req: Requirements, pages: list[Page], facts: Facts, blank_dir: Path,
-                 unmatched: dict | None = None):
+                 unmatched: dict | None = None, pack_stage: str = "final"):
         self.req, self.pages, self.f = req, pages, facts
+        self.pack_stage = pack_stage  # "draft" (initials not expected yet) or "final" (they are)
         self.res = AuditResult(page_types={p.number: p.doc_type for p in pages})
         self.blank = {Path(p).stem: Path(p).read_text() for p in glob.glob(str(blank_dir / "*.txt"))}
         self.vocab = V.build_vocab(list(self.blank.values()))
@@ -920,8 +921,9 @@ class Auditor:
             self.ok("SARS TCS PIN was issued for 'Tender'", pages=self.fp("tcs.purpose"))
         elif self.f.value("tcs.purpose"):
             self.find("medium", "validity", "SARS TCS PIN purpose is not 'Tender'",
-                      f"Purpose of request: {self.f.value('tcs.purpose')}.", "Check the PIN.", "RFQ: TCC required",
-                      [self.E(self.f.best("tcs.purpose").page)])
+                      f"Purpose of request: {self.f.value('tcs.purpose')}.",
+                      "Get a TCS PIN issued with purpose 'Tender' - this one was requested for something else.",
+                      "RFQ: TCC required", [self.E(self.f.best("tcs.purpose").page)])
         cf = self.f.best("bbbee_affidavit.commissioned")
         comm = iso(cf.value) if cf else None
         if comm and closing and comm > closing:
@@ -1154,17 +1156,17 @@ class Auditor:
             self.ok("No stray marks found outside the entry fields on SBD 4, 6.1, 8, 9")
 
     def initials(self):
+        if self.pack_stage == "draft":
+            return  # a draft pack isn't initialled yet - a bare page here is normal, not a finding
         have = {p.number: V.initials_present(p) for p in self.pages if p.doc_type != "blank"}
         missing = [n for n, h in have.items() if not h]
-        share = 1 - len(missing) / max(1, len(have))
         if not missing:
             self.ok(f"Initials present on all {len(self.pages)} pages")
-        elif share >= 0.5:  # most pages are initialled, so the bare ones are the odd ones out
-            self.find("medium", "initials", f"Initials missing on {len(missing)} page(s) that the other pages carry",
-                      f"Pages {missing} have no initials in the bottom-right corner, while {len(have) - len(missing)} "
-                      "of the other pages do. A page without them may have been replaced or added after the pack "
-                      "was initialled.", "Check these pages are the originals.", "",
-                      [self.E(n, source="image") for n in missing[:4]])
+        else:
+            self.find("medium", "initials", f"Initials missing on {len(missing)} page(s)",
+                      f"Pages {missing} have no initials in the bottom-right corner. A page without them may have "
+                      "been replaced or added after the pack was initialled.", "Check these pages are the originals.",
+                      "", [self.E(n, source="image") for n in missing[:4]])
 
     def ocr_quality(self):
         weak = [p.number for p in self.pages if p.mean_conf < 80]

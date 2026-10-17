@@ -136,3 +136,24 @@ def test_sbd62_citing_annexure_c_in_a_sentence_is_not_misread_as_annexure_c():
     ]
     classify_pages(pages)
     assert pages[1].doc_type == "sbd6_2"
+
+
+# --------------------------------------------------------------------------- draft vs final pack stage
+
+def test_draft_pack_does_not_flag_missing_initials(monkeypatch):
+    from tenderlens import vision as V
+    monkeypatch.setattr(V, "initials_present", lambda page: False)  # none of them have initials
+    pages = [Page(1, "x", doc_type="sbd4"), Page(2, "x", doc_type="sbd4")]
+    a = Auditor(Requirements(), pages, Facts(), BLANK_DIR, pack_stage="draft")
+    a.initials()
+    assert not a.res.findings and not a.res.passed  # not expected yet on a draft - no opinion either way
+
+
+def test_final_pack_flags_any_missing_initial(monkeypatch):
+    from tenderlens import vision as V
+    monkeypatch.setattr(V, "initials_present", lambda page: page.number != 2)  # every page but one is initialled
+    pages = [Page(1, "x", doc_type="sbd4"), Page(2, "x", doc_type="sbd4"), Page(3, "x", doc_type="sbd4")]
+    a = Auditor(Requirements(), pages, Facts(), BLANK_DIR, pack_stage="final")
+    a.initials()
+    found = next(f for f in a.res.findings if "Initials missing" in f.title)
+    assert "2" in found.detail
