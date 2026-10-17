@@ -173,6 +173,7 @@ def test_a_failing_page_does_not_stop_vision_extract_reading_the_rest(tmp_path, 
     name_fact = facts.best("sbd4.name_field")
     assert name_fact is not None and name_fact.value == "Excel Supply Holdings"
     assert llm.errors  # the failure on page 3 was recorded, not silently swallowed
+    assert pages[2].number in facts.vision_log["failed_pages"]  # page 3 is page number 3, not just "a" page
 
 
 # --------------------------------------------------------------------------- timing

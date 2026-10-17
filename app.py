@@ -19,10 +19,10 @@ import streamlit as st
 from pypdf import PdfWriter
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
-from tenderlens import pilot
+from tenderlens import check_log, pilot
 from tenderlens.audit import DOC_LABEL
 from tenderlens.bootstrap import remote_warning, system_check
-from tenderlens.cli import audit_pack
+from tenderlens.cli import audit_pack, rerun_vision
 from tenderlens.ingest import page_count_estimate, pdf_page_count
 from tenderlens.llm import BUSY_MESSAGE, LlamaClient, load_env
 from tenderlens.report import DISCLAIMER_LONG, DISCLAIMER_SHORT, NO_ISSUES_NOTE, SEV, SRC_LABEL, Renderer, render_html, to_json
@@ -248,6 +248,18 @@ if run:
     if PILOT:
         pilot.purge_old_files([WORK], 24)  # uploaded files and page images, 24h after they were made
     claim_store = claim_hash = claim_file_sha = claim_kind = None
+    facts, run_vision = None, vision  # safe defaults so the log below works even if we fail before audit_pack runs
+
+    def log_check(complete: bool, credit_used: bool):
+        try:
+            check_log.record(
+                check_mode="fast" if fast_mode else "complete", complete=complete,
+                pages_failed=sorted(facts.vision_log.get("failed_pages") or []) if facts else [],
+                vision_calls=run_vision.calls, vision_retries=run_vision.retries, text_retries=llm.retries,
+                credit_used=credit_used)
+        except Exception:
+            pass  # the log must never be why a run fails
+
     with st.status("Auditing", expanded=True) as status:
         try:
             rfq = [save_upload(f, f"rfq-{i}-{f.name}", tmp) for i, f in enumerate(rfqtender_ups)]
@@ -283,12 +295,18 @@ if run:
                                "Llama + rules" if llm.configured else "rules only", redact=redact, strict=strict,
                                check_mode=check_mode)
             facts.stage_times["report"] = time.time() - t_report
-            if claim_kind == "new":
+            check_complete = check_mode == "fast" or facts.vision_complete
+            credit_used = False
+            if claim_store is not None:
                 n_issue = sum(1 for f in res.findings if f.tier == "issue")
-                claim_store.finalize_pack(claim_hash, claim_file_sha, req.reference, n_issue)
+                credit_used = claim_store.settle_pack(claim_hash, claim_file_sha, claim_kind, check_complete,
+                                                      req.reference, n_issue)
+            log_check(check_complete, credit_used)
             st.session_state["out"] = dict(req=req, res=res, facts=facts, pages=pages, R=R, html=html,
                                            json=to_json(req, res), secs=time.time() - t0, pack=pack.name,
                                            bidder=bidder or "Bidder", redact=redact, check_mode=check_mode,
+                                           inspect=inspect, second=second, pack_stage=pack_stage,
+                                           claim_hash=claim_hash, claim_file_sha=claim_file_sha,
                                            usage=dict(
                                                text_model=llm.model, text_calls=llm.calls,
                                                text_prompt_tokens=llm.prompt_tokens,
@@ -307,12 +325,14 @@ if run:
         except FileNotFoundError as e:
             if claim_kind == "new":
                 claim_store.refund_pack(claim_hash, claim_file_sha)
+            log_check(False, False)
             status.update(label="A required program is missing", state="error")
             st.error(f"{e}. Install tesseract and poppler (see the System panel in the sidebar), then try again.")
             st.stop()
         except Exception as e:  # keep the demo alive and say what went wrong
             if claim_kind == "new":
                 claim_store.refund_pack(claim_hash, claim_file_sha)
+            log_check(False, False)
             status.update(label="Something went wrong", state="error")
             st.error(f"{type(e).__name__}: {e}")
             st.stop()
@@ -364,6 +384,49 @@ if out.get("check_mode") == "fast":
             "says nothing about handwriting, ticks, stamps or names.", icon=None)
 else:
     st.caption("Mode: Complete check")
+    if not facts.vision_complete:
+        failed_pages = sorted(facts.vision_log.get("failed_pages") or [])
+        pages_txt = ", ".join(str(n) for n in failed_pages) if failed_pages else "not recorded"
+        st.error("**Handwriting, ticks and stamps were NOT fully read in this run. This did not use one of "
+                 f"your checks. Please run it again.**  \nPages that failed: {pages_txt}.", icon=None)
+        rerun_claim_hash, rerun_file_sha = out.get("claim_hash"), out.get("claim_file_sha")
+        rerun_store = pilot.PilotStore() if (PILOT and rerun_claim_hash and rerun_file_sha) else None
+        if rerun_store and not rerun_store.rerun_allowed(rerun_claim_hash, rerun_file_sha):
+            st.warning(f"Free re-runs for this pack are used up ({pilot.PilotStore.FREE_RERUN_LIMIT} so far). "
+                      "Press \"Audit the pack\" again for another check (uses a pack as normal).", icon=None)
+        elif st.button("Run again (free)", type="primary"):
+            with st.status("Re-reading handwriting, ticks and stamps", expanded=True) as rstatus:
+                rprogress = st.empty()
+                r_stage_label = {"vision_first": "vision first readings", "vision_checks": "vision checks"}
+                r_ctx = get_script_run_ctx()
+
+                def rerun_progress(stage, done, total):
+                    add_script_run_ctx(threading.current_thread(), r_ctx)
+                    rprogress.caption(f"{r_stage_label.get(stage, stage)}: {done} of {total}")
+
+                res2, facts2 = rerun_vision(out["req"], out["pages"], BLANK, vision,
+                                            inspect="forms" if out["inspect"] else "off",
+                                            passes=2 if out["second"] else 1, pack_stage=out["pack_stage"],
+                                            progress=rerun_progress)
+                rprogress.empty()
+                if rerun_store:
+                    rerun_store.record_rerun(rerun_claim_hash, rerun_file_sha)
+                try:
+                    check_log.record(check_mode="complete", complete=facts2.vision_complete,
+                                     pages_failed=sorted(facts2.vision_log.get("failed_pages") or []),
+                                     vision_calls=vision.calls, vision_retries=vision.retries,
+                                     text_retries=llm.retries, credit_used=False, free_rerun=True)
+                except Exception:
+                    pass
+                R2 = Renderer(out["pages"], out["redact"], False)
+                html2 = render_html(out["req"], res2, facts2, out["pages"], out["bidder"], out["req"].reference,
+                                    "Llama + rules" if llm.configured else "rules only", redact=out["redact"],
+                                    check_mode="complete")
+                st.session_state["out"] = {**out, "res": res2, "facts": facts2, "R": R2, "html": html2,
+                                           "json": to_json(out["req"], res2)}
+                rstatus.update(label="Done" if facts2.vision_complete else "Still incomplete",
+                              state="complete" if facts2.vision_complete else "error", expanded=False)
+            st.rerun()
 if issues:
     st.markdown(f"<div class='tl-banner tl-bad'><b style='color:#b3261e'>{len(issues)} issue"
                 f"{'s' if len(issues) != 1 else ''} to review</b><br><span>{n_high} likely to matter &middot; "

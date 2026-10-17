@@ -123,6 +123,12 @@ def render_html(req: Requirements, res: AuditResult, facts: Facts, pages: list[P
            f"<title>TenderLens audit</title><style>{CSS}</style></head><body><main>"]
     out.append(f"<h1>TenderLens audit report</h1><div class=sub>{e(bidder)} &middot; RFQ {e(rfq_ref)} &middot; "
                f"generated {datetime.now():%Y-%m-%d %H:%M}</div>")
+    if check_mode == "complete" and not facts.vision_complete:
+        failed_pages = sorted(facts.vision_log.get("failed_pages") or [])
+        pages_txt = ", ".join(str(n) for n in failed_pages) if failed_pages else "not recorded"
+        out.append("<div class=banner style='border-left-color:#b3261e'><b>Handwriting, ticks and stamps were "
+                   "NOT fully read in this run. This did not use one of your checks. Please run it again.</b>"
+                   f"<br>Pages that failed: {e(pages_txt)}.</div>")
     if check_mode == "fast":
         out.append("<p class=note><b>Mode: Fast check</b> (handwriting, ticks, stamps and names were not read)</p>"
                    "<div class=note><b>Not checked in this mode:</b><ul>"

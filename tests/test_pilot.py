@@ -122,6 +122,62 @@ def test_crashed_audit_refunds_the_pack(store):
     assert store.claim_pack(h, "file-a") == "new"  # the slot is really free again, not just cosmetically
 
 
+def test_free_reruns_are_allowed_up_to_the_cap_then_not(store):
+    code = store.create_code("Jane", packs=1, days=10)
+    h = store.validate(code).code_hash
+    assert store.rerun_allowed(h, "file-a")  # no reruns used yet
+    for i in range(1, pilot.PilotStore.FREE_RERUN_LIMIT + 1):
+        assert store.rerun_allowed(h, "file-a")
+        assert store.record_rerun(h, "file-a") == i
+    assert not store.rerun_allowed(h, "file-a")  # the cap (3) is reached
+
+
+def test_rerun_count_is_per_file_not_per_code(store):
+    code = store.create_code("Jane", packs=2, days=10)
+    h = store.validate(code).code_hash
+    for _ in range(pilot.PilotStore.FREE_RERUN_LIMIT):
+        store.record_rerun(h, "file-a")
+    assert not store.rerun_allowed(h, "file-a")
+    assert store.rerun_allowed(h, "file-b")  # a different pack starts with a fresh allowance
+
+
+def test_settle_pack_refunds_an_incomplete_check_and_spends_nothing(store):
+    code = store.create_code("Jane", packs=1, days=10)
+    h = store.validate(code).code_hash
+    claim_kind = store.claim_pack(h, "file-a")
+    assert claim_kind == "new"
+    spent = store.settle_pack(h, "file-a", claim_kind, check_complete=False)
+    assert spent is False
+    cs = store.validate(code)
+    assert cs.ok and cs.packs_left == 1  # the slot came back - vision never finished, so no credit was used
+
+
+def test_settle_pack_finalizes_a_complete_check_and_spends_one(store):
+    code = store.create_code("Jane", packs=1, days=10)
+    h = store.validate(code).code_hash
+    claim_kind = store.claim_pack(h, "file-a")
+    spent = store.settle_pack(h, "file-a", claim_kind, check_complete=True, rfq_reference="5/2/1(0310)21/22",
+                              n_issues=2)
+    assert spent is True
+    cs = store.validate(code)
+    assert cs.status == "used_up"
+    row = store.show_code(code)
+    assert row["uses"][0]["rfq_reference"] == "5/2/1(0310)21/22" and row["uses"][0]["n_issues"] == 2
+
+
+def test_settle_pack_never_spends_a_second_credit_on_a_free_rerun_claim(store):
+    """claim_pack() returns 'rerun' for a file already claimed under this code (test_same_file_run_again_is_
+    free above) - settle_pack must not spend a credit for that regardless of whether this particular
+    completion succeeds."""
+    code = store.create_code("Jane", packs=1, days=10)
+    h = store.validate(code).code_hash
+    store.claim_pack(h, "file-a")
+    store.finalize_pack(h, "file-a", "ref", 0)
+    claim_kind = store.claim_pack(h, "file-a")
+    assert claim_kind == "rerun"
+    assert store.settle_pack(h, "file-a", claim_kind, check_complete=True) is False
+
+
 def test_finalize_pack_records_results_without_storing_the_file(store):
     code = store.create_code("Jane", packs=1, days=10)
     h = store.validate(code).code_hash

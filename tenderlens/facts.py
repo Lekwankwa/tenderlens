@@ -37,9 +37,11 @@ class Facts:
         self.items: list[Fact] = []
         self.unread: list[tuple[str, int, str]] = []  # (field, page, why) entries a reader could not read
         self.vision_log: dict = {"calls": 0, "failed": 0, "pages_read": 0, "pages_inspected": 0, "errors": [],
-                                 "stopped_early": ""}
+                                 "stopped_early": "", "failed_pages": set()}
         self.misread_variants: list[str] = []  # handwriting a focused crop re-read cleared or set aside (Step 3B)
         self.stage_times: dict[str, float] = {}  # seconds per pipeline stage; filled in by cli.audit_pack
+        self.vision_complete = True  # False only when vision was configured, attempted, and some call still
+                                      # failed after retries - set by cli.audit_pack once the run is done
         self._lock = threading.Lock()  # protects vision_log, touched from worker threads by _ask (see below)
 
     def add(self, *a, **k):
@@ -410,12 +412,14 @@ VISION_SYSTEM = (
 )
 
 
-def _ask(llm: LlamaClient, facts: Facts, prompt: str, images: list[str]):
+def _ask(llm: LlamaClient, facts: Facts, prompt: str, images: list[str], page_no: int | None = None):
     """Called from worker threads under concurrency (vision_extract/inspect_pages/signature_match each run
     a wave of these on a thread pool), so facts.vision_log is updated under a lock, and the catch is
     deliberately broad (not a specific allowlist): a call that fails in a way nobody anticipated must still
     be isolated and recorded here, not propagate up through the thread pool and abandon every other page's
-    result that was already in - the exact "a call that still fails must not stop the run" requirement."""
+    result that was already in - the exact "a call that still fails must not stop the run" requirement.
+    page_no, if given, is the pack page this call was reading, recorded on failure so the report can list
+    exactly which pages were not fully read, not just how many calls failed."""
     with facts._lock:
         facts.vision_log["calls"] += 1
     try:
@@ -427,6 +431,8 @@ def _ask(llm: LlamaClient, facts: Facts, prompt: str, images: list[str]):
             facts.vision_log["failed"] += 1
             if msg not in facts.vision_log["errors"] and len(facts.vision_log["errors"]) < 4:
                 facts.vision_log["errors"].append(msg)
+            if page_no is not None:
+                facts.vision_log["failed_pages"].add(page_no)
         return None
 
 
@@ -436,7 +442,7 @@ def vision_precheck(llm: LlamaClient, pages: list[Page], facts: Facts) -> bool:
     in facts.vision_log['stopped_early'], instead of making every one of those calls fail the same way."""
     if not pages:
         return True
-    data = _ask(llm, facts, 'Reply with JSON only: {"ok": true}', [pages[0].image_path])
+    data = _ask(llm, facts, 'Reply with JSON only: {"ok": true}', [pages[0].image_path], page_no=pages[0].number)
     if data is None:
         facts.vision_log["stopped_early"] = (llm.errors[-1] if llm.errors else
                                              "the vision model did not answer the test call")
@@ -478,7 +484,7 @@ def _second_look(llm: LlamaClient, facts: Facts, page: Page, entry: F.Entry, fac
     single, differently worded question. Kept for anything that still calls a single second look directly
     (tests, other callers); vision_extract itself runs a whole wave of these concurrently - see
     _apply_second_look / _second_look_prompt."""
-    data = _ask(llm, facts, _second_look_prompt(entry, page), [page.image_path])
+    data = _ask(llm, facts, _second_look_prompt(entry, page), [page.image_path], page_no=page.number)
     _apply_second_look(fact, entry, data)
 
 
@@ -528,7 +534,7 @@ def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_cont
                 "Dates: copy them as written. Return JSON of the form {\"<field>\": \"<answer>\"}.\nFields:\n"
                 + json.dumps(fields, indent=1))
 
-        tasks = [(lambda p=p: _ask(llm, facts, make_prompt(p), [p.image_path])) for p in pgs]
+        tasks = [(lambda p=p: _ask(llm, facts, make_prompt(p), [p.image_path], page_no=p.number)) for p in pgs]
         datas = run_concurrent(tasks, vision_concurrency(), tick)
         for p, data in zip(pgs, datas):
             if not isinstance(data, dict):
@@ -568,7 +574,7 @@ def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_cont
 
     if pending:
         t1 = time.time()
-        tasks = [(lambda e=e, p=p: _ask(llm, facts, _second_look_prompt(e, p), [p.image_path]))
+        tasks = [(lambda e=e, p=p: _ask(llm, facts, _second_look_prompt(e, p), [p.image_path], page_no=p.number))
                 for e, _, p in pending]
         results = run_concurrent(tasks, vision_concurrency())
         for (e, fact, _), data in zip(pending, results):
@@ -621,8 +627,8 @@ def _crop_ask_twice(llm: LlamaClient, facts: Facts, page: Page, box, label: str)
           "is a number.")
     q2 = ("Zoomed-in crop of one handwritten entry on a form. Transcribe exactly what is written, character "
           "by character. Reply with JSON {\"answer\": \"...\"}.")
-    a1 = _answer(_ask(llm, facts, q1, [str(crop_path)]))
-    a2 = _answer(_ask(llm, facts, q2, [str(crop_path)]))
+    a1 = _answer(_ask(llm, facts, q1, [str(crop_path)], page_no=page.number))
+    a2 = _answer(_ask(llm, facts, q2, [str(crop_path)], page_no=page.number))
     return str(a1 or "").strip(), str(a2 or "").strip(), str(crop_path)
 
 
@@ -710,8 +716,8 @@ def _crop_ask_yesno_twice(llm: LlamaClient, facts: Facts, page: Page, box) -> tu
     q2 = ("Zoomed-in crop of a YES/NO choice on a government bid form. Look only at what is circled, ticked "
           "or crossed out here - nothing else. Is it Yes, No, Both, or Neither? Reply with JSON "
           "{\"answer\": \"...\"}.")
-    a1 = _answer(_ask(llm, facts, q1, [str(crop_path)]))
-    a2 = _answer(_ask(llm, facts, q2, [str(crop_path)]))
+    a1 = _answer(_ask(llm, facts, q1, [str(crop_path)], page_no=page.number))
+    a2 = _answer(_ask(llm, facts, q2, [str(crop_path)], page_no=page.number))
     return F.clean(F.YESNO, a1), F.clean(F.YESNO, a2), str(crop_path)
 
 
@@ -804,7 +810,8 @@ def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int
                 "exactly yes or no. Say yes only if you can clearly see it. Return JSON {\"<key>\": \"yes\" or "
                 "\"no\"}.\n" + json.dumps(qs, indent=1))
 
-    tasks = [(lambda p=p, qs=qs: _ask(llm, facts, make_prompt(p, qs), [p.image_path])) for p, qs in targets]
+    tasks = [(lambda p=p, qs=qs: _ask(llm, facts, make_prompt(p, qs), [p.image_path], page_no=p.number))
+            for p, qs in targets]
     datas = run_concurrent(tasks, vision_concurrency(), tick)
 
     pending: list[tuple[Fact, Page, str]] = []
@@ -829,7 +836,7 @@ def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int
     if pending:
         tasks2 = [(lambda p=p, second_q=second_q: _ask(
                       llm, facts, f"Page {p.number}. {second_q} Answer JSON {{\"answer\": \"yes\" or \"no\"}}.",
-                      [p.image_path]))
+                      [p.image_path], page_no=p.number))
                  for _, p, second_q in pending]
         results = run_concurrent(tasks2, vision_concurrency())
         for (fact, _, _), data in zip(pending, results):
@@ -894,9 +901,9 @@ def signature_match(llm: LlamaClient, pages: list[Page], facts: Facts, progress=
         return
 
     tasks = []
-    for _, _, ab_path, ba_path in targets:
-        tasks.append(lambda path=ab_path: _ask(llm, facts, ask, [path]))
-        tasks.append(lambda path=ba_path: _ask(llm, facts, ask, [path]))
+    for _, p, ab_path, ba_path in targets:
+        tasks.append(lambda path=ab_path, p=p: _ask(llm, facts, ask, [path], page_no=p.number))
+        tasks.append(lambda path=ba_path, p=p: _ask(llm, facts, ask, [path], page_no=p.number))
     done = [0]
 
     def tick():

@@ -65,6 +65,18 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     req = req_box["req"]
 
     classify_pages(pages, load_templates(blank))
+    facts, res = _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript, extra_facts,
+                                   progress, timing)
+    facts.stage_times = timing
+    return req, res, facts, pages
+
+
+def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript, extra_facts, progress,
+                      timing):
+    """The part of audit_pack() after OCR/requirements: read the pack with vision (if configured) and run the
+    rule checks. Split out so a free re-run (vision was busy, nothing about the pack or the buyer's
+    documents changed) can redo just this part, reusing the already-read req/pages instead of paying for
+    OCR and the text model again."""
     facts = Facts()
     ocr_facts(pages, facts)
     if vision.configured:
@@ -83,6 +95,8 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
                 signature_match(vision, pages, facts,
                                 progress=(lambda d, t: progress("vision_checks", d, t)) if progress else None,
                                 timing=timing)
+    if vision.configured and (facts.vision_log.get("stopped_early") or facts.vision_log.get("failed", 0) > 0):
+        facts.vision_complete = False
     tinfo = {"unmatched": {}}
     if transcript:
         tinfo = load_transcript(transcript, facts, pages)
@@ -90,8 +104,20 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
         extra_facts(facts, pages)
     res = Auditor(req, pages, facts, blank, tinfo["unmatched"], pack_stage=pack_stage).run()
     res.ocr_variants.extend(facts.misread_variants)
+    return facts, res
+
+
+def rerun_vision(req, pages, blank, vision, inspect="forms", passes=2, pack_stage="final", transcript=None,
+                 extra_facts=None, progress=None):
+    """Free re-run of an incomplete Complete check: vision was busy last time, nothing about the buyer's
+    documents or the pack changed, so OCR and the text model (requirements) are not repeated - pages already
+    carries their OCR text, req is reused as-is. Returns (res, facts), timed the same way as audit_pack's own
+    vision_first/vision_second (no render/ocr/text_model entries, since none of that runs here)."""
+    timing: dict[str, float] = {}
+    facts, res = _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript, extra_facts,
+                                   progress, timing)
     facts.stage_times = timing
-    return req, res, facts, pages
+    return res, facts
 
 
 def pilot_cmd(a):
@@ -262,6 +288,10 @@ def main(argv=None):
     n_issue = sum(1 for f in res.findings if f.tier == "issue")
     n_obs = len(res.findings) - n_issue
     print(f"{n_issue} issues, {n_obs} observations; {len(res.passed)} checks passed -> {a.out / 'report.html'}")
+    if check_mode == "complete" and not facts.vision_complete:
+        failed_pages = sorted(facts.vision_log.get("failed_pages") or [])
+        print("INCOMPLETE: handwriting, ticks and stamps were not fully read. Pages that failed: "
+             f"{failed_pages or 'not recorded'}. Run it again.")
     for label, c in (("text", llm), ("vision", vision)):
         if not c.calls:
             continue

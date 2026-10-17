@@ -131,8 +131,12 @@ class LlamaClient:
         self.calls = 0
         self.prompt_tokens = 0
         self.completion_tokens = 0
+        self.retries = 0  # how many times _post() actually waited and retried, for the per-check log
         self.errors: list[str] = []  # why calls failed, so the report can say so instead of failing silently
         self._lock = threading.Lock()  # calls/prompt_tokens/completion_tokens are updated from worker threads
+        # Vision reads pages one at a time across a whole pack, so a slower, longer-patience schedule costs
+        # far less relative to the run than it would for the one-shot text (requirements) call.
+        self.retry_waits = (2.0, 5.0, 15.0) if prefix == "VISION" else (1.0, 2.0, 4.0)
 
     @property
     def estimated_cost(self) -> float | None:
@@ -166,10 +170,12 @@ class LlamaClient:
                 **({"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}),
             },
         )
-        # 429 ("model busy") and 5xx are the provider's shared capacity at that moment, not a real outage -
-        # often gone within seconds, so up to 3 retries with back-off before this call counts as failed.
-        # Anything else (a bad key, a malformed request, ...) fails immediately: retrying it can't help.
-        for attempt in range(4):
+        # 429 ("model busy"), 5xx, and a timeout or connection failure reaching the endpoint are the provider's
+        # shared capacity at that moment, not a real outage - often gone within seconds, so retried with
+        # back-off before this call counts as failed. Anything else (a bad key, a malformed request, ...)
+        # fails immediately: retrying it can't help.
+        waits = self.retry_waits
+        for attempt in range(len(waits) + 1):
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout, context=_HTTPS_CTX) as r:
                     return json.load(r)
@@ -177,16 +183,24 @@ class LlamaClient:
                 body_text = _read_error_body(err, self.api_key)
                 last_err = LLMError(f"HTTP {err.code} from {self.base_url} ({self.model}): {body_text}", err.code)
                 retryable = err.code == 429 or 500 <= err.code < 600
-                if not retryable or attempt == 3:
-                    raise last_err from None
-                wait = None
                 retry_after = err.headers.get("Retry-After") if err.headers else None
-                if retry_after:
-                    try:
-                        wait = float(retry_after)
-                    except ValueError:
-                        wait = None
-                time.sleep(wait if wait is not None else 2 ** attempt)  # 1s, 2s, 4s if no Retry-After
+            except (urllib.error.URLError, TimeoutError) as err:
+                # no HTTP status at all - a timeout or a connection problem reaching the endpoint, not a bad
+                # request, so it gets the same retry treatment as a 429.
+                reason = getattr(err, "reason", err)
+                last_err = LLMError(f"{type(reason).__name__}: {reason} contacting {self.base_url} ({self.model})")
+                retryable, retry_after = True, None
+            if not retryable or attempt == len(waits):
+                raise last_err from None
+            wait = None
+            if retry_after:
+                try:
+                    wait = float(retry_after)
+                except ValueError:
+                    wait = None
+            with self._lock:
+                self.retries += 1
+            time.sleep(wait if wait is not None else waits[attempt])
         raise last_err  # unreachable - the loop above always returns or raises
 
     def complete_json(self, system: str, user: str, images: list[str] | None = None) -> dict:

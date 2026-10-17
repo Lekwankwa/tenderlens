@@ -135,6 +135,12 @@ class PilotStore:
                     created_at TEXT NOT NULL,
                     PRIMARY KEY (code_hash, file_sha256)
                 );
+                CREATE TABLE IF NOT EXISTS pack_reruns (
+                    code_hash TEXT NOT NULL,
+                    file_sha256 TEXT NOT NULL,
+                    count INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (code_hash, file_sha256)
+                );
             """)
 
     def _connect(self) -> sqlite3.Connection:
@@ -226,6 +232,43 @@ class PilotStore:
         with self._tx() as con:
             con.execute("UPDATE pack_uses SET rfq_reference=?, n_issues=? WHERE code_hash=? AND file_sha256=?",
                        (rfq_reference, n_issues, code_hash, file_sha256))
+
+    def settle_pack(self, code_hash: str, file_sha256: str, claim_kind: str, check_complete: bool,
+                    rfq_reference: str = "", n_issues: int = 0) -> bool:
+        """The one credit rule, in one place, so app.py doesn't have to get it right inline: a pack credit
+        is spent only when the check actually finished - a Fast check that completes, or a Complete check
+        where every vision call succeeded. claim_kind is claim_pack()'s own return value ('new' or 'rerun');
+        a 'rerun' (the same file audited again under the same code) never spends a second credit regardless
+        of this call's outcome. Returns whether a credit was spent."""
+        if claim_kind != "new":
+            return False
+        if check_complete:
+            self.finalize_pack(code_hash, file_sha256, rfq_reference, n_issues)
+            return True
+        self.refund_pack(code_hash, file_sha256)
+        return False
+
+    # -- free re-runs on an incomplete check (vision busy, not the bidder's fault) --------------------------
+    FREE_RERUN_LIMIT = 3
+
+    def rerun_count(self, code_hash: str, file_sha256: str) -> int:
+        with self._ro() as con:
+            row = con.execute("SELECT count FROM pack_reruns WHERE code_hash=? AND file_sha256=?",
+                              (code_hash, file_sha256)).fetchone()
+            return row["count"] if row else 0
+
+    def rerun_allowed(self, code_hash: str, file_sha256: str) -> bool:
+        return self.rerun_count(code_hash, file_sha256) < self.FREE_RERUN_LIMIT
+
+    def record_rerun(self, code_hash: str, file_sha256: str) -> int:
+        """Call only once a free re-run has actually happened. Returns the new count."""
+        with self._tx() as con:
+            con.execute(
+                "INSERT INTO pack_reruns(code_hash, file_sha256, count) VALUES (?,?,1) "
+                "ON CONFLICT(code_hash, file_sha256) DO UPDATE SET count = count + 1",
+                (code_hash, file_sha256))
+            return con.execute("SELECT count FROM pack_reruns WHERE code_hash=? AND file_sha256=?",
+                               (code_hash, file_sha256)).fetchone()["count"]
 
     # -- admin reads ----------------------------------------------------------
     def list_codes(self) -> list[dict]:

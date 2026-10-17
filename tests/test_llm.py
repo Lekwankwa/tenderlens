@@ -113,6 +113,7 @@ def test_vision_precheck_stops_a_failing_endpoint_before_the_full_run(tmp_path, 
 
     class FakePage:
         image_path = str(img)
+        number = 1
 
     facts = Facts()
     ok_ = vision_precheck(c, [FakePage()], facts)
@@ -130,6 +131,7 @@ def test_vision_precheck_passes_through_when_the_model_answers(tmp_path):
 
     class FakePage:
         image_path = str(img)
+        number = 1
 
     facts = Facts()
     assert vision_precheck(c, [FakePage()], facts) is True
@@ -208,6 +210,7 @@ def test_a_429_is_retried_and_then_succeeds(monkeypatch):
     assert c.complete_json("sys", "u") == {"ok": True}
     assert len(m.requests) == 2
     assert sleeps == [1]  # no Retry-After header in this script, so the 2**attempt backoff (1s) is used
+    assert c.retries == 1  # one wait-and-retry happened, for the per-check log
     m.close()
 
 
@@ -248,6 +251,26 @@ def test_retry_after_header_is_honoured_over_the_default_backoff(monkeypatch):
     c.complete_json("sys", "u")
     assert waits == [5.0]  # the header's value, not the 1s default backoff for attempt 0
     m.close()
+
+
+def test_vision_calls_use_their_own_slower_retry_schedule(monkeypatch):
+    waits = []
+    monkeypatch.setattr("tenderlens.llm.time.sleep", waits.append)
+    m = Mock([(429, {"error": "busy"}), (429, {"error": "busy"}), (429, {"error": "busy"}), ok({"ok": True})])
+    c = client(m, prefix="VISION")
+    assert c.complete_json("sys", "u") == {"ok": True}
+    assert waits == [2.0, 5.0, 15.0]  # not the text client's 1s/2s/4s
+    m.close()
+
+
+def test_a_connection_failure_with_no_http_status_is_retried_like_a_429(monkeypatch):
+    """A timeout or a refused connection never reaches urllib.error.HTTPError (there's no response at all),
+    so it needs its own except clause - this is what Step 2 of the failed-vision-handling fix asked for."""
+    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)
+    c = LlamaClient(base_url="http://127.0.0.1:1", model="x", api_key="k")  # nothing listens on port 1
+    with pytest.raises(LLMError) as exc:
+        c.complete_json("sys", "u")
+    assert "refused" in str(exc.value).lower() or "connect" in str(exc.value).lower()
 
 
 def test_ping_still_works_through_the_post_level_retry(monkeypatch):

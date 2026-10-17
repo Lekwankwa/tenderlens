@@ -424,10 +424,18 @@ class Auditor:
     def handwritten_entries(self):
         local = self.req.local_content_required
         if not any(f.source in ("manual", "vision") and f.field in ENTRY for f in self.f.items):
-            self.res.human_only.append(
-                "Handwritten entries were NOT read: no vision model is connected and no transcript was supplied. That "
-                "covers the ticks on SBD 4 and SBD 8, handwritten names, dates, amounts and the commissioner's stamp. "
-                "Connect Llama vision (see OLLAMA.md) and these checks run automatically.")
+            vl = self.f.vision_log
+            if vl.get("model"):  # a vision model was configured and at least attempted - just not connected is wrong here
+                reason = vl.get("stopped_early") or (
+                    f"{vl['failed']} of {vl['calls']} call(s) failed" if vl.get("calls") else "no page was read")
+                self.res.human_only.append(
+                    "Handwriting, ticks and stamps were NOT read in this run: a vision model was connected, but the "
+                    f"service was busy or unavailable ({reason}). Please run the check again.")
+            else:
+                self.res.human_only.append(
+                    "Handwritten entries were NOT read: no vision model is connected and no transcript was supplied. "
+                    "That covers the ticks on SBD 4 and SBD 8, handwritten names, dates, amounts and the "
+                    "commissioner's stamp. Connect Llama vision (see OLLAMA.md) and these checks run automatically.")
             return
         for dtype, entries in F.FORMS.items():
             if not self.pg(dtype):
