@@ -199,35 +199,46 @@ class Auditor:
                       "No page was recognised as the supplier's quotation (item, quantity, price, validity, signature).",
                       "Check that the quotation is in the pack.", "RFQ: quotations must be submitted")
         mapping = {"tcc": "tcs", "bbbee_certificate": "bbbee_affidavit", "sbd4": "sbd4", "sbd8": "sbd8",
-                   "sbd9": "sbd9", "sbd6_1": "sbd6_1", "sbd6_2": "sbd6_2", "csd_report": "csd"}
-        for d in self.req.documents:
-            if d.id == "annexure_c":
-                hit = [p for p in self.pages if p.doc_type not in ("sbd6_2", "local_content_decl")
-                       and re.search(r"ANNEX(URE)?\s*C\b", p.text, re.I)]
-                if hit:
-                    self.ok("Annexure C present", pages=[p.number for p in hit])
-                elif not self.req.local_content_required:
-                    self.ok("Annexure C not needed: no local content requirement",
-                            f"RFQ: only 'where there is local content'. Basis: {self.req.local_content_basis}.")
-                else:
-                    self.find(
-                        "high", "missing_document",
-                        "Annexure C (Local Content Declaration: Summary Schedule) is not in the pack",
-                        "The RFQ lists Annexure C where there is local content, and local content applies to this bid "
-                        f"({self.req.local_content_basis}). The pack has no Annexure C schedule.",
-                        "Confirm whether Annexure C was meant to be included.",
-                        f"RFQ: \"{d.source_quote[:120]}...\"; SBD 6.2 clause 1.6(a)",
-                        [self.E(self.pn("sbd6_2", 1), "SBD 6.2 clause 1.6")])
-                continue
+                   "sbd9": "sbd9", "sbd6_1": "sbd6_1", "sbd6_2": "sbd6_2", "csd_report": "csd",
+                   "annexure_c": "annexure_c"}
+
+        def doc_pages(d):
             dtype = mapping.get(d.id)
-            if dtype == "sbd6_2" and dtype not in present and not self.req.local_content_required:
-                self.ok("SBD 6.2 not needed: no local content requirement")
-            elif dtype and dtype in present:
-                self.ok(f"Required document present: {d.label}", pages=self.pns(dtype))
-            elif dtype:
+            return self.pns(dtype) if dtype else []
+
+        for d in self.req.documents:
+            pages = doc_pages(d)
+            if pages:
+                self.ok(f"Required document present: {d.label}", pages=pages)
+            elif not d.conditional:
                 self.find("high", "missing_document", f"Missing: {d.label}", "Required by the RFQ but no page was "
                           "recognised as this document.", "Check the pack for this document.",
                           f"RFQ: \"{d.source_quote[:100]}\"")
+            else:
+                # Conditional and missing: a sibling under the SAME condition (e.g. SBD 6.2 for Annexure C, or
+                # vice versa) that IS in the pack is concrete evidence the condition is met - never guessed from
+                # the RFQ's wording alone. Only an explicit RFQ statement that the condition is NOT met earns
+                # "not needed"; otherwise this needs a person, not a rule, to decide.
+                cond = d.conditional[5:] if d.conditional.lower().startswith("only ") else d.conditional  # "where there is X"
+                topic = re.sub(r"^where there is\s+", "", cond, flags=re.I).strip() or cond
+                sibling = next(((s, doc_pages(s)) for s in self.req.documents
+                                if s.conditional == d.conditional and s.id != d.id and doc_pages(s)), None)
+                if sibling or self.req.local_content_required:
+                    basis = (f"{sibling[0].label} is in the pack (page{'s' if len(sibling[1]) != 1 else ''} "
+                             f"{', '.join(map(str, sibling[1]))})") if sibling else \
+                            f"the RFQ confirms {topic} applies ({self.req.local_content_basis})"
+                    self.find("high", "missing_document", f"Missing: {d.label}",
+                              f"The RFQ lists {d.label} {cond}, and {basis}. The pack has no {d.label}.",
+                              "Confirm whether it was meant to be included.",
+                              f"RFQ: \"{d.source_quote[:120]}\"",
+                              [self.E(sibling[1][0])] if sibling else [])
+                elif self.req.local_content_negated:
+                    self.ok(f"{d.label} not needed: the RFQ says so",
+                            f"RFQ: \"{self.req.local_content_negated_quote}\"")
+                else:
+                    self.res.human_only.append(
+                        f"{d.label} is required {cond}. RFQ: \"{d.source_quote[:140]}\". "
+                        f"Confirm whether {topic} applies.")
 
     def page_completeness(self):
         for dtype, expect in TEMPLATE_PAGES.items():

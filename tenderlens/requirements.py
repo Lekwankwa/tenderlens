@@ -50,6 +50,8 @@ class Requirements:
     reference: str = ""
     local_content_required: bool = False
     local_content_basis: str = ""
+    local_content_negated: bool = False  # the RFQ/Tender itself says, in its own words, the condition is NOT met
+    local_content_negated_quote: str = ""
     min_quote_validity_days: int = 0
     documents: list[Requirement] = field(default_factory=list)
     conditions: list[Requirement] = field(default_factory=list)
@@ -75,6 +77,16 @@ def quote_in(source: str, quote: str) -> bool:
 MONTHS = {m: i for i, m in enumerate(
     ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
      "november", "december"], 1)}
+
+
+def condition_negated(topic: str, text: str) -> re.Match | None:
+    """Does `text` state, in its own words, that `topic` (e.g. "local content") does NOT apply? Generic so any
+    conditional document's own "where there is X" clause can be checked the same way, not just local content.
+    Deliberately narrow (explicit negation only) - absence of a positive mention is NOT evidence of this; see
+    rules_extract's `buyer_says` for the separate, positive-evidence check."""
+    t = re.escape(topic)
+    return re.search(rf"\bno\s+{t}\b|\b{t}\b[^.]{{0,60}}\b(?:does not apply|is not applicable|not applicable|"
+                     r"not required|does not require)", text, re.I)
 
 
 def rules_extract(email_text: str, email_name: str, spec_text: str, spec_name: str) -> Requirements:
@@ -147,6 +159,9 @@ def rules_extract(email_text: str, email_name: str, spec_text: str, spec_name: s
         f"the buyer's documents mention: '{buyer_says.group(0)}'" if buyer_says else
         "the RFQ asks for SBD 6.2 and Annexure C only 'where there is local content' and neither the RFQ nor "
         "the specification names a designated sector or a local content threshold")
+    negated = condition_negated("local content", stripped + " " + re.sub(r"\s+", " ", spec_text))
+    r.local_content_negated = bool(negated)
+    r.local_content_negated_quote = negated.group(0) if negated else ""
 
     # spec sheet (OCR of a scan, so keep patterns loose). Optional: no separate spec document was
     # necessarily issued, so an empty spec_text leaves r.spec = {} rather than a dict of Nones.

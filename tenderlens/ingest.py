@@ -258,6 +258,12 @@ SIGNATURES = [
     ("sbd6_1", [r"SBD\s*6\.1", r"PREFERENCE POINTS CLAIM"]),
     ("sbd6_2", [r"SBD\s*6\.2", r"DECLARATION CERTIFICATE FOR LOCAL"]),
     ("local_content_decl", [r"REFER TO ANNEX\s*B", r"LOCAL CONTENT DECLARATION BY CHIEF"]),
+    # Annex C (SATS 1286:2011): its own printed subtitle, "Local Content Declaration - Summary Schedule"
+    # (a dash), which OCRs reliably even when the stylised "Annex C" banner above it does not. SBD 6.2
+    # clause 1.6 cites the same words in a sentence with a colon instead ("...the Annex C (local content
+    # declaration: summary schedule) are not submitted...") - the dash is what tells them apart.
+    ("annexure_c", [r"ANNEX\s*C\s*[\r\n]*\s*(?:-\s*)?(?:LOCAL CONTENT DECLARATION|SUMMARY SCHEDULE)",
+                    r"LOCAL CONTENT DECLARATION\s*-\s*SUMMARY SCHEDULE"]),
     ("sbd4", [r"SBD\s*4", r"DECLARATION OF INTEREST"]),
     ("sbd8", [r"SBD\s*8", r"PAST SUPPLY CHAIN"]),
     ("sbd9", [r"SBD\s*9", r"INDEPENDENT BID DETERMINATION"]),
