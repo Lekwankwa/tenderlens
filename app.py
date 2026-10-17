@@ -162,25 +162,17 @@ with st.sidebar:
     st.markdown("<div class='tl-step'>3 &middot; Pack stage</div>", unsafe_allow_html=True)
     stage_col1, stage_col2 = st.columns(2)
     with stage_col1:
-        b1, h1 = st.columns([5, 1])
-        with b1:
-            if st.button("Draft pack", width="stretch",
-                        type="primary" if st.session_state.get("pack_stage") == "draft" else "secondary"):
-                st.session_state["pack_stage"] = "draft"
-        with h1:
-            with st.popover("❓"):
-                st.caption("Initials are skipped at this stage. A page with no initials in the bottom-right "
-                          "corner is not flagged as an issue.")
+        if st.button("Draft pack", width="stretch",
+                    type="primary" if st.session_state.get("pack_stage") == "draft" else "secondary",
+                    help="Initials are skipped at this stage. A page with no initials in the bottom-right "
+                         "corner is not flagged as an issue."):
+            st.session_state["pack_stage"] = "draft"
     with stage_col2:
-        b2, h2 = st.columns([5, 1])
-        with b2:
-            if st.button("Final pack", width="stretch",
-                        type="primary" if st.session_state.get("pack_stage") == "final" else "secondary"):
-                st.session_state["pack_stage"] = "final"
-        with h2:
-            with st.popover("❓"):
-                st.caption("Initials are checked at this stage. A page with no initials in the bottom-right "
-                          "corner is flagged as an issue.")
+        if st.button("Final pack", width="stretch",
+                    type="primary" if st.session_state.get("pack_stage") == "final" else "secondary",
+                    help="Initials are checked at this stage. A page with no initials in the bottom-right "
+                         "corner is flagged as an issue."):
+            st.session_state["pack_stage"] = "final"
     pack_stage = st.session_state.get("pack_stage")
     if pack_stage is None:
         st.caption("Choose Draft pack or Final pack before auditing.")
