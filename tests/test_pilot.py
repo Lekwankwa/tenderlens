@@ -284,6 +284,20 @@ def test_purge_ignores_a_missing_directory():
     assert pilot.purge_old_files(["/no/such/directory"], max_age_hours=24) == 0
 
 
+def test_pilot_terms_is_unchanged_without_a_hosting_note(monkeypatch):
+    monkeypatch.delenv("TENDERLENS_HOSTING_NOTE", raising=False)
+    assert pilot.pilot_terms() == pilot.PILOT_TERMS  # the Streamlit Community Cloud deployment is unaffected
+
+
+def test_pilot_terms_appends_the_hosting_note_when_set(monkeypatch):
+    monkeypatch.setenv("TENDERLENS_HOSTING_NOTE",
+                       "Documents are processed on Google Cloud (Johannesburg); page images are sent to "
+                       "DeepInfra for reading.")
+    terms = pilot.pilot_terms()
+    assert terms.startswith(pilot.PILOT_TERMS)
+    assert "Johannesburg" in terms and "DeepInfra" in terms
+
+
 # --------------------------------------------------------------------------- the real Streamlit app, pilot mode
 
 def test_app_in_pilot_mode_gates_upload_and_hides_transcript(tmp_path, monkeypatch):

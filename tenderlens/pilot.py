@@ -370,3 +370,11 @@ PILOT_TERMS = (
     "listed for you to check by eye. Files are kept for at most 24 hours. Running the same file again doesn't "
     "use another pack. Use only documents you are allowed to upload."
 )
+
+
+def pilot_terms() -> str:
+    """PILOT_TERMS plus, only where TENDERLENS_HOSTING_NOTE is set (Cloud Run's deploy.sh sets it; the
+    Streamlit Community Cloud deployment does not, so its terms text is unchanged), a sentence on where
+    documents are processed and that page images leave this host for the vision model."""
+    note = os.environ.get("TENDERLENS_HOSTING_NOTE", "").strip()
+    return f"{PILOT_TERMS} {note}" if note else PILOT_TERMS

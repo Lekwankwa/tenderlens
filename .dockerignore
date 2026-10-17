@@ -1,0 +1,43 @@
+# Keep this in step with .gitignore - anything with real personal/company data or secrets must never reach
+# the build context, let alone the image.
+
+.git/
+.github/
+
+# real personal/company data - never shipped, same files .gitignore keeps out of the repo.
+# samples/blank/ is NOT excluded: it's the generic, non-sensitive SBD form templates the app loads at
+# runtime to classify pages (app.py's BLANK = samples/blank) - only response/rfq (real uploaded packs) are.
+samples/response/
+samples/rfq/
+documents/
+tests/fixtures/baseline/
+tests/fixtures/v2/*.pdf
+
+# local env and virtualenv - never ship a key, never ship host-specific binaries
+.env
+.env.*
+!.env.example
+.venv/
+
+# caches, local outputs, generated reports
+.cache/
+out/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+*.pyc
+
+# pilot bookkeeping: only pilot.db itself ships (committed on purpose - see README "Pilot mode"); any other
+# local/transient file under pilot/ does not
+pilot/*
+!pilot/pilot.db
+
+# editor/OS noise
+.DS_Store
+.vscode/
+.idea/
+
+# Cloud Run specific files that don't belong inside the image they describe
+Dockerfile
+.dockerignore
+deploy.sh

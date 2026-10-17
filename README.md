@@ -174,12 +174,23 @@ race for the last pack exactly one succeeds (an atomic SQLite transaction, not a
 **Storage.** Only invite details (name, optional email, pack limit, expiry), the code's hash, and per pack a file
 fingerprint (SHA-256, not the file), the RFQ reference, the issue count and timestamps - never document contents,
 names read from the pack, or the PDF itself. Kept in a SQLite file at `TENDERLENS_PILOT_DB` (default `pilot/pilot.db`,
-git-ignored). Uploaded files and their page images are deleted from the server 24 hours after they were made.
+**committed to git on purpose** - see below). Uploaded files and their page images are deleted from the server 24
+hours after they were made.
 
 **Hosting warning, not solved here:** if this runs somewhere that wipes its disk on restart (Streamlit Community
-Cloud is the obvious one), `pilot/pilot.db` goes with it and every code's pack count resets. That's a real limitation
-of running this prototype there, not something this code works around - use a host with a persistent disk (or point
-`TENDERLENS_PILOT_DB` at one) if pack counts need to survive restarts.
+Cloud, or a Cloud Run instance scaling to zero or restarting), `pilot/pilot.db` goes with it and every code's pack
+count resets to whatever was last committed to git. That's why it's committed at all - re-deploying restores the
+codes and counts as of the last commit, rather than losing them outright - but anything created or spent *after*
+that commit (a new code, a used pack) is gone the next time the instance restarts. That's a real limitation of
+running this prototype this way, not something this code works around - use a host with a persistent disk (or
+point `TENDERLENS_PILOT_DB` at one), or move the counters to a real database, if pack counts need to survive
+restarts reliably.
+
+**Pre-deploy checklist (Cloud Run, or anywhere else that wipes disk on restart):** before building the image,
+regenerate the pilot codes you want live (`pilot create`/`extend`/`revoke` as needed) and commit the resulting
+`pilot/pilot.db`. The image ships whatever was last committed; anything done against a *running* instance's copy
+is lost on its next restart, so pilot.db in the repo is the actual source of truth for what a fresh deploy starts
+from, not a cache of it.
 
 ## Known limits (be honest about these in a pitch)
 - Built and tested on one pack. Thresholds in `vision.py` (stray marks, signatures) were tuned on it.
@@ -203,6 +214,90 @@ of running this prototype there, not something this code works around - use a ho
 - Documents the RFQ does not ask for (the CIPC certificate) are not checked for presence, by design.
 - No live look-ups (SARS PIN, CSD, CIPC, Treasury restricted-supplier and tender-defaulter registers), and price
   reasonableness, invitation lists and email timestamps are outside what the pack shows.
+- `pilot/pilot.db` lives on the running instance's own disk, not a shared database. Pack counts, and any pilot
+  codes created after the last deploy, reset whenever that instance restarts, scales to zero, or is redeployed -
+  see "Hosting warning" above. Moving the counters to a real database (Supabase, for example) is the fix once
+  this needs to run as more than a pilot.
+
+## Hosting on Google Cloud Run
+The pilot runs as a container on Google Cloud Run (Johannesburg - `africa-south1`), instead of Streamlit
+Community Cloud, to get past that host's throttling. **Documents are processed on Google Cloud (Johannesburg);
+page images are still sent to DeepInfra (USA) for the vision model to read, same as every other deployment of
+this app** - the pilot terms shown in the app say so when this is how it's hosted (`TENDERLENS_HOSTING_NOTE`,
+set by `deploy.sh`).
+
+**Build and run locally** (Docker required - see "If Docker Desktop isn't installed" below if you don't have it):
+```
+docker build -t tenderlens .
+docker run -p 8080:8080 --memory=4g --cpus=2 \
+  -e TENDERLENS_LLM_BASE_URL=https://api.deepinfra.com/v1/openai \
+  -e TENDERLENS_LLM_MODEL=meta-llama/Llama-4-Scout-17B-16E-Instruct \
+  -e TENDERLENS_LLM_API_KEY=your-key-here \
+  tenderlens
+```
+Open `http://localhost:8080`. Leave the `TENDERLENS_LLM_*` variables out entirely to bring it up with no model
+configured (the System panel shows what's missing; nothing paid runs) - useful for a first smoke test.
+
+**Deploy:**
+1. Install the `gcloud` CLI and run `gcloud auth login`.
+2. Set a budget alert *before* deploying anything (see the command list below).
+3. `export GCP_PROJECT_ID=...` and `export TENDERLENS_LLM_API_KEY=...` (your own shell, never a committed file).
+4. `./deploy.sh` - reads `deploy.sh` first; it explains every flag and is safe to re-run.
+
+**Update:** change the code, then run `./deploy.sh` again - it rebuilds the image, pushes a new tag, and
+deploys a new Cloud Run revision with the same settings. Routes traffic to the new revision automatically.
+
+**Logs:** `gcloud run services logs read tenderlens --region=africa-south1 --limit=100`, or the Cloud Run
+page in the Google Cloud Console (Logs tab) for live tailing and filtering.
+
+**Roll back:** `gcloud run revisions list --service=tenderlens --region=africa-south1` to find the previous
+revision's name, then `gcloud run services update-traffic tenderlens --region=africa-south1 --to-revisions=<previous-revision>=100`.
+
+**If Docker Desktop isn't installed:** you don't need it to deploy - `deploy.sh` builds the image with Google
+Cloud Build (`gcloud builds submit`), not local Docker, so `./deploy.sh` works with just the `gcloud` CLI
+installed. You only need Docker locally for the "build and run locally" smoke test above; if you'd rather
+skip that and verify on Cloud Run directly, install the `gcloud` CLI instead and go straight to "Deploy".
+
+**Known limits (this deployment, in addition to the list above):**
+- Uploads are capped at 30 MB per pilot pack (`TENDERLENS_MAX_UPLOAD_MB`, `--server.maxUploadSize`) - a clear
+  message is shown in the app rather than a raw rejection.
+- Tested up to about 40 pages at this scan quality within the 4 GiB / 2 vCPU instance; larger packs may be
+  slow or run out of memory.
+- A few minutes per pack for a Complete check is normal, not a hang.
+- "The AI service is busy right now..." means DeepInfra's shared capacity is saturated, not that this
+  deployment is down - see the retry/incomplete-check handling earlier in this README.
+- No 300-page tenders yet. That needs direct-to-storage upload (not through the app server), batching the
+  pages, and a background job instead of one request held open for the whole run - none of that exists yet.
+- Temporary page images are purged after `TENDERLENS_PURGE_HOURS` (set to 2 here, since Cloud Run's disk
+  counts toward the instance's memory; the Streamlit Community Cloud deployment, which doesn't set this
+  variable, keeps the original 24-hour default).
+- `--max-instances=1` (see `deploy.sh`'s own comments) - pilot pack counts are not safe across more than one
+  instance yet; see "Pilot mode" above.
+
+**Exact commands to run yourself, in order:**
+```
+# 1. Set a budget alert FIRST (replace BILLING_ACCOUNT_ID; find it with: gcloud billing accounts list)
+gcloud billing budgets create \
+  --billing-account=BILLING_ACCOUNT_ID \
+  --display-name="TenderLens pilot" \
+  --budget-amount=5USD \
+  --threshold-rule=percent=0.5 \
+  --threshold-rule=percent=0.9 \
+  --threshold-rule=percent=1.0
+# (add email recipients for the alert in the Cloud Console - Billing > Budgets & alerts - gcloud alone
+#  does not set up the notification channel)
+
+# 2. Authenticate and pick the project
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+
+# 3. Set the required variables in your own shell (never in a committed file)
+export GCP_PROJECT_ID=YOUR_PROJECT_ID
+export TENDERLENS_LLM_API_KEY=YOUR_DEEPINFRA_KEY
+
+# 4. Deploy
+./deploy.sh
+```
 
 ## Tests
 `python -m pytest tests -q`

@@ -131,6 +131,10 @@ with st.sidebar:
     st.caption(DISCLAIMER_SHORT)
 
     st.markdown("<div class='tl-step'>1 &middot; What the buyer sent</div>", unsafe_allow_html=True)
+    _max_upload_mb = os.environ.get("TENDERLENS_MAX_UPLOAD_MB", "").strip()
+    if _max_upload_mb:
+        st.caption(f"This pilot version accepts packs up to {float(_max_upload_mb):.0f} MB. Please compress "
+                  "the PDF or send a shorter pack.")
     code_status: pilot.CodeStatus | None = None
     if PILOT:
         store = pilot.PilotStore()
@@ -144,7 +148,7 @@ with st.sidebar:
                 pilot.record_attempt(st.session_state, code_status.ok)
                 (st.success if code_status.ok else st.error)(code_status.message(), icon=None)
         with st.expander("Pilot terms"):
-            st.caption(pilot.PILOT_TERMS)
+            st.caption(pilot.pilot_terms())
     rfqtender_ups = st.file_uploader("RFQ/Tender documents (PDF)", type="pdf", key="rfqtender",
                                      accept_multiple_files=True, help="Insert the original RFQ/Tender document(s).")
     if len(rfqtender_ups) > 10:
@@ -245,8 +249,14 @@ with st.sidebar:
 if run:
     t0 = time.time()
     tmp = WORK / "uploads"
-    if PILOT:
-        pilot.purge_old_files([WORK], 24)  # uploaded files and page images, 24h after they were made
+    # Uploaded files and page images older than this are deleted on every run, not just under pilot - on a
+    # host with limited/ephemeral disk (Cloud Run) these count toward memory, so stale ones should not pile
+    # up. Default (24h) matches the previous pilot-only behaviour; set lower (e.g. 1) on a tighter host.
+    # Today's own files are never touched here regardless of this setting - only ageing ones from earlier
+    # runs/sessions - since "Run again" on an incomplete check needs this run's own page images to still
+    # be there.
+    purge_hours = float(os.environ.get("TENDERLENS_PURGE_HOURS", "24"))
+    pilot.purge_old_files([WORK], purge_hours)
     claim_store = claim_hash = claim_file_sha = claim_kind = None
     facts, run_vision = None, vision  # safe defaults so the log below works even if we fail before audit_pack runs
 
