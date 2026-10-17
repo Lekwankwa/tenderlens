@@ -10,12 +10,14 @@ import hashlib
 import io
 import os
 import re
+import threading
 import time
 from collections import Counter
 from pathlib import Path
 
 import streamlit as st
 from pypdf import PdfWriter
+from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
 from tenderlens import pilot
 from tenderlens.audit import DOC_LABEL
@@ -234,8 +236,12 @@ if run:
             st.write(f"Reading the buyer's documents and the response pack, then running the checks ({check_mode} check).")
             progress_line = st.empty()
             stage_label = {"ocr": "OCR", "vision_first": "vision first readings", "vision_checks": "vision checks"}
+            main_ctx = get_script_run_ctx()
 
             def app_progress(stage, done, total):
+                # called from OCR/vision worker threads, which have no Streamlit context of their own -
+                # without this, any st.* call here raises NoSessionContext instead of updating the page.
+                add_script_run_ctx(threading.current_thread(), main_ctx)
                 progress_line.caption(f"{stage_label.get(stage, stage)}: {done} of {total}")
 
             req, res, facts, pages = audit_pack(rfq, spec, pack, BLANK, transcript, WORK, llm, lc, vision=run_vision,
