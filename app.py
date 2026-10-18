@@ -159,8 +159,8 @@ with st.sidebar:
                                 "you add them, as one combined pack.")
     if len(pack_ups) > 10:
         st.error(f"{len(pack_ups)} files selected; at most 10 response pack files are read.", icon=None)
-    if "deepinfra" in (llm.base_url + vision.base_url).lower():
-        st.caption("A connected model reads your files off-device, at DeepInfra (USA). Upload only what "
+    if "openrouter" in (llm.base_url + vision.base_url).lower():
+        st.caption("A connected model reads your files off-device, at OpenRouter (USA). Upload only what "
                   "you're allowed to share.")
 
     st.markdown("<div class='tl-step'>3 &middot; Pack stage</div>", unsafe_allow_html=True)

@@ -8,10 +8,10 @@
 #
 # Nothing here is a secret or a project ID. Set these in your own shell before running this script:
 #   export GCP_PROJECT_ID=your-project-id
-#   export TENDERLENS_LLM_API_KEY=...       # your DeepInfra key - never put this in a file you commit
+#   export TENDERLENS_LLM_API_KEY=...       # your OpenRouter key - never put this in a file you commit
 #   ./deploy.sh
 #
-# TENDERLENS_VISION_API_KEY defaults to the same value as TENDERLENS_LLM_API_KEY (one DeepInfra account,
+# TENDERLENS_VISION_API_KEY defaults to the same value as TENDERLENS_LLM_API_KEY (one OpenRouter account,
 # one model, both roles - see .env.example) - export it separately only if you use a different key/account
 # for vision.
 
@@ -24,7 +24,7 @@ SERVICE_NAME="${TENDERLENS_SERVICE_NAME:-tenderlens}"
 REPO_NAME="${TENDERLENS_REPO_NAME:-tenderlens}"             # Artifact Registry repository name
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:$(date +%Y%m%d-%H%M%S)"
 
-LLM_API_KEY="${TENDERLENS_LLM_API_KEY:?Set TENDERLENS_LLM_API_KEY to your DeepInfra key first (never commit it)}"
+LLM_API_KEY="${TENDERLENS_LLM_API_KEY:?Set TENDERLENS_LLM_API_KEY to your OpenRouter key first (never commit it)}"
 VISION_API_KEY="${TENDERLENS_VISION_API_KEY:-$LLM_API_KEY}"
 
 echo "Project:  $PROJECT_ID"
@@ -96,7 +96,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --session-affinity \
   --allow-unauthenticated \
   --set-secrets="TENDERLENS_LLM_API_KEY=tenderlens-llm-api-key:latest,TENDERLENS_VISION_API_KEY=tenderlens-vision-api-key:latest" \
-  --set-env-vars="TENDERLENS_LLM_BASE_URL=https://api.deepinfra.com/v1/openai,TENDERLENS_LLM_MODEL=meta-llama/Llama-4-Scout-17B-16E-Instruct,TENDERLENS_VISION_BASE_URL=https://api.deepinfra.com/v1/openai,TENDERLENS_VISION_MODEL=meta-llama/Llama-4-Scout-17B-16E-Instruct,TENDERLENS_PILOT=1,TENDERLENS_MAX_UPLOAD_MB=30,TENDERLENS_PURGE_HOURS=2,TENDERLENS_HOSTING_NOTE=Documents are processed on Google Cloud (Johannesburg); page images are sent to DeepInfra (USA) for reading." \
+  --set-env-vars="TENDERLENS_LLM_BASE_URL=https://openrouter.ai/api/v1,TENDERLENS_LLM_MODEL=meta-llama/llama-4-scout,TENDERLENS_VISION_BASE_URL=https://openrouter.ai/api/v1,TENDERLENS_VISION_MODEL=meta-llama/llama-4-scout,TENDERLENS_PILOT=1,TENDERLENS_MAX_UPLOAD_MB=30,TENDERLENS_PURGE_HOURS=2,TENDERLENS_HOSTING_NOTE=Documents are processed on Google Cloud (Johannesburg); page images are sent to OpenRouter (USA) for reading." \
   --quiet
 
 echo

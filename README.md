@@ -114,16 +114,16 @@ sector or a stated threshold). The RFQ's "where there is local content" wording 
 does a percentage the bidder wrote on a form. Override with `--local-content yes|no`.
 
 ## Using Llama
-Any OpenAI-compatible endpoint works. The default in `.env.example` is **DeepInfra**, with **one model for both
+Any OpenAI-compatible endpoint works. The default in `.env.example` is **OpenRouter**, with **one model for both
 steps: Llama 4 Scout** (multimodal - replaces Llama 3.2 Vision, used everywhere in this project now; text and
 vision use the same base URL, model and key on purpose). Settings go in `.env` (copy `.env.example`; needs
 `python-dotenv`, in `requirements-dev.txt`) or the environment; real environment variables win over the file either way:
 ```
-export TENDERLENS_LLM_BASE_URL=https://api.deepinfra.com/v1/openai
-export TENDERLENS_LLM_MODEL=meta-llama/Llama-4-Scout-17B-16E-Instruct
+export TENDERLENS_LLM_BASE_URL=https://openrouter.ai/api/v1
+export TENDERLENS_LLM_MODEL=meta-llama/llama-4-scout
 export TENDERLENS_LLM_API_KEY=...
-export TENDERLENS_VISION_BASE_URL=https://api.deepinfra.com/v1/openai   # optional: falls back to the text model
-export TENDERLENS_VISION_MODEL=meta-llama/Llama-4-Scout-17B-16E-Instruct
+export TENDERLENS_VISION_BASE_URL=https://openrouter.ai/api/v1   # optional: falls back to the text model
+export TENDERLENS_VISION_MODEL=meta-llama/llama-4-scout
 export TENDERLENS_VISION_API_KEY=...
 ```
 With no endpoint set the tool runs rules-only and says so at the top of the report. Other OpenAI-compatible hosts
@@ -144,7 +144,7 @@ report have IDs, tax numbers, bank numbers, phone numbers, PINs, handwritten ID/
 signatures blacked out. `--strict-redact` also masks registration and CSD numbers. `--no-redact` is for private use only.
 Redaction is layered but not perfect: look at the report before you share it.
 
-**With a hosted model connected (DeepInfra by default), page images are NOT redacted before being sent** - the model
+**With a hosted model connected (OpenRouter by default), page images are NOT redacted before being sent** - the model
 has to see the handwriting, IDs and signatures to read them. That's a third party outside South Africa. The app
 shows a short reminder of this near the upload boxes; self-hosting with Ollama (see `OLLAMA.md`) keeps everything
 on your own machine instead.
@@ -222,7 +222,7 @@ from, not a cache of it.
 ## Hosting on Google Cloud Run
 The pilot runs as a container on Google Cloud Run (Johannesburg - `africa-south1`), instead of Streamlit
 Community Cloud, to get past that host's throttling. **Documents are processed on Google Cloud (Johannesburg);
-page images are still sent to DeepInfra (USA) for the vision model to read, same as every other deployment of
+page images are still sent to OpenRouter (USA) for the vision model to read, same as every other deployment of
 this app** - the pilot terms shown in the app say so when this is how it's hosted (`TENDERLENS_HOSTING_NOTE`,
 set by `deploy.sh`).
 
@@ -230,8 +230,8 @@ set by `deploy.sh`).
 ```
 docker build -t tenderlens .
 docker run -p 8080:8080 --memory=4g --cpus=2 \
-  -e TENDERLENS_LLM_BASE_URL=https://api.deepinfra.com/v1/openai \
-  -e TENDERLENS_LLM_MODEL=meta-llama/Llama-4-Scout-17B-16E-Instruct \
+  -e TENDERLENS_LLM_BASE_URL=https://openrouter.ai/api/v1 \
+  -e TENDERLENS_LLM_MODEL=meta-llama/llama-4-scout \
   -e TENDERLENS_LLM_API_KEY=your-key-here \
   tenderlens
 ```
@@ -264,8 +264,8 @@ skip that and verify on Cloud Run directly, install the `gcloud` CLI instead and
 - Tested up to about 40 pages at this scan quality within the 4 GiB / 2 vCPU instance; larger packs may be
   slow or run out of memory.
 - A few minutes per pack for a Complete check is normal, not a hang.
-- "The AI service is busy right now..." means DeepInfra's shared capacity is saturated, not that this
-  deployment is down - see the retry/incomplete-check handling earlier in this README.
+- "The AI service is busy right now..." means OpenRouter's (or its upstream provider's) shared capacity is
+  saturated, not that this deployment is down - see the retry/incomplete-check handling earlier in this README.
 - No 300-page tenders yet. That needs direct-to-storage upload (not through the app server), batching the
   pages, and a background job instead of one request held open for the whole run - none of that exists yet.
 - Temporary page images are purged after `TENDERLENS_PURGE_HOURS` (set to 2 here, since Cloud Run's disk
@@ -293,7 +293,7 @@ gcloud config set project YOUR_PROJECT_ID
 
 # 3. Set the required variables in your own shell (never in a committed file)
 export GCP_PROJECT_ID=YOUR_PROJECT_ID
-export TENDERLENS_LLM_API_KEY=YOUR_DEEPINFRA_KEY
+export TENDERLENS_LLM_API_KEY=YOUR_OPENROUTER_KEY
 
 # 4. Deploy
 ./deploy.sh

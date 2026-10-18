@@ -1,19 +1,19 @@
 """Thin Llama client.
 
 TenderLens talks to Meta Llama through any OpenAI-compatible chat endpoint
-(DeepInfra, Llama API, Together, Groq, Fireworks, a self-hosted vLLM, Ollama on your own laptop, ...).
-Nothing here is vendor specific: configure with environment variables.
+(OpenRouter, DeepInfra, Llama API, Together, Groq, Fireworks, a self-hosted vLLM, Ollama on your own
+laptop, ...). Nothing here is vendor specific: configure with environment variables.
 
 Text model (reads the buyer's documents):
-    TENDERLENS_LLM_BASE_URL   e.g. https://api.deepinfra.com/v1/openai   or  http://localhost:11434/v1
-    TENDERLENS_LLM_MODEL      e.g. meta-llama/Llama-4-Scout-17B-16E-Instruct
+    TENDERLENS_LLM_BASE_URL   e.g. https://openrouter.ai/api/v1   or  http://localhost:11434/v1
+    TENDERLENS_LLM_MODEL      e.g. meta-llama/llama-4-scout
     TENDERLENS_LLM_API_KEY
 
 Vision model (reads the scanned pages: ticks, handwriting, stamps). Optional: when these are not set the
 vision model is the same as the text model, so one multimodal model (e.g. Llama 4 Scout) can do both -
 that is the default setup in .env.example: one model, same base URL and key, for both roles.
-    TENDERLENS_VISION_BASE_URL   e.g. https://api.deepinfra.com/v1/openai
-    TENDERLENS_VISION_MODEL      e.g. meta-llama/Llama-4-Scout-17B-16E-Instruct
+    TENDERLENS_VISION_BASE_URL   e.g. https://openrouter.ai/api/v1
+    TENDERLENS_VISION_MODEL      e.g. meta-llama/llama-4-scout
     TENDERLENS_VISION_API_KEY
 
 Other:

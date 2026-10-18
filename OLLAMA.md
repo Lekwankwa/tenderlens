@@ -1,7 +1,7 @@
 # Connecting Llama vision (Ollama on your laptop)
 
 **This is the local alternative.** The default setup (`.env.example`, README's "Using Llama") is a hosted endpoint
-(DeepInfra: Llama 4 Scout for both text and vision). Use this page instead if you want
+(OpenRouter: Llama 4 Scout for both text and vision). Use this page instead if you want
 everything to stay on your own machine - the trade-off is much slower runs on ordinary laptop hardware, and a
 known Ollama bug (see "If something goes wrong" below). Llama 4 Scout is too large to run this way; the local path
 below still uses Llama 3.2 Vision.
