@@ -24,7 +24,7 @@ from tenderlens.audit import DOC_LABEL
 from tenderlens.bootstrap import remote_warning, system_check
 from tenderlens.cli import audit_pack, rerun_vision
 from tenderlens.ingest import page_count_estimate, pdf_page_count
-from tenderlens.llm import BUSY_MESSAGE, LlamaClient, load_env
+from tenderlens.llm import BUSY_MESSAGE, LlamaClient, is_rate_limited, load_env
 from tenderlens.report import DISCLAIMER_LONG, DISCLAIMER_SHORT, NO_ISSUES_NOTE, SEV, SRC_LABEL, Renderer, render_html, to_json
 
 load_env()
@@ -348,8 +348,9 @@ if run:
             if claim_kind == "new":
                 claim_store.refund_pack(claim_hash, claim_file_sha)
             log_check(False, False)
-            status.update(label="Something went wrong", state="error")
-            st.error(f"{type(e).__name__}: {e}")
+            busy = is_rate_limited(e)
+            status.update(label="The AI service is busy" if busy else "Something went wrong", state="error")
+            st.error(BUSY_MESSAGE if busy else f"{type(e).__name__}: {e}")
             st.stop()
 
 out = st.session_state.get("out")

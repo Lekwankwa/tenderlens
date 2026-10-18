@@ -17,7 +17,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tenderlens.facts import Facts, vision_precheck
-from tenderlens.llm import LLMError, LlamaClient
+from tenderlens.llm import LLMError, LlamaClient, is_rate_limited
 
 
 class Mock:
@@ -282,3 +282,21 @@ def test_ping_still_works_through_the_post_level_retry(monkeypatch):
     c = client(m)
     assert c.ping() == ""
     m.close()
+
+
+def test_is_rate_limited_true_for_a_429_llm_error_by_status_code():
+    assert is_rate_limited(LLMError("HTTP 429 from https://openrouter.ai/api/v1 (x): Rate exceeded", 429))
+
+
+def test_is_rate_limited_true_even_without_a_captured_status_code():
+    """str(err) is what app.py's error handler actually has to go on in some paths; the "429" digits in
+    the message itself are enough even if status_code wasn't threaded through."""
+    assert is_rate_limited(LLMError("HTTP 429 from https://openrouter.ai/api/v1 (x): Rate exceeded"))
+
+
+def test_is_rate_limited_false_for_an_unrelated_llm_error():
+    assert not is_rate_limited(LLMError("HTTP 401 from https://openrouter.ai/api/v1 (x): invalid API key", 401))
+
+
+def test_is_rate_limited_false_for_a_non_llm_exception():
+    assert not is_rate_limited(ValueError("429 is not a real error here, just a string"))

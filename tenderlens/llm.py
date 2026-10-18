@@ -93,6 +93,12 @@ class LLMError(LLMUnavailable):
         self.status_code = status_code
 
 
+def is_rate_limited(e: BaseException) -> bool:
+    """True for the one failure BUSY_MESSAGE should replace: the provider's shared capacity (429), not a
+    real bug - a bad key, a malformed request or an actual outage should still show its own message."""
+    return isinstance(e, LLMError) and (e.status_code == 429 or "429" in str(e))
+
+
 def _num(s: str) -> float | None:
     s = (s or "").strip()
     try:
