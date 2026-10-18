@@ -182,7 +182,7 @@ def highlight_remnants(page: Page, min_px: int = 4000) -> list[Region]:
 def initials_present(page: Page) -> bool:
     ink = ink_mask(_gray(page))
     h, w = ink.shape
-    zone = ink[int(h * 0.90):, int(w * 0.70):]
+    zone = ink[int(h * 0.86):, int(w * 0.70):]
     return sum(a for _, _, cw, ch, a in _components(zone, 15) if ch >= 15) >= 200
 
 

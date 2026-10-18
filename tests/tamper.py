@@ -233,8 +233,8 @@ def variants(pages):
     add("27_strike_through_sbd8", "Hand-drawn strike-through across a printed heading on SBD 8 (page 17)",
         "mark", edit(pages, p17=lambda im: strike(im, strike_line)), known_miss=True)
     add("28_initials_removed", "Initials removed from pack page 10", "Initials missing",
-        edit(pages, p10=lambda im: whiteout(im, (int(im.width * 0.68), int(im.height * 0.90), im.width, im.height))))
-    corner = lambda im: whiteout(im, (int(im.width * 0.68), int(im.height * 0.90), im.width, im.height))
+        edit(pages, p10=lambda im: whiteout(im, (int(im.width * 0.68), int(im.height * 0.86), im.width, im.height))))
+    corner = lambda im: whiteout(im, (int(im.width * 0.68), int(im.height * 0.86), im.width, im.height))
     add("34_initials_removed_from_8_pages", "Initials removed from 8 pages (pack pages 3, 5, 8, 11, 13, 17, 19, 21)",
         "Initials missing", edit(pages, **{f"p{n}": corner for n in (3, 5, 8, 11, 13, 17, 19, 21)}))
     # --- a blank page slipped in

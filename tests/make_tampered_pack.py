@@ -65,7 +65,7 @@ def typed_edits(pages):
         (18, "Pen scribble added in the margin", "SBD 4, page 2", "Unexplained mark", 14,
          lambda im: T.scribble(im, im.width - 120, 700)),
     ] + [(19, "Initials removed from original pages 3, 6, 11, 13, 19, 25", "Bottom-right corners", "Initials missing", n,
-          lambda im: T.whiteout(im, (int(im.width * 0.68), int(im.height * 0.90), im.width, im.height)))
+          lambda im: T.whiteout(im, (int(im.width * 0.68), int(im.height * 0.86), im.width, im.height)))
          for n in (3, 6, 11, 13, 19, 25)]
     removed = {18: (14, "Page removed: SBD 8 certification and signature page", "SBD 8"),
                20: (15, "Page removed: SBD 9, second page", "SBD 9"),
