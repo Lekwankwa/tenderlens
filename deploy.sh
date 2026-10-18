@@ -96,7 +96,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --session-affinity \
   --allow-unauthenticated \
   --set-secrets="TENDERLENS_LLM_API_KEY=tenderlens-llm-api-key:latest,TENDERLENS_VISION_API_KEY=tenderlens-vision-api-key:latest" \
-  --set-env-vars="TENDERLENS_LLM_BASE_URL=https://openrouter.ai/api/v1,TENDERLENS_LLM_MODEL=meta-llama/llama-4-scout,TENDERLENS_VISION_BASE_URL=https://openrouter.ai/api/v1,TENDERLENS_VISION_MODEL=meta-llama/llama-4-scout,TENDERLENS_PILOT=1,TENDERLENS_MAX_UPLOAD_MB=30,TENDERLENS_PURGE_HOURS=2,TENDERLENS_HOSTING_NOTE=Documents are processed on Google Cloud (Johannesburg); page images are sent to OpenRouter (USA) for reading." \
+  --set-env-vars="TENDERLENS_LLM_BASE_URL=https://openrouter.ai/api/v1,TENDERLENS_LLM_MODEL=meta-llama/llama-4-scout,TENDERLENS_LLM_JSON_MODE=0,TENDERLENS_VISION_BASE_URL=https://openrouter.ai/api/v1,TENDERLENS_VISION_MODEL=meta-llama/llama-4-scout,TENDERLENS_PILOT=1,TENDERLENS_MAX_UPLOAD_MB=30,TENDERLENS_PURGE_HOURS=2,TENDERLENS_HOSTING_NOTE=Documents are processed on Google Cloud (Johannesburg); page images are sent to OpenRouter (USA) for reading." \
   --quiet
 
 echo

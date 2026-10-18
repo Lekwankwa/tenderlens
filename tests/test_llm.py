@@ -192,7 +192,10 @@ def test_explicit_empty_string_disables_a_client_even_with_env_vars_set(monkeypa
 
 # --------------------------------------------------------------------------- JSON-mode fallback still works
 
-def test_json_mode_falls_back_when_the_server_rejects_response_format():
+def test_json_mode_falls_back_when_the_server_rejects_response_format(monkeypatch):
+    # json_mode defaults to on; a developer's own .env (e.g. TENDERLENS_LLM_JSON_MODE=0 for an endpoint that
+    # needs it off) must not change what this test is actually checking.
+    monkeypatch.setenv("TENDERLENS_LLM_JSON_MODE", "1")
     m = Mock([(400, {"error": "response_format not supported"}), ok({"a": 1})])
     c = client(m)
     assert c.complete_json("sys", "u") == {"a": 1}
