@@ -19,7 +19,7 @@ import streamlit as st
 from pypdf import PdfWriter
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
-from tenderlens import check_log, pilot
+from tenderlens import check_log, pilot, privacy
 from tenderlens.audit import DOC_LABEL
 from tenderlens.bootstrap import remote_warning, system_check
 from tenderlens.cli import audit_pack, rerun_vision
@@ -205,10 +205,15 @@ with st.sidebar:
         except Exception:
             pass  # purely informational; a page-count problem surfaces properly when the real run reads the file
 
+    st.markdown("<div class='tl-step'>4 &middot; Privacy</div>", unsafe_allow_html=True)
+    st.caption(privacy.NOTICE_SHORT)
+    consent = st.checkbox(privacy.CONSENT_LABEL, key="privacy_consent")
+
     ready = bool(rfqtender_ups and pack_ups and len(rfqtender_ups) <= 10 and len(pack_ups) <= 10
                 and pack_stage is not None)
     if PILOT:
         ready = ready and bool(code_status and code_status.ok)
+    ready = privacy.consent_required(ready, consent)
     run = st.button("Audit the pack", type="primary", width="stretch", disabled=not ready)
 
     st.divider()
