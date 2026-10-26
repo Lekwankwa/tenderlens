@@ -1,8 +1,20 @@
 """Thin Llama client.
 
-TenderLens talks to Meta Llama through any OpenAI-compatible chat endpoint
-(OpenRouter, DeepInfra, Llama API, Together, Groq, Fireworks, a self-hosted vLLM, Ollama on your own
-laptop, ...). Nothing here is vendor specific: configure with environment variables.
+TenderLens talks to its model through any OpenAI-compatible chat endpoint (Meta's Model API, OpenRouter,
+DeepInfra, Llama API, Together, Groq, Fireworks, a self-hosted vLLM, Ollama on your own laptop, ...).
+Nothing here is vendor specific: configure with environment variables.
+
+MODEL_PROVIDER   "meta" (default) or "openrouter". Picks which block below is read; everything else about
+                 the client (retries, JSON mode, pricing, the key-scrubbed errors) is identical either way.
+
+Provider "meta" - Muse Spark on Meta's own Model API. One model serves both text and vision, so there is
+only one set of credentials, used for both roles:
+    META_API_BASE   e.g. https://api.meta.ai/v1
+    MUSE_MODEL      e.g. muse-spark-1.3
+    META_API_KEY
+
+Provider "openrouter" - kept as a switchable fallback (MODEL_PROVIDER=openrouter). Separate text/vision
+config, same as before:
 
 Text model (reads the buyer's documents):
     TENDERLENS_LLM_BASE_URL   e.g. https://openrouter.ai/api/v1   or  http://localhost:11434/v1
@@ -10,13 +22,12 @@ Text model (reads the buyer's documents):
     TENDERLENS_LLM_API_KEY
 
 Vision model (reads the scanned pages: ticks, handwriting, stamps). Optional: when these are not set the
-vision model is the same as the text model, so one multimodal model (e.g. Llama 4 Scout) can do both -
-that is the default setup in .env.example: one model, same base URL and key, for both roles.
+vision model is the same as the text model, so one multimodal model (e.g. Llama 4 Scout) can do both.
     TENDERLENS_VISION_BASE_URL   e.g. https://openrouter.ai/api/v1
     TENDERLENS_VISION_MODEL      e.g. meta-llama/llama-4-scout
     TENDERLENS_VISION_API_KEY
 
-Other:
+Other (both providers):
     TENDERLENS_LLM_TIMEOUT      seconds per call (default 300: a laptop CPU reading a page image is slow)
     TENDERLENS_LLM_JSON_MODE    1 (default) asks the server for strict JSON; 0 turns that off for servers that refuse it
     TENDERLENS_LLM_PRICE_IN/_OUT, TENDERLENS_VISION_PRICE_IN/_OUT
@@ -121,15 +132,33 @@ def _read_error_body(err: urllib.error.HTTPError, api_key: str) -> str:
     return raw or err.reason or ""
 
 
+def provider_name() -> str:
+    """MODEL_PROVIDER: "meta" (default - Muse Spark on the Meta Model API) or "openrouter" (Llama 4 Scout,
+    kept as a switchable fallback). Anything else is treated as "openrouter" - an unrecognised value should
+    not silently disable the model entirely."""
+    return "meta" if os.environ.get("MODEL_PROVIDER", "meta").strip().lower() == "meta" else "openrouter"
+
+
 class LlamaClient:
     def __init__(self, base_url=None, model=None, api_key=None, timeout=None, prefix="LLM"):
         e = os.environ.get
+        self.provider = provider_name()
+        if self.provider == "meta":
+            # One Muse Spark model serves both text and vision, so `prefix` (LLM vs VISION) doesn't split
+            # the config here the way it does for OpenRouter below - same base URL, model and key either way.
+            # No in-code default for base_url/model (same rule as the OpenRouter branch): a bare, unconfigured
+            # checkout must come up as "not configured", not as "configured, but every call 401s" - the
+            # actual default values live in .env.example, which the user copies in explicitly.
+            env_base, env_model, env_key = "META_API_BASE", "MUSE_MODEL", "META_API_KEY"
+        else:
+            env_base, env_model, env_key = f"TENDERLENS_{prefix}_BASE_URL", f"TENDERLENS_{prefix}_MODEL", \
+                f"TENDERLENS_{prefix}_API_KEY"
         # `is not None`, not `or`: an explicitly passed "" (used to force an unconfigured client, e.g.
         # --no-vision or a test that must never touch a real endpoint) must NOT fall through to the
         # environment the way an omitted argument does - "" or env() would silently ignore that override.
-        self.base_url = (base_url if base_url is not None else e(f"TENDERLENS_{prefix}_BASE_URL", "")).rstrip("/")
-        self.model = model if model is not None else e(f"TENDERLENS_{prefix}_MODEL", "")
-        self.api_key = api_key if api_key is not None else e(f"TENDERLENS_{prefix}_API_KEY", "")
+        self.base_url = (base_url if base_url is not None else e(env_base, "")).rstrip("/")
+        self.model = model if model is not None else e(env_model, "")
+        self.api_key = api_key if api_key is not None else e(env_key, "")
         self.timeout = float(timeout or e("TENDERLENS_LLM_TIMEOUT", "300"))
         self.json_mode = e("TENDERLENS_LLM_JSON_MODE", "1") != "0"
         self.price_in = _num(e(f"TENDERLENS_{prefix}_PRICE_IN", ""))
@@ -153,7 +182,9 @@ class LlamaClient:
 
     @classmethod
     def for_vision(cls, text_client: "LlamaClient | None" = None) -> "LlamaClient":
-        """The client that reads page images: TENDERLENS_VISION_* if set, otherwise the text model."""
+        """The client that reads page images. Under MODEL_PROVIDER=meta this is always the same Muse Spark
+        config as the text client (one model, both roles - see __init__). Under openrouter, it's
+        TENDERLENS_VISION_* if set, otherwise the text model."""
         v = cls(prefix="VISION")
         if v.configured:
             return v
@@ -176,10 +207,11 @@ class LlamaClient:
                 **({"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}),
             },
         )
-        # 429 ("model busy"), 5xx, and a timeout or connection failure reaching the endpoint are the provider's
-        # shared capacity at that moment, not a real outage - often gone within seconds, so retried with
-        # back-off before this call counts as failed. Anything else (a bad key, a malformed request, ...)
-        # fails immediately: retrying it can't help.
+        # 429 ("model busy") and 5xx are the provider's shared capacity at that moment, not a real outage -
+        # often gone within seconds, so retried with back-off before this call counts as failed. 504 is the
+        # one 5xx excluded: it means THIS request ran too long, so an unchanged retry just times out again
+        # the same way (Meta's own error-handling docs: reduce input/output size or stream instead). Anything
+        # else (a bad key, a malformed request, ...) fails immediately: retrying it can't help.
         waits = self.retry_waits
         for attempt in range(len(waits) + 1):
             try:
@@ -188,7 +220,7 @@ class LlamaClient:
             except urllib.error.HTTPError as err:
                 body_text = _read_error_body(err, self.api_key)
                 last_err = LLMError(f"HTTP {err.code} from {self.base_url} ({self.model}): {body_text}", err.code)
-                retryable = err.code == 429 or 500 <= err.code < 600
+                retryable = err.code == 429 or (500 <= err.code < 600 and err.code != 504)
                 retry_after = err.headers.get("Retry-After") if err.headers else None
             except (urllib.error.URLError, TimeoutError) as err:
                 # no HTTP status at all - a timeout or a connection problem reaching the endpoint, not a bad

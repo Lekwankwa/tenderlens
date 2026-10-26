@@ -43,6 +43,7 @@ def test_upload_size_message_is_absent_when_the_env_var_is_unset(monkeypatch):
 
 def test_privacy_caption_names_openrouter_when_that_s_the_configured_endpoint(monkeypatch):
     from streamlit.testing.v1 import AppTest
+    monkeypatch.setenv("MODEL_PROVIDER", "openrouter")  # TENDERLENS_LLM_* is the openrouter-provider config
     monkeypatch.setenv("TENDERLENS_LLM_BASE_URL", "https://openrouter.ai/api/v1")
     monkeypatch.setenv("TENDERLENS_LLM_MODEL", "meta-llama/llama-4-scout")
     monkeypatch.delenv("TENDERLENS_LLM_API_KEY", raising=False)

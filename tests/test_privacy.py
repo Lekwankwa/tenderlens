@@ -31,9 +31,17 @@ def test_privacy_md_exists_and_covers_the_required_points():
         assert marker.lower() in text.lower(), f"PRIVACY.md is missing: {marker!r}"
 
 
-def test_in_app_notice_names_openrouter_and_points_to_the_full_notice():
-    assert "openrouter" in privacy.NOTICE_SHORT.lower()
-    assert "PRIVACY.md" in privacy.NOTICE_SHORT
+def test_in_app_notice_names_meta_by_default_and_points_to_the_full_notice():
+    notice = privacy.notice_short("meta")
+    assert "meta" in notice.lower() and "api.meta.ai" in notice
+    assert "openrouter" not in notice.lower()  # must not name the inactive provider
+    assert "PRIVACY.md" in notice
+
+
+def test_in_app_notice_names_openrouter_when_that_s_the_active_provider():
+    notice = privacy.notice_short("openrouter")
+    assert "openrouter" in notice.lower() and "openrouter.ai" in notice
+    assert "meta" not in notice.lower()
 
 
 # --------------------------------------------------------------------------- the real Streamlit app

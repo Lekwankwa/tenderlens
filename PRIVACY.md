@@ -17,14 +17,23 @@ Either way, running TenderLens entirely on your own machine (`streamlit run app.
 with Ollama - see `OLLAMA.md`) keeps your files on that machine instead of a shared host.
 
 ## The AI provider (Complete check)
-Running a **Complete check** sends page images and extracted text to **OpenRouter** (`openrouter.ai`), the
-connected AI provider configured in this deployment (`TENDERLENS_LLM_BASE_URL` / `TENDERLENS_VISION_BASE_URL`),
-so handwriting, ticks, stamps and signatures can be read. OpenRouter is a routing service: it forwards the
-request to an underlying model provider, which may not be OpenRouter itself.
+Running a **Complete check** sends page images and extracted text to whichever AI provider this deployment is
+configured for (`MODEL_PROVIDER`), so handwriting, ticks, stamps and signatures can be read:
 
-**[CONFIRM: OpenRouter's processing location and data-retention/training policy, from OpenRouter's own
-documentation.]** Until that is confirmed, assume sending data to OpenRouter may mean it is processed outside
-South Africa.
+- **Meta's Model API** (`api.meta.ai`, model Muse Spark) - the default. One model reads both the buyer's
+  documents and the scanned pages.
+  **[CONFIRM: Meta's processing location and data-retention/training policy for Standard-mode Model API
+  traffic, from Meta's own documentation.]** This deployment uses Standard mode, not Contributor mode -
+  Contributor mode is cheaper but lets Meta train future models on what you send, which this project does
+  not opt into.
+- **OpenRouter** (`openrouter.ai`, model Llama 4 Scout) - the switchable fallback (`MODEL_PROVIDER=openrouter`).
+  OpenRouter is a routing service: it forwards the request to an underlying model provider, which may not be
+  OpenRouter itself.
+  **[CONFIRM: OpenRouter's processing location and data-retention/training policy, from OpenRouter's own
+  documentation.]**
+
+Until either is confirmed, assume sending data to either provider may mean it is processed outside South
+Africa.
 
 A **Fast check** does not call any AI provider - it reads files with OCR and fixed rules only, and nothing
 leaves the host.
@@ -48,7 +57,8 @@ leaves the host.
 ## Who can see it
 - Whoever operates the host this instance runs on (Lekwankwa Corporation (Pty) Ltd, for the Cloud Run and
   Streamlit Community Cloud deployments; you, if you self-host).
-- OpenRouter (and whichever upstream model provider it routes to), only when Complete check is used.
+- Meta (or, under the OpenRouter fallback, OpenRouter and whichever upstream model provider it routes to),
+  only when Complete check is used.
 - No one else. TenderLens does not share documents with any other third party.
 
 ## Redaction

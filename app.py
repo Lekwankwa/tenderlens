@@ -21,7 +21,7 @@ from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ct
 
 from tenderlens import check_log, pilot, privacy
 from tenderlens.audit import DOC_LABEL
-from tenderlens.bootstrap import remote_warning, system_check
+from tenderlens.bootstrap import is_local, remote_warning, system_check
 from tenderlens.cli import audit_pack, rerun_vision
 from tenderlens.ingest import page_count_estimate, pdf_page_count
 from tenderlens.llm import BUSY_MESSAGE, LlamaClient, is_rate_limited, load_env
@@ -34,6 +34,9 @@ try:  # hosted (e.g. Streamlit Community Cloud): its Secrets become env vars our
 except Exception:
     pass  # no secrets.toml locally - fine, that's what .env / the environment is for
 PILOT = pilot.pilot_enabled()  # TENDERLENS_PILOT=1. Off: the app behaves exactly as it always has.
+# Human-readable name for whichever MODEL_PROVIDER is active - never the key, just the label. Falls back to
+# the raw provider string for an unrecognised value, same as llm.provider_name() does.
+PROVIDER_LABEL = {"meta": "Meta's Model API", "openrouter": "OpenRouter"}
 
 ROOT = Path(__file__).resolve().parent
 WORK = ROOT / ".cache"
@@ -159,8 +162,9 @@ with st.sidebar:
                                 "you add them, as one combined pack.")
     if len(pack_ups) > 10:
         st.error(f"{len(pack_ups)} files selected; at most 10 response pack files are read.", icon=None)
-    if "openrouter" in (llm.base_url + vision.base_url).lower():
-        st.caption("A connected model reads your files off-device, at OpenRouter (USA). Upload only what "
+    if (llm.configured and not is_local(llm.base_url)) or (vision.configured and not is_local(vision.base_url)):
+        _label = PROVIDER_LABEL.get(llm.provider, llm.provider)
+        st.caption(f"A connected model reads your files off-device, at {_label} (USA). Upload only what "
                   "you're allowed to share.")
 
     st.markdown("<div class='tl-step'>3 &middot; Pack stage</div>", unsafe_allow_html=True)
@@ -206,7 +210,7 @@ with st.sidebar:
             pass  # purely informational; a page-count problem surfaces properly when the real run reads the file
 
     st.markdown("<div class='tl-step'>4 &middot; Privacy</div>", unsafe_allow_html=True)
-    st.caption(privacy.NOTICE_SHORT)
+    st.caption(privacy.notice_short(llm.provider))
     consent = st.checkbox(privacy.CONSENT_LABEL, key="privacy_consent")
 
     ready = bool(rfqtender_ups and pack_ups and len(rfqtender_ups) <= 10 and len(pack_ups) <= 10
@@ -217,19 +221,22 @@ with st.sidebar:
     run = st.button("Audit the pack", type="primary", width="stretch", disabled=not ready)
 
     st.divider()
+    # Which provider actually answered this run's calls, never the key - see llm.py's MODEL_PROVIDER switch.
+    provider_label = PROVIDER_LABEL.get(llm.provider, llm.provider)
     same_model = llm.configured and vision.configured and llm.model == vision.model and llm.base_url == vision.base_url
     if same_model:
-        st.success(f"Llama ({llm.model}) connected for both text and vision.", icon=None)
+        st.success(f"{provider_label}: {llm.model} (connected for both text and vision).", icon=None)
     else:
         if llm.configured:
-            st.success(f"Llama (text): {llm.model}", icon=None)
+            st.success(f"{provider_label} (text): {llm.model}", icon=None)
         else:
-            st.info("No Llama text endpoint set. Running on rules and OCR only. Set TENDERLENS_LLM_BASE_URL and "
-                    "TENDERLENS_LLM_MODEL to use Meta Llama.", icon=None)
+            st.info(f"No text model endpoint set (MODEL_PROVIDER={llm.provider}). Running on rules and OCR "
+                    "only. See .env.example.", icon=None)
         if vision.configured:
-            st.success(f"Llama (vision): {vision.model}", icon=None)
+            st.success(f"{provider_label} (vision): {vision.model}", icon=None)
         else:
-            st.info("No vision model set, so handwriting, ticks and stamps are not read. See OLLAMA.md.", icon=None)
+            st.info("No vision model set, so handwriting, ticks and stamps are not read. See .env.example / "
+                    "OLLAMA.md.", icon=None)
 
     st.markdown("<div class='tl-step'>System</div>", unsafe_allow_html=True)
     rows = _cached_system_check()
