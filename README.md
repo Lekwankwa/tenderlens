@@ -88,20 +88,26 @@ streamlit run app.py
 ```
 Upload the RFQ, the specification and the response pack in the sidebar, then press **Audit the pack**. The page shows a
 verdict banner, the issues with cropped page evidence, what the buyer asked for, the checks that passed, a page viewer and how
-each fact was read. The HTML and JSON reports download from the top right. If `samples/` holds the sample RFQ and the tamper
-outputs (`python tests/tamper.py`), a "Use the sample RFQ" option lets you pick the winning pack or any tampered variant
-without uploading anything, which is the safest way to demo on a slow laptop. Results are cached by page, so re-running a pack is fast.
+each fact was read. The HTML and JSON reports download from the top right. Results are cached by page, so re-running a pack is fast.
+
+**No demo files ship with this repo.** `samples/response/` and `samples/rfq/` hold a real RFQ and a real bidder's response
+pack with real identifiers, so they're git-ignored on purpose (see "Privacy" below) - a fresh clone (including this repo's
+public copy) does not have them. To try the app, upload your own RFQ/spec and response pack PDFs - any South African
+government tender RFQ and SBD-form response pack will do. There is currently no bundled or synthetic demo pack.
 
 ## Run (command line)
 ```
 sudo apt install tesseract-ocr poppler-utils   # or your platform's equivalent
 pip install -r requirements.txt
 python -m tenderlens run \
-  --rfq samples/rfq/rfq_email.pdf --spec samples/rfq/spec_0310.pdf \
-  --pack samples/response/pack.pdf --blank samples/blank \
-  --transcript samples/response/pack.transcript.json \
-  --bidder "Excel Supply Holdings" --out out
+  --rfq path/to/your-rfq.pdf --spec path/to/your-spec.pdf \
+  --pack path/to/your-response-pack.pdf --blank samples/blank \
+  --bidder "Bidder Name" --out out
 ```
+(`samples/blank` - the blank SBD form templates - ships with the repo and is tracked; `--rfq`/`--spec`/`--pack` are
+yours to supply, since no sample RFQ or response pack ships with this repo - see "Interface" above. The paths this
+command used to show, `samples/rfq/...` and `samples/response/...`, are this project's own git-ignored working
+files, not something a fresh clone has.)
 `--rfq` takes one or more PDFs (up to 10): the cover email/letter plus any attachments the buyer sent as separate
 files (annexures, a BOQ, blank SBD templates). Their text is concatenated in the order given before anything is
 extracted, so `--rfq email.pdf annexure_a.pdf annexure_b.pdf` works. `--spec` is its own, optional, single file -
@@ -151,12 +157,11 @@ on your own machine instead.
 
 ## Pilot mode
 **Off by default.** With `TENDERLENS_PILOT` unset (or anything other than `1`), the app is the plain demo: no code
-box, no pack counting, the handwriting transcript upload is back. Set `TENDERLENS_PILOT=1` (locally, or as a Secret
-on a host) to turn the gate back on when you're ready to run a pilot.
+box, no pack counting. Set `TENDERLENS_PILOT=1` (locally, or as a Secret on a host) to turn the gate back on when
+you're ready to run a pilot.
 
-`TENDERLENS_PILOT=1` gates "Upload my own files" behind a one-time invite code; "Use the sample RFQ" stays free for
-everyone, and the handwriting transcript upload is hidden (contractors don't get to hand-feed answers). With it unset
-or `0`, the app behaves exactly as it does without this section.
+`TENDERLENS_PILOT=1` gates uploading your own files behind a one-time invite code. With it unset or `0`, the app
+behaves exactly as it does without this section.
 
 ```
 .venv/bin/python -m tenderlens pilot create --name "Acme Builders" --email acme@example.com --packs 3 --days 21
