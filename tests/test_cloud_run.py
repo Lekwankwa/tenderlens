@@ -49,3 +49,22 @@ def test_privacy_caption_names_meta_when_that_s_the_configured_endpoint(monkeypa
     at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
     assert not at.exception
     assert any("off-device, at Meta's Model API (USA)" in c.value for c in at.caption)
+
+
+def test_gcs_upload_path_renders_without_a_simulated_upload(monkeypatch):
+    """Cannot simulate the upload widget's own browser-side JS any more than AppTest can simulate
+    st.file_uploader (see test_pilot.py) - this just checks the GCS_UPLOADS branch renders cleanly: the two
+    upload_slot() calls, the size caption, and "Audit the pack" staying disabled with nothing uploaded yet."""
+    from streamlit.testing.v1 import AppTest
+    from tenderlens import storage
+    _blank_env(monkeypatch)
+    monkeypatch.setenv("GCS_BUCKET", "fake-test-bucket")
+    monkeypatch.setenv("MAX_UPLOAD_MB", "300")
+    storage.set_backend_for_testing(object())  # must never actually be called in this test
+    try:
+        at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
+        assert not at.exception
+        assert any("Files up to 300 MB each" in c.value for c in at.caption)
+        assert any(b.label == "Audit the pack" and b.disabled for b in at.button)
+    finally:
+        storage.set_backend_for_testing(None)

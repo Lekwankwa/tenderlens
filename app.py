@@ -10,6 +10,7 @@ import hashlib
 import io
 import os
 import re
+import secrets
 import threading
 import time
 from collections import Counter
@@ -19,7 +20,7 @@ import streamlit as st
 from pypdf import PdfWriter
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
-from tenderlens import check_log, pilot, privacy
+from tenderlens import check_log, pilot, privacy, storage, upload_component
 from tenderlens.audit import DOC_LABEL
 from tenderlens.bootstrap import is_local, remote_warning, system_check
 from tenderlens.cli import audit_pack, rerun_vision
@@ -35,6 +36,11 @@ except Exception:
     pass  # no secrets.toml locally - fine, that's what .env / the environment is for
 PILOT = pilot.pilot_enabled()  # TENDERLENS_PILOT=1. Off: the app behaves exactly as it always has.
 PROVIDER_LABEL = "Meta's Model API"  # the only model provider TenderLens talks to - never the key, just the label
+# GCS_BUCKET set: large files (up to storage.max_upload_mb()) go browser-to-bucket, bypassing Cloud Run's own
+# 32 MiB request limit - see tenderlens/storage.py. Unset (the default - nothing to configure for local use
+# or Streamlit Community Cloud): the app behaves exactly as it always has, the small-file st.file_uploader
+# path below. Either way, by the time "run" fires, rfq/pack are local file paths - see the run section.
+GCS_UPLOADS = bool(storage.gcs_bucket())
 
 ROOT = Path(__file__).resolve().parent
 WORK = ROOT / ".cache"
@@ -150,14 +156,28 @@ with st.sidebar:
                 (st.success if code_status.ok else st.error)(code_status.message(), icon=None)
         with st.expander("Pilot terms"):
             st.caption(pilot.pilot_terms())
-    rfqtender_ups = st.file_uploader("RFQ/Tender documents (PDF)", type="pdf", key="rfqtender",
-                                     accept_multiple_files=True, help="Insert the original RFQ/Tender document(s).")
-    if len(rfqtender_ups) > 10:
-        st.error(f"{len(rfqtender_ups)} files selected; at most 10 RFQ/Tender documents are read.", icon=None)
-    st.markdown("<div class='tl-step'>2 &middot; The bidder's response pack</div>", unsafe_allow_html=True)
-    pack_ups = st.file_uploader("Response pack (PDF, scans are fine)", type="pdf", key="pack",
-                                accept_multiple_files=True, help="Multiple files are read in the order "
-                                "you add them, as one combined pack.")
+    rfqtender_ups = pack_ups = []
+    gcs_tender = gcs_pack = None
+    if GCS_UPLOADS:
+        # one tender document, one response pack, each up to storage.max_upload_mb() - see
+        # tenderlens/upload_component.py. job_id scopes this session's two objects in the bucket; stable
+        # for the life of the browser tab, regenerated if the page is opened fresh.
+        job_id = st.session_state.setdefault("_upload_job_id", secrets.token_hex(8))
+        st.caption(f"Files up to {storage.max_upload_mb()} MB each, uploaded straight to storage - large scans "
+                  "and slow connections are fine.")
+        gcs_tender = upload_component.upload_slot("RFQ/Tender document (PDF)", "tender", job_id,
+                                                   key="upload_tender")
+        st.markdown("<div class='tl-step'>2 &middot; The bidder's response pack</div>", unsafe_allow_html=True)
+        gcs_pack = upload_component.upload_slot("Response pack (PDF)", "pack", job_id, key="upload_pack")
+    else:
+        rfqtender_ups = st.file_uploader("RFQ/Tender documents (PDF)", type="pdf", key="rfqtender",
+                                         accept_multiple_files=True, help="Insert the original RFQ/Tender document(s).")
+        if len(rfqtender_ups) > 10:
+            st.error(f"{len(rfqtender_ups)} files selected; at most 10 RFQ/Tender documents are read.", icon=None)
+        st.markdown("<div class='tl-step'>2 &middot; The bidder's response pack</div>", unsafe_allow_html=True)
+        pack_ups = st.file_uploader("Response pack (PDF, scans are fine)", type="pdf", key="pack",
+                                    accept_multiple_files=True, help="Multiple files are read in the order "
+                                    "you add them, as one combined pack.")
     if len(pack_ups) > 10:
         st.error(f"{len(pack_ups)} files selected; at most 10 response pack files are read.", icon=None)
     if (llm.configured and not is_local(llm.base_url)) or (vision.configured and not is_local(vision.base_url)):
@@ -210,8 +230,11 @@ with st.sidebar:
     st.caption(privacy.notice_short())
     consent = st.checkbox(privacy.CONSENT_LABEL, key="privacy_consent")
 
-    ready = bool(rfqtender_ups and pack_ups and len(rfqtender_ups) <= 10 and len(pack_ups) <= 10
-                and pack_stage is not None)
+    if GCS_UPLOADS:
+        uploads_ok = bool(gcs_tender and gcs_pack)  # both verified by storage.finalize_upload() - see Step 2
+    else:
+        uploads_ok = bool(rfqtender_ups and pack_ups and len(rfqtender_ups) <= 10 and len(pack_ups) <= 10)
+    ready = bool(uploads_ok and pack_stage is not None)
     if PILOT:
         ready = ready and bool(code_status and code_status.ok)
     ready = privacy.consent_required(ready, consent)
@@ -279,10 +302,25 @@ if run:
 
     with st.status("Auditing", expanded=True) as status:
         try:
-            rfq = [save_upload(f, f"rfq-{i}-{f.name}", tmp) for i, f in enumerate(rfqtender_ups)]
+            if GCS_UPLOADS:
+                # Already verified server-side by storage.finalize_upload() when each slot reported done
+                # (see tenderlens/upload_component.py) - this just streams the two objects down to the
+                # same local work area the small-file path uses, so everything past this point (OCR,
+                # rendering, audit_pack) sees an ordinary local Path either way, per the brief's own
+                # requirement that both paths produce the same internal file object.
+                st.write("Fetching the uploaded files from storage.")
+                rfq = [storage.open_for_processing(gcs_tender["object_name"], tmp)]
+                pack = storage.open_for_processing(gcs_pack["object_name"], tmp)
+                for obj in (gcs_tender["object_name"], gcs_pack["object_name"]):
+                    try:
+                        storage.delete(obj)  # local copies (above) are what purge_old_files cleans up next
+                    except storage.StorageError:
+                        pass  # not needed for this run either way; the bucket's own lifecycle rule catches it
+            else:
+                rfq = [save_upload(f, f"rfq-{i}-{f.name}", tmp) for i, f in enumerate(rfqtender_ups)]
+                pack_sha = hashlib.sha1(b"".join(f.getvalue() for f in pack_ups)).hexdigest()[:8]
+                pack = merge_uploads(pack_ups, f"pack-{pack_sha}.pdf", tmp)
             spec = None
-            pack_sha = hashlib.sha1(b"".join(f.getvalue() for f in pack_ups)).hexdigest()[:8]
-            pack = merge_uploads(pack_ups, f"pack-{pack_sha}.pdf", tmp)
             transcript = None
             if PILOT:
                 claim_store, claim_hash = pilot.PilotStore(), code_status.code_hash

@@ -1,0 +1,299 @@
+<!doctype html>
+<!--
+  TenderLens large-file upload widget. Plain HTML/JS, no build step, no external script or CDN - the
+  Streamlit component bridge here is the raw postMessage protocol (documented by Streamlit, implemented by
+  hand below as `st_*` helpers), since a static component doesn't get the npm-only streamlit-component-lib.
+
+  What this does and does NOT do:
+  - Picks a PDF, asks Python (via a rerun) for a GCS resumable-upload session, then uploads the file in
+    chunks DIRECTLY to Cloud Storage - this file never sends the file's bytes to Streamlit/Cloud Run. Only
+    small JSON messages (filename, size, content type, a session URL, a final object name) cross the
+    Python/JS boundary.
+  - Retries a dropped chunk with backoff, and can resume a session that was interrupted (a page reload
+    loses the in-memory File object, since browsers don't let JS keep file bytes across a reload - "resume"
+    here means finishing the SAME upload after a network blip without restarting from byte 0, not resuming
+    after the tab was closed).
+  - Never decides pass/fail on its own: the real size/type check happens server-side in
+    tenderlens/storage.py's finalize_upload(), after this widget reports "done". This file's own checks are
+    UX only (an honest user finds out immediately, not after a 10-minute upload).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 4px 2px; font-size: 14px; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #8884; cursor: pointer;
+          background: #6665; }
+  button:disabled { opacity: .5; cursor: default; }
+  button.danger { border-color: #c0392b88; }
+  .bar-track { flex: 1 1 160px; min-width: 120px; height: 8px; border-radius: 4px; background: #8884;
+              overflow: hidden; }
+  .bar-fill { height: 100%; background: #2e7d32; width: 0%; transition: width .15s linear; }
+  .bar-fill.error { background: #c0392b; }
+  .meta { opacity: .75; font-size: 12px; }
+  .error { color: #c0392b; font-size: 13px; }
+  .ok { color: #2e7d32; font-size: 13px; }
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <button id="pick-btn" type="button">Choose file</button>
+    <input id="file-input" type="file" accept="application/pdf,.pdf">
+    <div class="bar-track"><div id="bar" class="bar-fill"></div></div>
+    <span id="pct" class="meta"></span>
+    <button id="resume-btn" type="button" style="display:none">Resume</button>
+    <button id="cancel-btn" type="button" class="danger" style="display:none">Cancel</button>
+  </div>
+  <div id="name" class="meta"></div>
+  <div id="status"></div>
+
+<script>
+'use strict';
+
+// ---------------------------------------------------------------- Streamlit component bridge (hand-rolled)
+// See Streamlit's own component protocol: https://docs.streamlit.io/develop/concepts/custom-components
+// This widget never loads an external script - the whole bridge is ~20 lines of postMessage.
+
+function st_send(type, extra) {
+  window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type }, extra || {}), '*');
+}
+function st_ready() { st_send('streamlit:componentReady', { apiVersion: 1 }); }
+function st_setHeight(h) { st_send('streamlit:setFrameHeight', { height: h }); }
+// Every message to Python carries a fresh _seq: Streamlit keeps a component's last returned value alive
+// across reruns until JS sends a new one, so without a nonce the Python side could not tell "the user just
+// asked for a new session" apart from "that's still the same old request_session message from two reruns
+// ago" - and would re-create a session (or re-finalize an upload) every single rerun.
+let st_seq = 0;
+function st_setValue(value) {
+  st_send('streamlit:setComponentValue', { value: Object.assign({ _seq: ++st_seq }, value), dataType: 'json' });
+}
+
+let st_args = {};
+window.addEventListener('message', (event) => {
+  const d = event.data;
+  if (!d || d.type !== 'streamlit:render') return;
+  st_args = d.args || {};
+  onRender(st_args);
+});
+
+// ------------------------------------------------------------------------------------- upload state machine
+// Lifecycle per file: idle -> awaiting_session (Python is creating the GCS session) -> uploading ->
+// (interrupted <-> uploading, via retry/resume) -> finalizing (Python verifies) -> done | failed.
+
+const CHUNK_BYTES = 8 * 1024 * 1024;          // 8 MiB - Google's own recommended minimum chunk size
+const MAX_CHUNK_RETRIES = 5;
+const RETRY_BASE_MS = 1000;
+
+let file = null;             // the picked File - lost on page reload, by design (browsers never let JS
+                             // read file bytes back out after a reload; "resume" below is only ever within
+                             // one page session, after a dropped connection, not after closing the tab)
+let sessionUrl = null;
+let objectName = null;
+let uploadedBytes = 0;
+let totalBytes = 0;
+let cancelled = false;
+let abortCtrl = null;
+let state = 'idle';
+
+const $ = (id) => document.getElementById(id);
+
+function setStatus(html, cls) {
+  $('status').innerHTML = cls ? `<span class="${cls}">${html}</span>` : html;
+}
+
+function setProgress(fraction, isError) {
+  const bar = $('bar');
+  bar.style.width = `${Math.max(0, Math.min(100, fraction * 100)).toFixed(1)}%`;
+  bar.classList.toggle('error', !!isError);
+  $('pct').textContent = totalBytes ? `${fmtBytes(uploadedBytes)} / ${fmtBytes(totalBytes)}` : '';
+}
+
+function fmtBytes(n) {
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + ' GB';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + ' MB';
+  if (n >= 1_000) return (n / 1_000).toFixed(0) + ' KB';
+  return n + ' B';
+}
+
+function showButtons({ pick, resume, cancel }) {
+  $('pick-btn').style.display = pick ? '' : 'none';
+  $('resume-btn').style.display = resume ? '' : 'none';
+  $('cancel-btn').style.display = cancel ? '' : 'none';
+  $('pick-btn').disabled = state === 'awaiting_session' || state === 'finalizing';
+}
+
+// ------------------------------------------------------------------------------------------- file selection
+
+$('pick-btn').addEventListener('click', () => $('file-input').click());
+
+$('file-input').addEventListener('change', () => {
+  const picked = $('file-input').files[0];
+  if (!picked) return;
+  const maxBytes = st_args.max_bytes || 0;
+  // Client-side checks are UX only, never the real boundary - see the file header comment and
+  // tenderlens/storage.py's module docstring. The server re-checks both after the upload finishes.
+  if (picked.type && picked.type !== 'application/pdf' && !picked.name.toLowerCase().endsWith('.pdf')) {
+    setStatus('Not a PDF. Choose a .pdf file.', 'error');
+    return;
+  }
+  if (maxBytes && picked.size > maxBytes) {
+    setStatus(`${fmtBytes(picked.size)} is over the ${fmtBytes(maxBytes)} limit for this file.`, 'error');
+    return;
+  }
+  file = picked;
+  totalBytes = file.size;
+  uploadedBytes = 0;
+  cancelled = false;
+  $('name').textContent = `${file.name}  (${fmtBytes(file.size)})`;
+  state = 'awaiting_session';
+  showButtons({ pick: false, resume: false, cancel: true });
+  setStatus('Starting upload&hellip;');
+  setProgress(0);
+  st_setValue({ action: 'request_session', kind: st_args.kind, filename: file.name, size: file.size,
+               content_type: 'application/pdf' });
+});
+
+// --------------------------------------------------------------------------------------------- cancel
+
+$('cancel-btn').addEventListener('click', () => {
+  cancelled = true;
+  if (abortCtrl) abortCtrl.abort();
+  state = 'idle';
+  file = null;
+  sessionUrl = null;
+  objectName = null;
+  setStatus('Cancelled.');
+  setProgress(0);
+  showButtons({ pick: true, resume: false, cancel: false });
+  st_setValue({ action: 'cancelled', kind: st_args.kind });
+});
+
+$('resume-btn').addEventListener('click', () => {
+  if (!file || !sessionUrl) return; // the page was reloaded - the browser no longer has the file's bytes
+  state = 'uploading';
+  showButtons({ pick: false, resume: false, cancel: true });
+  setStatus('Resuming&hellip;');
+  uploadChunked();
+});
+
+// --------------------------------------------------------------------------------------- render from Python
+
+function onRender(args) {
+  st_setHeight(64);
+  if (args.error) {
+    setStatus(args.error, 'error');
+    setProgress(uploadedBytes / (totalBytes || 1), true);
+    state = 'idle';
+    file = null; sessionUrl = null; objectName = null;
+    showButtons({ pick: true, resume: false, cancel: false });
+    return;
+  }
+  if (args.verified) {
+    state = 'done';
+    setStatus(`Uploaded and verified (${fmtBytes(args.verified.size)}).`, 'ok');
+    setProgress(1);
+    showButtons({ pick: true, resume: false, cancel: false }); // "pick" lets the user replace the file
+    return;
+  }
+  if (state === 'awaiting_session' && args.session_url && args.kind === st_args.kind) {
+    sessionUrl = args.session_url;
+    objectName = args.object_name;
+    state = 'uploading';
+    showButtons({ pick: false, resume: false, cancel: true });
+    setStatus('Uploading&hellip;');
+    uploadChunked();
+  }
+}
+
+// ------------------------------------------------------------------------------------------ chunked upload
+
+async function uploadChunked() {
+  abortCtrl = new AbortController();
+  let offset = uploadedBytes;
+  let retries = 0;
+
+  while (offset < totalBytes && !cancelled) {
+    const end = Math.min(offset + CHUNK_BYTES, totalBytes);
+    const chunk = file.slice(offset, end);
+    let res;
+    try {
+      res = await fetch(sessionUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Length': String(end - offset),
+          'Content-Range': `bytes ${offset}-${end - 1}/${totalBytes}`,
+        },
+        body: chunk,
+        signal: abortCtrl.signal,
+      });
+    } catch (err) {
+      // network drop, not an HTTP error - retry with backoff, then fall back to an explicit Resume
+      retries += 1;
+      if (cancelled) return;
+      if (retries > MAX_CHUNK_RETRIES) {
+        interrupted('The connection dropped repeatedly. Check your network and press Resume.');
+        return;
+      }
+      await sleep(RETRY_BASE_MS * Math.pow(2, retries - 1));
+      continue;
+    }
+
+    if (res.status === 308) {
+      // chunk accepted (maybe partially) - the Range header says how much GCS actually has so far;
+      // trust that over what we think we sent, per Google's own resumable-upload guidance.
+      const range = res.headers.get('Range');            // e.g. "bytes=0-8388607"
+      offset = range ? parseInt(range.split('-')[1], 10) + 1 : end;
+      uploadedBytes = offset;
+      retries = 0;
+      setProgress(uploadedBytes / totalBytes);
+      continue;
+    }
+    if (res.status === 200 || res.status === 201) {
+      uploadedBytes = totalBytes;
+      setProgress(1);
+      state = 'finalizing';
+      showButtons({ pick: false, resume: false, cancel: false });
+      setStatus('Verifying&hellip;');
+      st_setValue({ action: 'upload_complete', kind: st_args.kind, object_name: objectName });
+      return;
+    }
+    if (res.status === 499 || res.status === 404) {
+      // session cancelled or expired (sessions last 7 days, but can be invalidated server-side)
+      interrupted('This upload session is no longer valid. Press Choose file to start over.', true);
+      return;
+    }
+    // any other status: retry the same chunk with backoff, same as a network drop
+    retries += 1;
+    if (retries > MAX_CHUNK_RETRIES) {
+      interrupted(`Upload stalled (server said HTTP ${res.status}). Press Resume to try again.`);
+      return;
+    }
+    await sleep(RETRY_BASE_MS * Math.pow(2, retries - 1));
+  }
+}
+
+function interrupted(message, fatal) {
+  state = 'interrupted';
+  setStatus(message, 'error');
+  setProgress(uploadedBytes / (totalBytes || 1), true);
+  if (fatal) {
+    file = null; sessionUrl = null; objectName = null;
+    showButtons({ pick: true, resume: false, cancel: false });
+  } else {
+    showButtons({ pick: false, resume: true, cancel: true });
+  }
+}
+
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+// ------------------------------------------------------------------------------------------------- startup
+
+showButtons({ pick: true, resume: false, cancel: false });
+st_ready();
+st_setHeight(64);
+</script>
+</body>
+</html>
