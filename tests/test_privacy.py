@@ -26,29 +26,22 @@ def test_consent_required_still_respects_other_readiness_conditions():
 
 def test_privacy_md_exists_and_covers_the_required_points():
     text = (ROOT / "PRIVACY.md").read_text()
-    for marker in ("Lekwankwa Corporation", "OpenRouter", "africa-south1", "Streamlit Community Cloud",
+    for marker in ("Lekwankwa Corporation", "Meta", "api.meta.ai", "africa-south1", "Streamlit Community Cloud",
                    "[CONFIRM", "[ADD when used]", "handwritten", "redaction".title(), "outside", "South Africa"):
         assert marker.lower() in text.lower(), f"PRIVACY.md is missing: {marker!r}"
 
 
-def test_in_app_notice_names_meta_by_default_and_points_to_the_full_notice():
-    notice = privacy.notice_short("meta")
+def test_in_app_notice_names_meta_and_points_to_the_full_notice():
+    notice = privacy.notice_short()
     assert "meta" in notice.lower() and "api.meta.ai" in notice
-    assert "openrouter" not in notice.lower()  # must not name the inactive provider
     assert "PRIVACY.md" in notice
-
-
-def test_in_app_notice_names_openrouter_when_that_s_the_active_provider():
-    notice = privacy.notice_short("openrouter")
-    assert "openrouter" in notice.lower() and "openrouter.ai" in notice
-    assert "meta" not in notice.lower()
 
 
 # --------------------------------------------------------------------------- the real Streamlit app
 
 def _blank_env(monkeypatch):
-    for k in ("TENDERLENS_LLM_BASE_URL", "TENDERLENS_LLM_MODEL", "TENDERLENS_LLM_API_KEY",
-             "TENDERLENS_VISION_BASE_URL", "TENDERLENS_VISION_MODEL", "TENDERLENS_VISION_API_KEY"):
+    for k in ("META_API_BASE", "MUSE_MODEL", "META_API_KEY",
+             "META_VISION_BASE", "MUSE_VISION_MODEL", "META_VISION_API_KEY"):
         monkeypatch.delenv(k, raising=False)
 
 

@@ -3,27 +3,22 @@ One wording, used only here, so the in-app notice never drifts from this file.
 """
 from __future__ import annotations
 
-from .llm import provider_name
-
 CONSENT_LABEL = "I have the right to upload this document and I accept the privacy notice."
 
-# Name and host of whichever provider is reading page images for Complete check - must track llm.py's
-# MODEL_PROVIDER switch, since a privacy notice naming the wrong processor would be worse than none.
-_PROVIDER_TEXT = {
-    "meta": "Meta's Model API (api.meta.ai)",
-    "openrouter": "OpenRouter (openrouter.ai)",
-}
+# TenderLens's only hosted model provider - see llm.py. Keep this in sync with that module: a privacy
+# notice naming the wrong processor would be worse than none.
+_PROVIDER_NAME = "Meta's Model API"
+_PROVIDER_HOST = "api.meta.ai"
 
 
-def notice_short(provider: str | None = None) -> str:
-    """provider defaults to the currently configured MODEL_PROVIDER; pass one explicitly in a test."""
-    who = _PROVIDER_TEXT.get(provider or provider_name(), (provider or provider_name()))
+def notice_short() -> str:
     return (
         f"Files you upload are processed on this app's host and deleted after a few hours. With Complete "
-        f"check, page images and extracted text are also sent to {who} to read handwriting, ticks and "
-        f"stamps - that may mean they are processed outside South Africa. Redaction hides some fields in "
-        f"the report's images; it does not change what was sent to {who.split(' (')[0]}. See the full "
-        f"privacy notice (PRIVACY.md) for what is sent, what is kept, and for how long."
+        f"check, page images and extracted text are also sent to {_PROVIDER_NAME} ({_PROVIDER_HOST}) to "
+        f"read handwriting, ticks and stamps - that may mean they are processed outside South Africa. "
+        f"Redaction hides some fields in the report's images; it does not change what was sent to "
+        f"{_PROVIDER_NAME}. See the full privacy notice (PRIVACY.md) for what is sent, what is kept, and "
+        f"for how long."
     )
 
 

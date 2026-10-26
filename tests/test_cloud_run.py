@@ -15,8 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def _blank_env(monkeypatch):
     # app.py's sidebar calls system_check(), which pings whatever endpoint is configured - blank it so this
     # never makes a real network call regardless of what's in .env.
-    for k in ("TENDERLENS_LLM_BASE_URL", "TENDERLENS_LLM_MODEL", "TENDERLENS_LLM_API_KEY",
-             "TENDERLENS_VISION_BASE_URL", "TENDERLENS_VISION_MODEL", "TENDERLENS_VISION_API_KEY"):
+    for k in ("META_API_BASE", "MUSE_MODEL", "META_API_KEY",
+             "META_VISION_BASE", "MUSE_VISION_MODEL", "META_VISION_API_KEY"):
         monkeypatch.delenv(k, raising=False)
 
 
@@ -41,15 +41,11 @@ def test_upload_size_message_is_absent_when_the_env_var_is_unset(monkeypatch):
     assert not any("accepts packs up to" in c.value for c in at.caption)
 
 
-def test_privacy_caption_names_openrouter_when_that_s_the_configured_endpoint(monkeypatch):
+def test_privacy_caption_names_meta_when_that_s_the_configured_endpoint(monkeypatch):
     from streamlit.testing.v1 import AppTest
-    monkeypatch.setenv("MODEL_PROVIDER", "openrouter")  # TENDERLENS_LLM_* is the openrouter-provider config
-    monkeypatch.setenv("TENDERLENS_LLM_BASE_URL", "https://openrouter.ai/api/v1")
-    monkeypatch.setenv("TENDERLENS_LLM_MODEL", "meta-llama/llama-4-scout")
-    monkeypatch.delenv("TENDERLENS_LLM_API_KEY", raising=False)
-    monkeypatch.delenv("TENDERLENS_VISION_BASE_URL", raising=False)
-    monkeypatch.delenv("TENDERLENS_VISION_MODEL", raising=False)
-    monkeypatch.delenv("TENDERLENS_VISION_API_KEY", raising=False)
+    _blank_env(monkeypatch)
+    monkeypatch.setenv("META_API_BASE", "https://api.meta.ai/v1")
+    monkeypatch.setenv("MUSE_MODEL", "muse-spark-1.3")
     at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
     assert not at.exception
-    assert any("off-device, at OpenRouter (USA)" in c.value for c in at.caption)
+    assert any("off-device, at Meta's Model API (USA)" in c.value for c in at.caption)

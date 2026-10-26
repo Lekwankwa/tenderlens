@@ -311,8 +311,8 @@ def test_app_in_pilot_mode_gates_upload_and_hides_transcript(tmp_path, monkeypat
     monkeypatch.setenv("TENDERLENS_PILOT_DB", str(tmp_path / "pilot.db"))
     # app.py's sidebar calls system_check(), which pings whatever endpoint is configured - blank it so this
     # test never makes a real network call (slow, and not free) regardless of what's in .env.
-    for k in ("TENDERLENS_LLM_BASE_URL", "TENDERLENS_LLM_MODEL", "TENDERLENS_LLM_API_KEY",
-             "TENDERLENS_VISION_BASE_URL", "TENDERLENS_VISION_MODEL", "TENDERLENS_VISION_API_KEY"):
+    for k in ("META_API_BASE", "MUSE_MODEL", "META_API_KEY",
+             "META_VISION_BASE", "MUSE_VISION_MODEL", "META_VISION_API_KEY"):
         monkeypatch.delenv(k, raising=False)
     code = pilot.PilotStore(tmp_path / "pilot.db").create_code("Contractor", packs=2, days=5)
 

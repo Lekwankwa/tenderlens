@@ -1,10 +1,10 @@
 # Connecting Llama vision (Ollama on your laptop)
 
-**This is the local alternative.** The default setup (`.env.example`, README's "Using Llama") is a hosted endpoint
-(OpenRouter: Llama 4 Scout for both text and vision). Use this page instead if you want
-everything to stay on your own machine - the trade-off is much slower runs on ordinary laptop hardware, and a
-known Ollama bug (see "If something goes wrong" below). Llama 4 Scout is too large to run this way; the local path
-below still uses Llama 3.2 Vision.
+**This is the local alternative.** The default setup (`.env.example`, README's "Using Muse Spark") is a hosted
+endpoint (Meta's Model API: Muse Spark for both text and vision). Use this page instead if you want everything
+to stay on your own machine - the trade-off is much slower runs on ordinary laptop hardware, and a known
+Ollama bug (see "If something goes wrong" below). Muse Spark is a hosted-only model; the local path below
+uses Llama 3.2 Vision instead.
 
 TenderLens works without a vision model, but then it cannot read ticks, handwritten names, dates, amounts or the
 commissioner's stamp. With one connected it also looks for crossed-out text, overwriting, notes in the margin, rotated or
@@ -31,25 +31,25 @@ Check the names against `ollama list`: Ollama's library changes, and the model n
 
 macOS / Linux:
 ```
-export TENDERLENS_VISION_BASE_URL=http://localhost:11434/v1
-export TENDERLENS_VISION_MODEL=llama3.2-vision
-export TENDERLENS_LLM_BASE_URL=http://localhost:11434/v1     # optional, for the buyer's documents
-export TENDERLENS_LLM_MODEL=llama3.2
-export TENDERLENS_LLM_TIMEOUT=900                            # seconds per call; a CPU-only laptop is slow
+export META_VISION_BASE=http://localhost:11434/v1
+export MUSE_VISION_MODEL=llama3.2-vision
+export META_API_BASE=http://localhost:11434/v1     # optional, for the buyer's documents
+export MUSE_MODEL=llama3.2
+export TENDERLENS_LLM_TIMEOUT=900                   # seconds per call; a CPU-only laptop is slow
 ```
 
 Windows PowerShell (the HP):
 ```
-$env:TENDERLENS_VISION_BASE_URL="http://localhost:11434/v1"
-$env:TENDERLENS_VISION_MODEL="llama3.2-vision"
-$env:TENDERLENS_LLM_BASE_URL="http://localhost:11434/v1"
-$env:TENDERLENS_LLM_MODEL="llama3.2"
+$env:META_VISION_BASE="http://localhost:11434/v1"
+$env:MUSE_VISION_MODEL="llama3.2-vision"
+$env:META_API_BASE="http://localhost:11434/v1"
+$env:MUSE_MODEL="llama3.2"
 $env:TENDERLENS_LLM_TIMEOUT="900"
 ```
 
-You can mix: for example the text model on Groq (free tier) and the vision model on Ollama. The vision settings are
-separate (`TENDERLENS_VISION_*`); if you leave them out, the text model is used for pages as well, so it must be a vision
-model.
+You can mix: for example the text model on Groq (free tier) and the vision model on Ollama (point `META_API_BASE`
+at Groq and `META_VISION_BASE` at `localhost`). The vision settings are separate (`META_VISION_*`); if you leave
+them out, the text model is used for pages as well, so it must be a vision model.
 
 ## 3. Check it works, then score it
 

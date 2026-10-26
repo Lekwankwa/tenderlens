@@ -254,7 +254,7 @@ def main(argv=None):
         from .evalvision import eval_vision
         vision = LlamaClient.for_vision(LlamaClient())
         if not vision.configured:
-            raise SystemExit("No vision model configured. Set TENDERLENS_VISION_BASE_URL / _MODEL (see OLLAMA.md).")
+            raise SystemExit("No vision model configured. Set META_API_BASE / MUSE_MODEL (see OLLAMA.md).")
         print(eval_vision(vision, a.pack, a.blank, a.transcript, a.work, a.out, a.passes))
         return
 
@@ -264,9 +264,9 @@ def main(argv=None):
     vision = LlamaClient(base_url="", model="") if fast else LlamaClient.for_vision(llm)
     if not fast and not vision.configured:
         print("No vision model is connected, so Complete check can't read handwriting, ticks or stamps. "
-              "Add --mode fast, or set TENDERLENS_VISION_BASE_URL / _MODEL (see OLLAMA.md).")
-    llm_mode = ("Llama (" + llm.model + ") cross-checked with rules" if llm.configured
-               else "rules only: no Llama endpoint configured (set TENDERLENS_LLM_BASE_URL / _MODEL)")
+              "Add --mode fast, or set META_API_BASE / MUSE_MODEL (see OLLAMA.md).")
+    llm_mode = ("Muse Spark (" + llm.model + ") cross-checked with rules" if llm.configured
+               else "rules only: no model endpoint configured (set META_API_BASE / MUSE_MODEL)")
     print(f"{check_mode.capitalize()} check. " + page_count_estimate(pdf_page_count(a.pack), check_mode))
 
     STAGE_LABEL = {"ocr": "OCR", "vision_first": "vision first readings", "vision_checks": "vision checks"}

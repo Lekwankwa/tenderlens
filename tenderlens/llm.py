@@ -1,39 +1,27 @@
-"""Thin Llama client.
+"""Thin client for Meta's Model API (Muse Spark) - TenderLens's only hosted model provider. Also works
+against any other OpenAI-compatible chat endpoint (e.g. Ollama on your own laptop - see OLLAMA.md), since
+nothing here is actually Meta-specific beyond the env var names and the defaults in .env.example.
 
-TenderLens talks to its model through any OpenAI-compatible chat endpoint (Meta's Model API, OpenRouter,
-DeepInfra, Llama API, Together, Groq, Fireworks, a self-hosted vLLM, Ollama on your own laptop, ...).
-Nothing here is vendor specific: configure with environment variables.
-
-MODEL_PROVIDER   "meta" (default) or "openrouter". Picks which block below is read; everything else about
-                 the client (retries, JSON mode, pricing, the key-scrubbed errors) is identical either way.
-
-Provider "meta" - Muse Spark on Meta's own Model API. One model serves both text and vision, so there is
-only one set of credentials, used for both roles:
-    META_API_BASE   e.g. https://api.meta.ai/v1
+Text model (reads the buyer's documents):
+    META_API_BASE   e.g. https://api.meta.ai/v1   or  http://localhost:11434/v1 (Ollama)
     MUSE_MODEL      e.g. muse-spark-1.3
     META_API_KEY
 
-Provider "openrouter" - kept as a switchable fallback (MODEL_PROVIDER=openrouter). Separate text/vision
-config, same as before:
-
-Text model (reads the buyer's documents):
-    TENDERLENS_LLM_BASE_URL   e.g. https://openrouter.ai/api/v1   or  http://localhost:11434/v1
-    TENDERLENS_LLM_MODEL      e.g. meta-llama/llama-4-scout
-    TENDERLENS_LLM_API_KEY
-
 Vision model (reads the scanned pages: ticks, handwriting, stamps). Optional: when these are not set the
-vision model is the same as the text model, so one multimodal model (e.g. Llama 4 Scout) can do both.
-    TENDERLENS_VISION_BASE_URL   e.g. https://openrouter.ai/api/v1
-    TENDERLENS_VISION_MODEL      e.g. meta-llama/llama-4-scout
-    TENDERLENS_VISION_API_KEY
+vision model is the same as the text model, so one multimodal model (Muse Spark) can do both - that is the
+default setup in .env.example: one model, same base URL and key, for both roles. Self-hosting with Ollama
+is the one case that typically needs these set separately (a small text model, a different multimodal one):
+    META_VISION_BASE   e.g. https://api.meta.ai/v1
+    MUSE_VISION_MODEL  e.g. muse-spark-1.3
+    META_VISION_API_KEY
 
-Other (both providers):
+Other:
     TENDERLENS_LLM_TIMEOUT      seconds per call (default 300: a laptop CPU reading a page image is slow)
-    TENDERLENS_LLM_JSON_MODE    1 (default) asks the server for strict JSON; 0 turns that off for servers that refuse it
+    TENDERLENS_LLM_JSON_MODE    1 (default) asks the server for strict JSON; 0 turns that off if it ever refuses it
     TENDERLENS_LLM_PRICE_IN/_OUT, TENDERLENS_VISION_PRICE_IN/_OUT
         US$ per million tokens, input/output. Unset by default - we never invent a price. Set these (see
-        .env.example for the figures as published on the provider's own pricing page, at the time they were
-        checked) to see an estimated cost alongside the token totals; leave them unset to see token totals only.
+        .env.example for the figures as published on Meta's own pricing page, at the time they were checked)
+        to see an estimated cost alongside the token totals; leave them unset to see token totals only.
 """
 from __future__ import annotations
 
@@ -132,27 +120,16 @@ def _read_error_body(err: urllib.error.HTTPError, api_key: str) -> str:
     return raw or err.reason or ""
 
 
-def provider_name() -> str:
-    """MODEL_PROVIDER: "meta" (default - Muse Spark on the Meta Model API) or "openrouter" (Llama 4 Scout,
-    kept as a switchable fallback). Anything else is treated as "openrouter" - an unrecognised value should
-    not silently disable the model entirely."""
-    return "meta" if os.environ.get("MODEL_PROVIDER", "meta").strip().lower() == "meta" else "openrouter"
-
-
 class LlamaClient:
     def __init__(self, base_url=None, model=None, api_key=None, timeout=None, prefix="LLM"):
         e = os.environ.get
-        self.provider = provider_name()
-        if self.provider == "meta":
-            # One Muse Spark model serves both text and vision, so `prefix` (LLM vs VISION) doesn't split
-            # the config here the way it does for OpenRouter below - same base URL, model and key either way.
-            # No in-code default for base_url/model (same rule as the OpenRouter branch): a bare, unconfigured
-            # checkout must come up as "not configured", not as "configured, but every call 401s" - the
-            # actual default values live in .env.example, which the user copies in explicitly.
-            env_base, env_model, env_key = "META_API_BASE", "MUSE_MODEL", "META_API_KEY"
-        else:
-            env_base, env_model, env_key = f"TENDERLENS_{prefix}_BASE_URL", f"TENDERLENS_{prefix}_MODEL", \
-                f"TENDERLENS_{prefix}_API_KEY"
+        # prefix selects META_VISION_* over META_* (vision reads page images; text reads the buyer's
+        # documents) - unset vision config falls back to the text client, below, so one multimodal model
+        # (Muse Spark) can serve both roles without duplicating config. No in-code default for base_url/model:
+        # a bare, unconfigured checkout must come up as "not configured", not as "configured, but every call
+        # 401s" - the actual default values live in .env.example, which the user copies in explicitly.
+        env_base, env_model, env_key = (("META_VISION_BASE", "MUSE_VISION_MODEL", "META_VISION_API_KEY")
+                                        if prefix == "VISION" else ("META_API_BASE", "MUSE_MODEL", "META_API_KEY"))
         # `is not None`, not `or`: an explicitly passed "" (used to force an unconfigured client, e.g.
         # --no-vision or a test that must never touch a real endpoint) must NOT fall through to the
         # environment the way an omitted argument does - "" or env() would silently ignore that override.
@@ -182,9 +159,8 @@ class LlamaClient:
 
     @classmethod
     def for_vision(cls, text_client: "LlamaClient | None" = None) -> "LlamaClient":
-        """The client that reads page images. Under MODEL_PROVIDER=meta this is always the same Muse Spark
-        config as the text client (one model, both roles - see __init__). Under openrouter, it's
-        TENDERLENS_VISION_* if set, otherwise the text model."""
+        """The client that reads page images: META_VISION_* if set, otherwise the text client's config (one
+        Muse Spark model, both roles, by default)."""
         v = cls(prefix="VISION")
         if v.configured:
             return v
@@ -244,7 +220,7 @@ class LlamaClient:
     def complete_json(self, system: str, user: str, images: list[str] | None = None) -> dict:
         if not self.configured:
             raise LLMUnavailable(
-                "No Llama endpoint configured. Set TENDERLENS_LLM_BASE_URL and TENDERLENS_LLM_MODEL."
+                "No model endpoint configured. Set META_API_BASE and MUSE_MODEL."
             )
         content: list[dict] = [{"type": "text", "text": user}]
         for img in images or []:

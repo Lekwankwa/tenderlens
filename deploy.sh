@@ -6,22 +6,13 @@
 # This script does NOT run itself - you run it, after reading it, with the variables below set. It is safe
 # to run again later: it's how you push an update (a new image, a new revision with the same settings).
 #
-# Nothing here is a secret or a project ID. MODEL_PROVIDER picks which key this script asks for and which
-# secret it stores in Secret Manager - default "meta" (Muse Spark on Meta's Model API):
+# Nothing here is a secret or a project ID. Set these in your own shell before running this script:
 #   export GCP_PROJECT_ID=your-project-id
 #   export META_API_KEY=...                 # your Meta Model API key - never put this in a file you commit
 #   ./deploy.sh
 #
-# Or MODEL_PROVIDER=openrouter for the switchable fallback (Llama 4 Scout on OpenRouter):
-#   export GCP_PROJECT_ID=your-project-id
-#   export MODEL_PROVIDER=openrouter
-#   export TENDERLENS_LLM_API_KEY=...       # your OpenRouter key
-#   ./deploy.sh
-#
-# Either way the key is read from Secret Manager at container start, not baked into the image or set as a
-# plain env var - see "4. store the key(s) in Secret Manager" below. Under openrouter, TENDERLENS_VISION_API_KEY
-# defaults to the same value as TENDERLENS_LLM_API_KEY (one account, one model, both roles) - export it
-# separately only if you use a different key/account for vision. Under meta, one key serves both roles.
+# The key is read from Secret Manager at container start, not baked into the image or set as a plain env
+# var - see "4. store the key in Secret Manager" below.
 
 set -euo pipefail
 
@@ -32,16 +23,9 @@ SERVICE_NAME="${TENDERLENS_SERVICE_NAME:-tenderlens}"
 REPO_NAME="${TENDERLENS_REPO_NAME:-tenderlens}"             # Artifact Registry repository name
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:$(date +%Y%m%d-%H%M%S)"
 
-MODEL_PROVIDER="${MODEL_PROVIDER:-meta}"
-if [[ "$MODEL_PROVIDER" == "meta" ]]; then
-  META_API_KEY="${META_API_KEY:?Set META_API_KEY to your Meta Model API key first (never commit it)}"
-else
-  LLM_API_KEY="${TENDERLENS_LLM_API_KEY:?Set TENDERLENS_LLM_API_KEY to your OpenRouter key first (never commit it)}"
-  VISION_API_KEY="${TENDERLENS_VISION_API_KEY:-$LLM_API_KEY}"
-fi
+META_API_KEY="${META_API_KEY:?Set META_API_KEY to your Meta Model API key first (never commit it)}"
 
 echo "Project:  $PROJECT_ID"
-echo "Provider: $MODEL_PROVIDER"
 echo "Region:   $REGION (Johannesburg)"
 echo "Service:  $SERVICE_NAME"
 echo "Image:    $IMAGE"
@@ -80,16 +64,9 @@ create_or_update_secret() {
     printf '%s' "$value" | gcloud secrets create "$name" --data-file=- --replication-policy=automatic --quiet
   fi
 }
-if [[ "$MODEL_PROVIDER" == "meta" ]]; then
-  create_or_update_secret "tenderlens-meta-api-key" "$META_API_KEY"
-  SET_SECRETS="META_API_KEY=tenderlens-meta-api-key:latest"
-  SET_ENV_VARS="MODEL_PROVIDER=meta,META_API_BASE=https://api.meta.ai/v1,MUSE_MODEL=muse-spark-1.3,TENDERLENS_PILOT=1,TENDERLENS_MAX_UPLOAD_MB=30,TENDERLENS_PURGE_HOURS=2,TENDERLENS_HOSTING_NOTE=Documents are processed on Google Cloud (Johannesburg); page images are sent to Meta's Model API (USA) for reading."
-else
-  create_or_update_secret "tenderlens-llm-api-key" "$LLM_API_KEY"
-  create_or_update_secret "tenderlens-vision-api-key" "$VISION_API_KEY"
-  SET_SECRETS="TENDERLENS_LLM_API_KEY=tenderlens-llm-api-key:latest,TENDERLENS_VISION_API_KEY=tenderlens-vision-api-key:latest"
-  SET_ENV_VARS="MODEL_PROVIDER=openrouter,TENDERLENS_LLM_BASE_URL=https://openrouter.ai/api/v1,TENDERLENS_LLM_MODEL=meta-llama/llama-4-scout,TENDERLENS_LLM_JSON_MODE=0,TENDERLENS_VISION_BASE_URL=https://openrouter.ai/api/v1,TENDERLENS_VISION_MODEL=meta-llama/llama-4-scout,TENDERLENS_PILOT=1,TENDERLENS_MAX_UPLOAD_MB=30,TENDERLENS_PURGE_HOURS=2,TENDERLENS_HOSTING_NOTE=Documents are processed on Google Cloud (Johannesburg); page images are sent to OpenRouter (USA) for reading."
-fi
+create_or_update_secret "tenderlens-meta-api-key" "$META_API_KEY"
+SET_SECRETS="META_API_KEY=tenderlens-meta-api-key:latest"
+SET_ENV_VARS="META_API_BASE=https://api.meta.ai/v1,MUSE_MODEL=muse-spark-1.3,TENDERLENS_PILOT=1,TENDERLENS_MAX_UPLOAD_MB=30,TENDERLENS_PURGE_HOURS=2,TENDERLENS_HOSTING_NOTE=Documents are processed on Google Cloud (Johannesburg); page images are sent to Meta's Model API (USA) for reading."
 
 # ------------------------------------------------------------------------------------- 5. deploy to Cloud Run
 # Resource/scaling choices here are deliberate, not defaults - see README "Hosting on Google Cloud Run":

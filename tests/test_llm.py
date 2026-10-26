@@ -17,7 +17,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tenderlens.facts import Facts, vision_precheck
-from tenderlens.llm import LLMError, LlamaClient, is_rate_limited, provider_name
+from tenderlens.llm import LLMError, LlamaClient, is_rate_limited
 
 
 class Mock:
@@ -168,10 +168,10 @@ def test_estimated_cost_is_none_without_a_price_and_computed_once_set():
 
 def test_vision_inherits_text_price_when_vision_has_none(monkeypatch):
     for k in list(__import__("os").environ):
-        if k.startswith("TENDERLENS_"):
+        if k.startswith("TENDERLENS_") or k.startswith("META_") or k.startswith("MUSE_"):
             monkeypatch.delenv(k)
-    monkeypatch.setenv("TENDERLENS_LLM_BASE_URL", "https://api.deepinfra.com/v1/openai")
-    monkeypatch.setenv("TENDERLENS_LLM_MODEL", "meta-llama/Llama-3.3-70B-Instruct-Turbo")
+    monkeypatch.setenv("META_API_BASE", "https://api.meta.ai/v1")
+    monkeypatch.setenv("MUSE_MODEL", "muse-spark-1.3")
     monkeypatch.setenv("TENDERLENS_LLM_PRICE_IN", "0.10")
     monkeypatch.setenv("TENDERLENS_LLM_PRICE_OUT", "0.32")
     v = LlamaClient.for_vision(LlamaClient())
@@ -183,9 +183,8 @@ def test_vision_inherits_text_price_when_vision_has_none(monkeypatch):
 def test_explicit_empty_string_disables_a_client_even_with_env_vars_set(monkeypatch):
     """base_url="" (used by --no-vision and by tests that must never touch a real endpoint) must not fall
     through to a real .env/environment value the way an omitted argument correctly does."""
-    monkeypatch.setenv("MODEL_PROVIDER", "openrouter")  # TENDERLENS_LLM_* is the openrouter-provider config
-    monkeypatch.setenv("TENDERLENS_LLM_BASE_URL", "https://api.deepinfra.com/v1/openai")
-    monkeypatch.setenv("TENDERLENS_LLM_MODEL", "meta-llama/Llama-4-Scout-17B-16E-Instruct")
+    monkeypatch.setenv("META_API_BASE", "https://api.meta.ai/v1")
+    monkeypatch.setenv("MUSE_MODEL", "muse-spark-1.3")
     assert LlamaClient().configured  # the env vars alone do configure a plain client
     forced_off = LlamaClient(base_url="", model="")
     assert not forced_off.configured and forced_off.base_url == "" and forced_off.model == ""
@@ -286,93 +285,68 @@ def test_ping_still_works_through_the_post_level_retry(monkeypatch):
 
 
 def test_is_rate_limited_true_for_a_429_llm_error_by_status_code():
-    assert is_rate_limited(LLMError("HTTP 429 from https://openrouter.ai/api/v1 (x): Rate exceeded", 429))
+    assert is_rate_limited(LLMError("HTTP 429 from https://api.meta.ai/v1 (x): Rate exceeded", 429))
 
 
 def test_is_rate_limited_true_even_without_a_captured_status_code():
     """str(err) is what app.py's error handler actually has to go on in some paths; the "429" digits in
     the message itself are enough even if status_code wasn't threaded through."""
-    assert is_rate_limited(LLMError("HTTP 429 from https://openrouter.ai/api/v1 (x): Rate exceeded"))
+    assert is_rate_limited(LLMError("HTTP 429 from https://api.meta.ai/v1 (x): Rate exceeded"))
 
 
 def test_is_rate_limited_false_for_an_unrelated_llm_error():
-    assert not is_rate_limited(LLMError("HTTP 401 from https://openrouter.ai/api/v1 (x): invalid API key", 401))
+    assert not is_rate_limited(LLMError("HTTP 401 from https://api.meta.ai/v1 (x): invalid API key", 401))
 
 
 def test_is_rate_limited_false_for_a_non_llm_exception():
     assert not is_rate_limited(ValueError("429 is not a real error here, just a string"))
 
 
-# --------------------------------------------------------------------------- MODEL_PROVIDER switch
+# --------------------------------------------------------------------------- Meta config: text vs vision
 
 def _blank_provider_env(monkeypatch):
-    for k in ("MODEL_PROVIDER", "META_API_BASE", "MUSE_MODEL", "META_API_KEY",
-             "TENDERLENS_LLM_BASE_URL", "TENDERLENS_LLM_MODEL", "TENDERLENS_LLM_API_KEY",
-             "TENDERLENS_VISION_BASE_URL", "TENDERLENS_VISION_MODEL", "TENDERLENS_VISION_API_KEY"):
+    for k in ("META_API_BASE", "MUSE_MODEL", "META_API_KEY",
+             "META_VISION_BASE", "MUSE_VISION_MODEL", "META_VISION_API_KEY"):
         monkeypatch.delenv(k, raising=False)
 
 
-def test_provider_defaults_to_meta(monkeypatch):
-    _blank_provider_env(monkeypatch)
-    assert provider_name() == "meta"
-
-
-def test_provider_openrouter_when_set(monkeypatch):
-    _blank_provider_env(monkeypatch)
-    monkeypatch.setenv("MODEL_PROVIDER", "openrouter")
-    assert provider_name() == "openrouter"
-
-
-def test_an_unrecognised_provider_value_falls_back_to_openrouter_not_silence(monkeypatch):
-    """A typo in MODEL_PROVIDER must not quietly leave both providers unconfigured - it's treated as
-    "not meta", same as explicitly asking for openrouter."""
-    _blank_provider_env(monkeypatch)
-    monkeypatch.setenv("MODEL_PROVIDER", "groq")
-    assert provider_name() == "openrouter"
-
-
-def test_meta_provider_reads_meta_env_vars_not_openrouter_ones(monkeypatch):
+def test_text_client_reads_the_non_vision_env_vars(monkeypatch):
     _blank_provider_env(monkeypatch)
     monkeypatch.setenv("META_API_BASE", "https://api.meta.ai/v1")
     monkeypatch.setenv("MUSE_MODEL", "muse-spark-1.3")
     monkeypatch.setenv("META_API_KEY", "meta-secret-key")
-    monkeypatch.setenv("TENDERLENS_LLM_BASE_URL", "https://openrouter.ai/api/v1")  # must be ignored
-    monkeypatch.setenv("TENDERLENS_LLM_MODEL", "meta-llama/llama-4-scout")          # must be ignored
     c = LlamaClient()
-    assert c.provider == "meta"
     assert c.base_url == "https://api.meta.ai/v1"
     assert c.model == "muse-spark-1.3"
     assert c.api_key == "meta-secret-key"
     assert c.configured
 
 
-def test_a_bare_checkout_with_no_env_vars_is_not_configured_under_meta(monkeypatch):
-    """The in-code client must never bake in a default base_url/model for meta - that would make a totally
+def test_a_bare_checkout_with_no_env_vars_is_not_configured(monkeypatch):
+    """The in-code client must never bake in a default base_url/model - that would make a totally
     unconfigured checkout read as "configured" and attempt a real call that just 401s, instead of the
     existing clean "not configured" message. See llm.py __init__."""
     _blank_provider_env(monkeypatch)
     c = LlamaClient()
-    assert c.provider == "meta"
     assert not c.configured
     assert c.base_url == "" and c.model == ""
 
 
-def test_openrouter_provider_ignores_meta_env_vars(monkeypatch):
+def test_vision_client_reads_the_separate_vision_env_vars_when_set(monkeypatch):
+    """A self-hosted setup (e.g. Ollama) typically needs a different, smaller text model from the
+    multimodal vision one - see OLLAMA.md."""
     _blank_provider_env(monkeypatch)
-    monkeypatch.setenv("MODEL_PROVIDER", "openrouter")
-    monkeypatch.setenv("META_API_KEY", "should-be-ignored")
-    monkeypatch.setenv("TENDERLENS_LLM_BASE_URL", "https://openrouter.ai/api/v1")
-    monkeypatch.setenv("TENDERLENS_LLM_MODEL", "meta-llama/llama-4-scout")
-    monkeypatch.setenv("TENDERLENS_LLM_API_KEY", "openrouter-secret-key")
-    c = LlamaClient()
-    assert c.provider == "openrouter"
-    assert c.base_url == "https://openrouter.ai/api/v1"
-    assert c.api_key == "openrouter-secret-key"
+    monkeypatch.setenv("META_API_BASE", "http://localhost:11434/v1")
+    monkeypatch.setenv("MUSE_MODEL", "llama3.2")
+    monkeypatch.setenv("META_VISION_BASE", "http://localhost:11434/v1")
+    monkeypatch.setenv("MUSE_VISION_MODEL", "llama3.2-vision")
+    v = LlamaClient(prefix="VISION")
+    assert v.base_url == "http://localhost:11434/v1"
+    assert v.model == "llama3.2-vision"
 
 
-def test_for_vision_reuses_the_same_meta_credentials_as_text(monkeypatch):
-    """One Muse Spark model serves both roles - for_vision() should not need TENDERLENS_VISION_* at all
-    under the meta provider."""
+def test_for_vision_reuses_the_same_meta_credentials_as_text_by_default(monkeypatch):
+    """One Muse Spark model serves both roles when META_VISION_* isn't set - the hosted default."""
     _blank_provider_env(monkeypatch)
     monkeypatch.setenv("META_API_BASE", "https://api.meta.ai/v1")
     monkeypatch.setenv("MUSE_MODEL", "muse-spark-1.3")
