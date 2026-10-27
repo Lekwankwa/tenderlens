@@ -243,7 +243,15 @@ async function uploadChunked() {
       res = await fetch(sessionUrl, {
         method: 'PUT',
         headers: {
-          'Content-Length': String(end - offset),
+          // Content-Length is NOT set here on purpose: it's a forbidden header name per the Fetch spec -
+          // browsers silently refuse to let JS set it and compute it themselves from the body, every time,
+          // in every browser. Setting it anyway (as this code used to) didn't throw - it just meant the
+          // ACTUAL request GCS received didn't match what was likely negotiated, and GCS's error response
+          // then came back without CORS headers, which the browser reports as a CORS failure ("No
+          // Access-Control-Allow-Origin header is present") even though the real cause is upstream of
+          // CORS entirely. This is exactly why server-side testing (Python's requests library, used for
+          // this feature's own live-check validation) never caught it: requests has no such restriction,
+          // so every chunk succeeded there while every real browser was guaranteed to fail this same way.
           'Content-Range': `bytes ${offset}-${end - 1}/${totalBytes}`,
         },
         body: chunk,
