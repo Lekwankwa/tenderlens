@@ -156,7 +156,7 @@ function render() {
   $('file-list').innerHTML = rows;
   const maxFiles = st_args.max_files || 10;
   $('pick-btn').disabled = items.length >= maxFiles;
-  st_setHeight(48 + items.length * 40 + (topErrorText ? 20 : 0));
+  st_setHeight(56 + items.length * 40 + (topErrorText ? 20 : 0));
 }
 
 // ------------------------------------------------------------------------------------------- file selection
@@ -481,8 +481,11 @@ window.addEventListener('unhandledrejection', (event) => {
 
 // ------------------------------------------------------------------------------------------------- startup
 
-render();
+// Order matters: Streamlit may ignore a setFrameHeight message sent before componentReady, leaving the
+// iframe at its tiny default (and everything in it invisible) until some later rerun happens to trigger
+// another render() - st_ready() must go first, same as the single-file version this replaced.
 st_ready();
+render();
 </script>
 </body>
 </html>
