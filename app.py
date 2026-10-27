@@ -20,7 +20,7 @@ import streamlit as st
 from pypdf import PdfWriter
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
-from tenderlens import check_log, pilot, privacy, storage, upload_component
+from tenderlens import check_log, jobs, pilot, privacy, storage, upload_component
 from tenderlens.audit import DOC_LABEL
 from tenderlens.bootstrap import is_local, remote_warning, system_check
 from tenderlens.cli import audit_pack, rerun_vision
@@ -158,11 +158,18 @@ with st.sidebar:
             st.caption(pilot.pilot_terms())
     rfqtender_ups = pack_ups = []
     gcs_tender = gcs_pack = None
+    job_id = None  # only the GCS large-upload path tracks job state - see tenderlens/jobs.py
     if GCS_UPLOADS:
         # one tender document, one response pack, each up to storage.max_upload_mb() - see
-        # tenderlens/upload_component.py. job_id scopes this session's two objects in the bucket; stable
-        # for the life of the browser tab, regenerated if the page is opened fresh.
+        # tenderlens/upload_component.py. job_id scopes this session's two objects in the bucket (and its
+        # job state / vision cache - see jobs.py, vision_cache.py); stable for the life of the browser tab,
+        # regenerated if the page is opened fresh.
         job_id = st.session_state.setdefault("_upload_job_id", secrets.token_hex(8))
+        prior = jobs.load(job_id)
+        if prior and prior["status"] == "running":
+            st.caption(f"A previous attempt on this job was interrupted at {prior['stage'] or 'the start'} "
+                      f"({prior['done']} of {prior['total']}). Pressing \"Audit the pack\" again will pick up "
+                      "where it left off, not repeat pages already read.")
         st.caption(f"Files up to {storage.max_upload_mb()} MB each, uploaded straight to storage - large scans "
                   "and slow connections are fine.")
         gcs_tender = upload_component.upload_slot("RFQ/Tender document (PDF)", "tender", job_id,
@@ -333,15 +340,20 @@ if run:
             stage_label = {"ocr": "OCR", "vision_first": "vision first readings", "vision_checks": "vision checks"}
             main_ctx = get_script_run_ctx()
 
+            if job_id:
+                jobs.save(job_id, "running", stage="start")
+
             def app_progress(stage, done, total):
                 # called from OCR/vision worker threads, which have no Streamlit context of their own -
                 # without this, any st.* call here raises NoSessionContext instead of updating the page.
                 add_script_run_ctx(threading.current_thread(), main_ctx)
                 progress_line.caption(f"{stage_label.get(stage, stage)}: {done} of {total}")
+                if job_id:
+                    jobs.save(job_id, "running", stage=stage, done=done, total=total)
 
             req, res, facts, pages = audit_pack(rfq, spec, pack, BLANK, transcript, WORK, llm, lc, vision=run_vision,
                                                 inspect="forms" if inspect else "off", passes=2 if second else 1,
-                                                progress=app_progress, pack_stage=pack_stage)
+                                                progress=app_progress, pack_stage=pack_stage, job_id=job_id)
             progress_line.empty()
             st.write("Building the report.")
             t_report = time.time()
@@ -372,6 +384,8 @@ if run:
                                                vision_completion_tokens=vision.completion_tokens,
                                                vision_cost=vision.estimated_cost))
             status.update(label=f"Done in {time.time() - t0:.0f} s", state="complete", expanded=False)
+            if job_id:
+                jobs.clear(job_id)  # the result now lives in st.session_state["out"] - no reason to keep it
         except pilot.NoPacksLeft:
             status.update(label="No packs left", state="error")
             st.error("That code's last pack was just used (by you or someone else at the same moment). "
@@ -381,6 +395,8 @@ if run:
             if claim_kind == "new":
                 claim_store.refund_pack(claim_hash, claim_file_sha)
             log_check(False, False)
+            if job_id:
+                jobs.save(job_id, "failed", error=str(e)[:300])
             status.update(label="A required program is missing", state="error")
             st.error(f"{e}. Install tesseract and poppler (see the System panel in the sidebar), then try again.")
             st.stop()
@@ -389,6 +405,8 @@ if run:
                 claim_store.refund_pack(claim_hash, claim_file_sha)
             log_check(False, False)
             busy = is_rate_limited(e)
+            if job_id:
+                jobs.save(job_id, "failed", error=str(e)[:300])
             status.update(label="The AI service is busy" if busy else "Something went wrong", state="error")
             st.error(BUSY_MESSAGE if busy else f"{type(e).__name__}: {e}")
             st.stop()

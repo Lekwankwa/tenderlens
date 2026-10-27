@@ -18,7 +18,7 @@ SECRET_SESSION_URL = "https://storage.googleapis.com/upload/storage/v1/b/my-buck
 
 
 class FakeBackend:
-    """Implements GCSBackend's four methods against an in-memory dict - the only interface storage.py's
+    """Implements GCSBackend's methods against an in-memory dict - the only interface storage.py's
     functions actually depend on."""
 
     def __init__(self):
@@ -45,6 +45,13 @@ class FakeBackend:
 
     def delete(self, object_name):
         self.objects.pop(object_name, None)
+
+    def read_bytes(self, object_name):
+        obj = self.objects.get(object_name)
+        return obj["bytes"] if obj else None
+
+    def write_bytes(self, object_name, data, content_type):
+        self.objects[object_name] = {"bytes": data, "content_type": content_type}
 
     def put_object(self, object_name, data: bytes, content_type="application/pdf"):
         """Test helper: simulates a browser having finished the resumable PUT."""

@@ -18,7 +18,8 @@ from .report import render_html, to_json
 from .requirements import build_requirements
 
 def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm=None, local_content="auto",
-               vision=None, inspect="forms", passes=2, extra_facts=None, progress=None, pack_stage="final"):
+               vision=None, inspect="forms", passes=2, extra_facts=None, progress=None, pack_stage="final",
+               job_id=None):
     """The whole pipeline, returning (requirements, audit result, facts, pages). Used by the CLI, the app and the tests.
 
     rfq      the buyer's RFQ, as one path or a list: the cover email/letter plus any attachments it came
@@ -34,6 +35,10 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     passes   2 = a vision 'yes' needs a second, differently worded look to count as an issue
     progress, if given, is called as progress(stage, done, total) from whichever stage is currently running
              ("ocr", "vision_first", "vision_second"/"vision_checks") - for a live "page N of M" indicator.
+    job_id   None (the default, every caller outside the Cloud Run large-upload path) means no vision
+             caching - today's exact behaviour. Given, it lets a vision call already answered before this
+             same job was interrupted be skipped on resume instead of re-asked - see facts._ask() and
+             vision_cache.py. Harmless to pass even without GCS configured (every lookup just misses).
 
     Timing: facts.stage_times ends up with seconds spent in "render", "ocr", "text_model" (the RFQ/spec
     reading, including any separate spec file's own render+OCR), "vision_first" and "vision_second" (second
@@ -66,18 +71,19 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
 
     classify_pages(pages, load_templates(blank))
     facts, res = _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript, extra_facts,
-                                   progress, timing)
+                                   progress, timing, job_id)
     facts.stage_times = timing
     return req, res, facts, pages
 
 
 def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript, extra_facts, progress,
-                      timing):
+                      timing, job_id=None):
     """The part of audit_pack() after OCR/requirements: read the pack with vision (if configured) and run the
     rule checks. Split out so a free re-run (vision was busy, nothing about the pack or the buyer's
     documents changed) can redo just this part, reusing the already-read req/pages instead of paying for
     OCR and the text model again."""
     facts = Facts()
+    facts.job_id = job_id  # see audit_pack's own docstring and facts._ask()/vision_cache.py
     ocr_facts(pages, facts)
     if vision.configured:
         facts.vision_log["model"] = vision.model
@@ -108,14 +114,16 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
 
 
 def rerun_vision(req, pages, blank, vision, inspect="forms", passes=2, pack_stage="final", transcript=None,
-                 extra_facts=None, progress=None):
+                 extra_facts=None, progress=None, job_id=None):
     """Free re-run of an incomplete Complete check: vision was busy last time, nothing about the buyer's
     documents or the pack changed, so OCR and the text model (requirements) are not repeated - pages already
     carries their OCR text, req is reused as-is. Returns (res, facts), timed the same way as audit_pack's own
-    vision_first/vision_second (no render/ocr/text_model entries, since none of that runs here)."""
+    vision_first/vision_second (no render/ocr/text_model entries, since none of that runs here).
+    job_id: see audit_pack's own docstring - with one set, pages vision already answered before this aren't
+    re-asked (facts._ask()/vision_cache.py), which is what makes this genuinely free, not just pilot-credit-free."""
     timing: dict[str, float] = {}
     facts, res = _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript, extra_facts,
-                                   progress, timing)
+                                   progress, timing, job_id)
     facts.stage_times = timing
     return res, facts
 

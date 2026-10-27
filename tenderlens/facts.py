@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import forms as F
+from . import vision_cache
 from .ingest import Page
 from .llm import LlamaClient, LLMError, LLMUnavailable, run_concurrent, vision_concurrency
 
@@ -37,7 +38,11 @@ class Facts:
         self.items: list[Fact] = []
         self.unread: list[tuple[str, int, str]] = []  # (field, page, why) entries a reader could not read
         self.vision_log: dict = {"calls": 0, "failed": 0, "pages_read": 0, "pages_inspected": 0, "errors": [],
-                                 "stopped_early": "", "failed_pages": set()}
+                                 "stopped_early": "", "failed_pages": set(), "cache_hits": 0}
+        # Set by cli.audit_pack when it's running against a Cloud Run upload job (see storage.py /
+        # vision_cache.py) - lets _ask() skip a call already answered before an instance restart. None
+        # (the default, every other caller) means "no cache" - exactly today's behaviour, unchanged.
+        self.job_id: str | None = None
         self.misread_variants: list[str] = []  # handwriting a focused crop re-read cleared or set aside (Step 3B)
         self.stage_times: dict[str, float] = {}  # seconds per pipeline stage; filled in by cli.audit_pack
         self.vision_complete = True  # False only when vision was configured, attempted, and some call still
@@ -419,11 +424,25 @@ def _ask(llm: LlamaClient, facts: Facts, prompt: str, images: list[str], page_no
     be isolated and recorded here, not propagate up through the thread pool and abandon every other page's
     result that was already in - the exact "a call that still fails must not stop the run" requirement.
     page_no, if given, is the pack page this call was reading, recorded on failure so the report can list
-    exactly which pages were not fully read, not just how many calls failed."""
+    exactly which pages were not fully read, not just how many calls failed.
+
+    facts.job_id, if set (see vision_cache.py), makes this resumable: the exact same (prompt, images) was
+    possibly already answered before an earlier attempt at this same job was interrupted, so check the
+    cache first and skip the real call entirely on a hit - same question, same answer, zero added cost.
+    This changes nothing about what is asked or how an answer is used; it only decides whether asking it
+    again is necessary."""
+    cached = vision_cache.get(facts.job_id, prompt, images)
+    if cached is not None:
+        with facts._lock:
+            facts.vision_log["calls"] += 1
+            facts.vision_log["cache_hits"] += 1
+        return cached
     with facts._lock:
         facts.vision_log["calls"] += 1
     try:
-        return llm.complete_json(VISION_SYSTEM, prompt, images=images)
+        data = llm.complete_json(VISION_SYSTEM, prompt, images=images)
+        vision_cache.set(facts.job_id, prompt, images, data)
+        return data
     except Exception as err:  # noqa: BLE001 - intentionally broad; see docstring
         # an LLMError's own str() already is the server's message, shortened and with the key scrubbed
         msg = str(err)[:300] if isinstance(err, LLMError) else f"{type(err).__name__}: {str(err)[:140]}"

@@ -28,6 +28,7 @@ just to be told no), but neither is a security boundary - do not treat them as o
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import secrets
@@ -153,6 +154,16 @@ class GCSBackend:
     def delete(self, object_name: str) -> None:
         self._bucket.blob(object_name).delete()
 
+    def read_bytes(self, object_name: str) -> bytes | None:
+        """None if the object doesn't exist - a cache/state miss, not an error."""
+        blob = self._bucket.blob(object_name)
+        if not blob.exists():
+            return None
+        return blob.download_as_bytes()
+
+    def write_bytes(self, object_name: str, data: bytes, content_type: str) -> None:
+        self._bucket.blob(object_name).upload_from_string(data, content_type=content_type)
+
 
 _backend: GCSBackend | None = None
 _backend_bucket: str | None = None  # which bucket _backend was built for - rebuilt if GCS_BUCKET changes
@@ -232,3 +243,27 @@ def delete(object_name: str) -> None:
     """Best-effort: a job's work files should not outlive the job (see Step 5's retention rules) - a
     failure here is logged by the caller, not raised, since it must never be the reason an audit fails."""
     _get_backend().delete(object_name)
+
+
+# -- small JSON objects: job state (see jobs.py) and the per-page vision cache (see vision_cache.py) -----
+# Neither holds document contents or personal data on its own (job state is progress counters; the vision
+# cache's values are the same per-page answers already held in memory during a normal run) - but both ride
+# on the same retention lifecycle rule as the uploads themselves (see Step 5), and both are deleted by
+# delete() like any other object once the job no longer needs them.
+
+def read_json(object_name: str) -> dict | None:
+    """None if the object doesn't exist - a cache/state miss, not an error worth raising."""
+    try:
+        raw = _get_backend().read_bytes(object_name)
+    except Exception:  # noqa: BLE001 - a transient read failure is a miss, not a reason to crash the job
+        return None
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return None
+
+
+def write_json(object_name: str, value: dict) -> None:
+    _get_backend().write_bytes(object_name, json.dumps(value).encode(), "application/json")
