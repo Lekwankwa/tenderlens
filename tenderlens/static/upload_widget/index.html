@@ -98,6 +98,8 @@ let totalBytes = 0;
 let cancelled = false;
 let abortCtrl = null;
 let state = 'idle';
+let sessionWatchdog = null;   // see requestSession() below - Python creating a GCS session is a single
+                              // synchronous Streamlit rerun with no timeout of its own on this side
 
 const $ = (id) => document.getElementById(id);
 
@@ -149,18 +151,35 @@ $('file-input').addEventListener('change', () => {
   uploadedBytes = 0;
   cancelled = false;
   $('name').textContent = `${file.name}  (${fmtBytes(file.size)})`;
+  setProgress(0);
+  requestSession();
+});
+
+// Asking Python for a session is one synchronous Streamlit script run - if it hangs (a stalled network
+// call to GCS, or anything else unexpected) this side would otherwise wait forever with no feedback at
+// all, since nothing here times out on its own while waiting for the next streamlit:render message. This
+// watchdog turns that into the same visible, resumable error every other failure in this widget gets.
+const SESSION_TIMEOUT_MS = 25000;
+
+function requestSession() {
   state = 'awaiting_session';
   showButtons({ pick: false, resume: false, cancel: true });
   setStatus('Starting upload&hellip;');
-  setProgress(0);
+  clearTimeout(sessionWatchdog);
+  sessionWatchdog = setTimeout(() => {
+    if (state === 'awaiting_session') {
+      interrupted('Starting the upload is taking unusually long. Press Resume to try again.');
+    }
+  }, SESSION_TIMEOUT_MS);
   st_setValue({ action: 'request_session', kind: st_args.kind, filename: file.name, size: file.size,
                content_type: 'application/pdf' });
-});
+}
 
 // --------------------------------------------------------------------------------------------- cancel
 
 $('cancel-btn').addEventListener('click', () => {
   cancelled = true;
+  clearTimeout(sessionWatchdog);
   if (abortCtrl) abortCtrl.abort();
   state = 'idle';
   file = null;
@@ -173,7 +192,11 @@ $('cancel-btn').addEventListener('click', () => {
 });
 
 $('resume-btn').addEventListener('click', () => {
-  if (!file || !sessionUrl) return; // the page was reloaded - the browser no longer has the file's bytes
+  if (!file) return; // the page was reloaded - the browser no longer has the file's bytes
+  if (!sessionUrl) {
+    requestSession();  // interrupted before Python ever returned a session - ask again from scratch
+    return;
+  }
   state = 'uploading';
   showButtons({ pick: false, resume: false, cancel: true });
   setStatus('Resuming&hellip;');
@@ -185,6 +208,7 @@ $('resume-btn').addEventListener('click', () => {
 function onRender(args) {
   st_setHeight(64);
   if (args.error) {
+    clearTimeout(sessionWatchdog);
     setStatus(args.error, 'error');
     setProgress(uploadedBytes / (totalBytes || 1), true);
     state = 'idle';
@@ -193,6 +217,7 @@ function onRender(args) {
     return;
   }
   if (args.verified) {
+    clearTimeout(sessionWatchdog);
     state = 'done';
     setStatus(`Uploaded and verified (${fmtBytes(args.verified.size)}).`, 'ok');
     setProgress(1);
@@ -200,6 +225,7 @@ function onRender(args) {
     return;
   }
   if (state === 'awaiting_session' && args.session_url && args.kind === st_args.kind) {
+    clearTimeout(sessionWatchdog);
     sessionUrl = args.session_url;
     objectName = args.object_name;
     state = 'uploading';

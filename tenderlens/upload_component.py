@@ -75,6 +75,12 @@ def _handle_request_session(state: dict, kind: str, job_id: str, msg: dict) -> N
     except storage.StorageError as err:
         state["error"], state["session"], state["result"] = str(err), None, None
         return
+    except Exception:  # noqa: BLE001 - a network/library failure here must become a visible retry prompt,
+        # never an uncaught exception: that would crash the whole Streamlit rerun (the WHOLE page, since this
+        # runs synchronously), leaving the widget's "Starting upload..." stuck with no way out but a reload.
+        state["error"] = "Could not start the upload. Check your connection and try again."
+        state["session"], state["result"] = None, None
+        return
     # session.session_url is a bearer credential - held only in session_state and the component's render
     # args, never logged. Only object_name (server-generated, no user data) would ever be safe to log.
     state["session"] = {"session_url": session.session_url, "object_name": session.object_name}

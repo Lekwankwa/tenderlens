@@ -131,9 +131,15 @@ class GCSBackend:
 
     def create_resumable_session(self, object_name: str, content_type: str, size: int, metadata: dict,
                                  origin: str) -> str:
+        # Streamlit runs this synchronously inside one user's script rerun - the whole page (that widget's
+        # "Starting upload..." state included) is blocked until this call returns. The client library's own
+        # retry wrapper can otherwise stack several attempts behind the scenes with no visible sign of
+        # life, so this disables it and uses a short, explicit timeout instead: a real failure should
+        # surface quickly as state["error"] (see upload_component.py), not as a multi-minute silent hang.
         blob = self._bucket.blob(object_name)
         blob.metadata = metadata
-        return blob.create_resumable_upload_session(content_type=content_type, size=size, origin=origin or None)
+        return blob.create_resumable_upload_session(content_type=content_type, size=size, origin=origin or None,
+                                                     retry=None, timeout=15)
 
     def stat(self, object_name: str) -> dict | None:
         """{"size": int, "content_type": str} or None if the object doesn't exist (upload never finished,
