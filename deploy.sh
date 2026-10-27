@@ -77,8 +77,15 @@ SET_ENV_VARS="META_API_BASE=https://api.meta.ai/v1,MUSE_MODEL=muse-spark-1.3,TEN
 #   --no-cpu-throttling  a vision-reading pack can run for minutes of real CPU time; Cloud Run throttles CPU
 #                        to near-zero outside an active request by default, which would stall mid-run work.
 #   --timeout=3600       generous headroom for a large Complete check with retries.
-#   --concurrency=2      two requests per instance before Cloud Run starts a new one (kept low since a run
-#                        is CPU/memory heavy, not I/O-bound).
+#   --concurrency=8      raised from 2 after a real cold-start failure: with max-instances=1, a page load's
+#                        own burst of small requests (JS bundles, the upload widget's own iframe asset
+#                        fetch) could exceed concurrency=2 while the single instance was still booting, and
+#                        Cloud Run hard-rejects the overflow ("aborted: no available instance") rather than
+#                        queuing it, since there's no second instance to absorb it - this showed up as the
+#                        upload widget failing to load. 8 gives a page load enough headroom; the ceiling
+#                        this changes is how many simultaneous HEAVY audit runs could land on one instance
+#                        at once (worst case 8, up from 2) - at 4Gi/2 vCPU that's a real OOM risk only if
+#                        that many full audits truly overlap, which pilot/hackathon-scale traffic shouldn't.
 #   --session-affinity   keeps a given browser session on the same instance across reruns (Streamlit's
 #                        in-memory session state does not work if a rerun lands on a different instance).
 gcloud run deploy "$SERVICE_NAME" \
@@ -89,7 +96,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --cpu=2 \
   --no-cpu-throttling \
   --timeout=3600 \
-  --concurrency=2 \
+  --concurrency=8 \
   --min-instances=0 \
   --max-instances=1 \
   --session-affinity \
