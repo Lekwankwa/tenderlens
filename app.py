@@ -138,7 +138,9 @@ with st.sidebar:
     st.caption(DISCLAIMER_SHORT)
 
     st.markdown("<div class='tl-step'>1 &middot; What the buyer sent</div>", unsafe_allow_html=True)
-    _max_upload_mb = os.environ.get("TENDERLENS_MAX_UPLOAD_MB", "").strip()
+    # This is the small-file st.file_uploader path's own limit - irrelevant once GCS_UPLOADS replaces that
+    # path with the large-upload slots (storage.max_upload_mb(), shown in their own caption below instead).
+    _max_upload_mb = "" if GCS_UPLOADS else os.environ.get("TENDERLENS_MAX_UPLOAD_MB", "").strip()
     if _max_upload_mb:
         st.caption(f"This pilot version accepts packs up to {float(_max_upload_mb):.0f} MB. Please compress "
                   "the PDF or send a shorter pack.")

@@ -66,7 +66,7 @@ create_or_update_secret() {
 }
 create_or_update_secret "tenderlens-meta-api-key" "$META_API_KEY"
 SET_SECRETS="META_API_KEY=tenderlens-meta-api-key:latest"
-SET_ENV_VARS="META_API_BASE=https://api.meta.ai/v1,MUSE_MODEL=muse-spark-1.3,TENDERLENS_PILOT=1,TENDERLENS_MAX_UPLOAD_MB=30,TENDERLENS_PURGE_HOURS=2,TENDERLENS_HOSTING_NOTE=Documents are processed on Google Cloud (Johannesburg); page images are sent to Meta's Model API (USA) for reading."
+SET_ENV_VARS="META_API_BASE=https://api.meta.ai/v1,MUSE_MODEL=muse-spark-1.3,TENDERLENS_PILOT=1,TENDERLENS_PURGE_HOURS=2,TENDERLENS_HOSTING_NOTE=Documents are processed on Google Cloud (Johannesburg); page images are sent to Meta's Model API (USA) for reading.,GCS_BUCKET=tenderlens-uploads-${PROJECT_ID},GCS_REGION=${REGION},MAX_UPLOAD_MB=300,UPLOAD_RETENTION_DAYS=7"
 
 # ------------------------------------------------------------------------------------- 5. deploy to Cloud Run
 # Resource/scaling choices here are deliberate, not defaults - see README "Hosting on Google Cloud Run":
