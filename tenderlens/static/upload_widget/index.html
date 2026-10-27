@@ -86,6 +86,7 @@ window.addEventListener('message', (event) => {
 const CHUNK_BYTES = 8 * 1024 * 1024;          // 8 MiB - Google's own recommended minimum chunk size
 const MAX_CHUNK_RETRIES = 5;
 const RETRY_BASE_MS = 1000;
+const CHUNK_TIMEOUT_MS = 60000;               // a hung connection must not wait forever - see uploadChunked()
 
 let file = null;             // the picked File - lost on page reload, by design (browsers never let JS
                              // read file bytes back out after a reload; "resume" below is only ever within
@@ -223,13 +224,20 @@ function runUpload() {
 // ------------------------------------------------------------------------------------------ chunked upload
 
 async function uploadChunked() {
-  abortCtrl = new AbortController();
+  // A real freeze was traced to this: with no per-chunk timeout, a connection that stalls (goes quiet
+  // mid-request - not a clean drop) never makes fetch() resolve OR reject, so nothing here ever ran: not
+  // the success path, not the catch block, not even runUpload()'s own .catch() wrapper - the promise just
+  // never settled. abortCtrl is now a fresh AbortController per chunk (not once for the whole upload), with
+  // a timer that aborts it if nothing comes back in time, turning a silent hang into the same retry/backoff
+  // path a clean network error already takes.
   let offset = uploadedBytes;
   let retries = 0;
 
   while (offset < totalBytes && !cancelled) {
     const end = Math.min(offset + CHUNK_BYTES, totalBytes);
     const chunk = file.slice(offset, end);
+    abortCtrl = new AbortController();
+    const timeoutId = setTimeout(() => abortCtrl.abort(), CHUNK_TIMEOUT_MS);
     let res;
     try {
       res = await fetch(sessionUrl, {
@@ -242,18 +250,25 @@ async function uploadChunked() {
         signal: abortCtrl.signal,
       });
     } catch (err) {
-      // network drop, not an HTTP error - retry with backoff, then fall back to an explicit Resume
+      clearTimeout(timeoutId);
+      // a network drop OR a timeout abort (not an HTTP error) - retry with backoff, then fall back to an
+      // explicit Resume
       retries += 1;
       if (cancelled) return;
       if (retries > MAX_CHUNK_RETRIES) {
-        interrupted('The connection dropped repeatedly. Check your network and press Resume.');
+        const timedOut = err && err.name === 'AbortError';
+        interrupted(timedOut
+          ? 'The upload stalled and timed out. Check your network and press Resume.'
+          : 'The connection dropped repeatedly. Check your network and press Resume.');
         return;
       }
-      setStatus(`Connection dropped, retrying&hellip; (${retries}/${MAX_CHUNK_RETRIES})`);
+      setStatus(`${err && err.name === 'AbortError' ? 'Connection stalled' : 'Connection dropped'}, `
+               + `retrying&hellip; (${retries}/${MAX_CHUNK_RETRIES})`);
       await sleep(RETRY_BASE_MS * Math.pow(2, retries - 1));
       setStatus('Uploading&hellip;');
       continue;
     }
+    clearTimeout(timeoutId);
 
     if (res.status === 308) {
       // chunk accepted (maybe partially) - the Range header says how much GCS actually has so far;
