@@ -336,6 +336,23 @@ async function uploadChunked() {
       clearTimeout(timeoutId);
       if (cancelled) return;
       const timedOut = err && err.name === 'AbortError';
+      // A real, documented GCS limitation, confirmed against the live bucket: the response that actually
+      // COMPLETES a resumable upload carries no CORS headers at all (only the 308 "keep going" responses
+      // do), so fetch() reports a perfectly successful upload as an opaque CORS failure - there is no way
+      // for this code to tell that apart from a genuine failure using the exception alone, and retrying
+      // would just resend bytes GCS already has (which it may then reject outright, since the session is
+      // already finalized). Rather than guess, ask Python's finalize_upload() - it checks the object's
+      // real size and bytes in GCS, which is the actual source of truth this whole design relies on either
+      // way. If the chunk genuinely never landed, that check fails and reports a normal, resumable error.
+      if (!timedOut && end === totalBytes) {
+        uploadedBytes = totalBytes;
+        setProgress(1);
+        state = 'finalizing';
+        showButtons({ pick: false, resume: false, cancel: false });
+        setStatus('Verifying&hellip;');
+        st_setValue({ action: 'upload_complete', kind: st_args.kind, object_name: objectName });
+        return;
+      }
       const ok = await retryOrGiveUp(timedOut
         ? 'The upload stalled and timed out. Check your network and press Resume.'
         : 'The connection dropped repeatedly. Check your network and press Resume.');
