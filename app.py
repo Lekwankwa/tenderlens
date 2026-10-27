@@ -111,21 +111,6 @@ def merge_uploads(ups: list, name: str, folder: Path) -> Path:
     return p
 
 
-def merge_paths(paths: list[Path], name: str, folder: Path) -> Path:
-    """Same as merge_uploads(), but for files already local (the GCS large-upload path, after
-    storage.open_for_processing() has streamed each one down) - concatenated in the order given."""
-    if len(paths) == 1:
-        return paths[0]
-    folder.mkdir(parents=True, exist_ok=True)
-    writer = PdfWriter()
-    for path in paths:
-        writer.append(str(path))
-    p = folder / name
-    with open(p, "wb") as f:
-        writer.write(f)
-    return p
-
-
 def b64_to_bytes(b64: str) -> bytes:
     return base64.b64decode(b64)
 
@@ -174,13 +159,13 @@ with st.sidebar:
         with st.expander("Pilot terms"):
             st.caption(pilot.pilot_terms())
     rfqtender_ups = pack_ups = []
-    gcs_tender = gcs_pack = []
+    gcs_tender = gcs_pack = None
     job_id = None  # only the GCS large-upload path tracks job state - see tenderlens/jobs.py
     if GCS_UPLOADS:
-        # one or more tender documents, one or more response-pack files (each up to storage.max_upload_mb(),
-        # at most 10 per slot - see tenderlens/upload_component.py), job_id scopes this session's objects in
-        # the bucket (and its job state / vision cache - see jobs.py, vision_cache.py); stable for the life
-        # of the browser tab, regenerated if the page is opened fresh.
+        # one tender document, one response pack, each up to storage.max_upload_mb() - see
+        # tenderlens/upload_component.py. job_id scopes this session's two objects in the bucket (and its
+        # job state / vision cache - see jobs.py, vision_cache.py); stable for the life of the browser tab,
+        # regenerated if the page is opened fresh.
         job_id = st.session_state.setdefault("_upload_job_id", secrets.token_hex(8))
         prior = jobs.load(job_id)
         if prior and prior["status"] == "running":
@@ -189,7 +174,7 @@ with st.sidebar:
                       "where it left off, not repeat pages already read.")
         st.caption(f"Files up to {storage.max_upload_mb()} MB each, uploaded straight to storage - large scans "
                   "and slow connections are fine.")
-        gcs_tender = upload_component.upload_slot("RFQ/Tender document(s) (PDF)", "tender", job_id,
+        gcs_tender = upload_component.upload_slot("RFQ/Tender document (PDF)", "tender", job_id,
                                                    key="upload_tender")
         st.markdown("<div class='tl-step'>2 &middot; The bidder's response pack</div>", unsafe_allow_html=True)
         gcs_pack = upload_component.upload_slot("Response pack (PDF)", "pack", job_id, key="upload_pack")
@@ -255,9 +240,7 @@ with st.sidebar:
     consent = st.checkbox(privacy.CONSENT_LABEL, key="privacy_consent")
 
     if GCS_UPLOADS:
-        # both verified by storage.finalize_upload() - see Step 2; the widget's own UI already caps each
-        # slot at 10 files, this just mirrors the non-GCS path's defensive check below.
-        uploads_ok = bool(gcs_tender and gcs_pack and len(gcs_tender) <= 10 and len(gcs_pack) <= 10)
+        uploads_ok = bool(gcs_tender and gcs_pack)  # both verified by storage.finalize_upload() - see Step 2
     else:
         uploads_ok = bool(rfqtender_ups and pack_ups and len(rfqtender_ups) <= 10 and len(pack_ups) <= 10)
     ready = bool(uploads_ok and pack_stage is not None)
@@ -329,22 +312,17 @@ if run:
     with st.status("Auditing", expanded=True) as status:
         try:
             if GCS_UPLOADS:
-                # Already verified server-side by storage.finalize_upload() when each file reported done
-                # (see tenderlens/upload_component.py) - this just streams each object down to the same
-                # local work area the small-file path uses, so everything past this point (OCR, rendering,
-                # audit_pack) sees ordinary local Paths either way, per the brief's own requirement that
-                # both paths produce the same internal file object. Multiple pack files are concatenated in
-                # the order they were added, same as the small-file path's merge_uploads().
+                # Already verified server-side by storage.finalize_upload() when each slot reported done
+                # (see tenderlens/upload_component.py) - this just streams the two objects down to the
+                # same local work area the small-file path uses, so everything past this point (OCR,
+                # rendering, audit_pack) sees an ordinary local Path either way, per the brief's own
+                # requirement that both paths produce the same internal file object.
                 st.write("Fetching the uploaded files from storage.")
-                rfq = [storage.open_for_processing(f["object_name"], tmp) for f in gcs_tender]
-                pack_paths = [storage.open_for_processing(f["object_name"], tmp) for f in gcs_pack]
-                pack_hasher = hashlib.sha1()
-                for p in pack_paths:
-                    pack_hasher.update(p.read_bytes())
-                pack = merge_paths(pack_paths, f"pack-{pack_hasher.hexdigest()[:8]}.pdf", tmp)
-                for f in gcs_tender + gcs_pack:
+                rfq = [storage.open_for_processing(gcs_tender["object_name"], tmp)]
+                pack = storage.open_for_processing(gcs_pack["object_name"], tmp)
+                for obj in (gcs_tender["object_name"], gcs_pack["object_name"]):
                     try:
-                        storage.delete(f["object_name"])  # local copies (above) are what purge_old_files cleans up next
+                        storage.delete(obj)  # local copies (above) are what purge_old_files cleans up next
                     except storage.StorageError:
                         pass  # not needed for this run either way; the bucket's own lifecycle rule catches it
             else:

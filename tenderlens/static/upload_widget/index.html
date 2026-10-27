@@ -5,21 +5,17 @@
   hand below as `st_*` helpers), since a static component doesn't get the npm-only streamlit-component-lib.
 
   What this does and does NOT do:
-  - Lets several PDFs be added to one slot (up to max_files), each asking Python (via a rerun) for its own
-    GCS resumable-upload session, then uploaded in chunks DIRECTLY to Cloud Storage - this file never sends
-    any file's bytes to Streamlit/Cloud Run itself. Only small JSON messages (filename, size, content type,
-    a session URL, a final object name) cross the Python/JS boundary, one file at a time.
-  - Uploads one file at a time, in the order added (`active` below) - the rest sit queued. This isn't a
-    bandwidth optimisation, it's a protocol constraint: a Streamlit component instance can only have one
-    pending returned value in flight per rerun, so two files can't both be mid-handshake with Python at once.
+  - Picks a PDF, asks Python (via a rerun) for a GCS resumable-upload session, then uploads the file in
+    chunks DIRECTLY to Cloud Storage - this file never sends the file's bytes to Streamlit/Cloud Run. Only
+    small JSON messages (filename, size, content type, a session URL, a final object name) cross the
+    Python/JS boundary.
   - Retries a dropped chunk with backoff, and can resume a session that was interrupted (a page reload
-    loses every picked File's in-memory bytes, since browsers don't let JS keep file bytes across a reload -
-    "resume" here means finishing the SAME upload after a network blip without restarting from byte 0, not
-    resuming after the tab was closed - already-finished files stay listed, but a still-queued or
-    interrupted one past that point needs to be removed and re-added).
+    loses the in-memory File object, since browsers don't let JS keep file bytes across a reload - "resume"
+    here means finishing the SAME upload after a network blip without restarting from byte 0, not resuming
+    after the tab was closed).
   - Never decides pass/fail on its own: the real size/type check happens server-side in
-    tenderlens/storage.py's finalize_upload(), after this widget reports a given file done. This file's own
-    checks are UX only (an honest user finds out immediately, not after a 10-minute upload).
+    tenderlens/storage.py's finalize_upload(), after this widget reports "done". This file's own checks are
+    UX only (an honest user finds out immediately, not after a 10-minute upload).
 -->
 <html lang="en">
 <head>
@@ -28,31 +24,31 @@
   :root { color-scheme: light dark; }
   body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 4px 2px; font-size: 14px; }
   .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  button { font: inherit; padding: 5px 12px; border-radius: 6px; border: 1px solid #8884; cursor: pointer;
+  button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #8884; cursor: pointer;
           background: #6665; }
   button:disabled { opacity: .5; cursor: default; }
   button.danger { border-color: #c0392b88; }
-  .bar-track { flex: 1 1 140px; min-width: 100px; height: 8px; border-radius: 4px; background: #8884;
+  .bar-track { flex: 1 1 160px; min-width: 120px; height: 8px; border-radius: 4px; background: #8884;
               overflow: hidden; }
   .bar-fill { height: 100%; background: #2e7d32; width: 0%; transition: width .15s linear; }
   .bar-fill.error { background: #c0392b; }
   .meta { opacity: .75; font-size: 12px; }
   .error { color: #c0392b; font-size: 13px; }
   .ok { color: #2e7d32; font-size: 13px; }
-  .status-text { min-width: 90px; }
   input[type=file] { display: none; }
-  .file-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 0;
-             border-top: 1px solid #8882; }
-  .file-name { flex: 1 1 160px; min-width: 120px; font-size: 13px; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
   <div class="row">
-    <button id="pick-btn" type="button">Add file(s)</button>
-    <input id="file-input" type="file" accept="application/pdf,.pdf" multiple>
+    <button id="pick-btn" type="button">Choose file</button>
+    <input id="file-input" type="file" accept="application/pdf,.pdf">
+    <div class="bar-track"><div id="bar" class="bar-fill"></div></div>
+    <span id="pct" class="meta"></span>
+    <button id="resume-btn" type="button" style="display:none">Resume</button>
+    <button id="cancel-btn" type="button" class="danger" style="display:none">Cancel</button>
   </div>
-  <div id="top-error" class="error"></div>
-  <div id="file-list"></div>
+  <div id="name" class="meta"></div>
+  <div id="status"></div>
 
 <script>
 'use strict';
@@ -68,8 +64,8 @@ function st_ready() { st_send('streamlit:componentReady', { apiVersion: 1 }); }
 function st_setHeight(h) { st_send('streamlit:setFrameHeight', { height: h }); }
 // Every message to Python carries a fresh _seq: Streamlit keeps a component's last returned value alive
 // across reruns until JS sends a new one, so without a nonce the Python side could not tell "the user just
-// did something new" apart from "that's still the same old message from two reruns ago" - and would
-// re-create a session (or re-finalize an upload) every single unrelated rerun.
+// asked for a new session" apart from "that's still the same old request_session message from two reruns
+// ago" - and would re-create a session (or re-finalize an upload) every single rerun.
 let st_seq = 0;
 function st_setValue(value) {
   st_send('streamlit:setComponentValue', { value: Object.assign({ _seq: ++st_seq }, value), dataType: 'json' });
@@ -84,24 +80,39 @@ window.addEventListener('message', (event) => {
 });
 
 // ------------------------------------------------------------------------------------- upload state machine
-// Lifecycle per item: queued -> awaiting_session (Python is creating the GCS session) -> uploading ->
-// (interrupted <-> uploading, via retry/resume) -> finalizing (Python verifies) -> done | interrupted(fatal).
-// Only one item is ever active (awaiting_session/uploading/finalizing) at a time - see the file header.
+// Lifecycle per file: idle -> awaiting_session (Python is creating the GCS session) -> uploading ->
+// (interrupted <-> uploading, via retry/resume) -> finalizing (Python verifies) -> done | failed.
 
 const CHUNK_BYTES = 8 * 1024 * 1024;          // 8 MiB - Google's own recommended minimum chunk size
 const MAX_CHUNK_RETRIES = 5;
 const RETRY_BASE_MS = 1000;
 const CHUNK_TIMEOUT_MS = 60000;               // a hung connection must not wait forever - see uploadChunked()
-const SESSION_TIMEOUT_MS = 25000;             // see requestSession() - Python creating a session is one
-                                              // synchronous Streamlit rerun with no timeout of its own here
 
-let items = [];         // {id, file, name, size, status, error, fatal, sessionUrl, objectName, uploadedBytes}
-let nextId = 1;
-let active = null;      // the one item object currently owning the in-flight upload below, or null
-let cancelled = false;  // guards the active item's own upload loop - reset whenever a new item becomes active
+let file = null;             // the picked File - lost on page reload, by design (browsers never let JS
+                             // read file bytes back out after a reload; "resume" below is only ever within
+                             // one page session, after a dropped connection, not after closing the tab)
+let sessionUrl = null;
+let objectName = null;
+let uploadedBytes = 0;
+let totalBytes = 0;
+let cancelled = false;
 let abortCtrl = null;
+let state = 'idle';
+let sessionWatchdog = null;   // see requestSession() below - Python creating a GCS session is a single
+                              // synchronous Streamlit rerun with no timeout of its own on this side
 
 const $ = (id) => document.getElementById(id);
+
+function setStatus(html, cls) {
+  $('status').innerHTML = cls ? `<span class="${cls}">${html}</span>` : html;
+}
+
+function setProgress(fraction, isError) {
+  const bar = $('bar');
+  bar.style.width = `${Math.max(0, Math.min(100, fraction * 100)).toFixed(1)}%`;
+  bar.classList.toggle('error', !!isError);
+  $('pct').textContent = totalBytes ? `${fmtBytes(uploadedBytes)} / ${fmtBytes(totalBytes)}` : '';
+}
 
 function fmtBytes(n) {
   if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + ' GB';
@@ -110,53 +121,11 @@ function fmtBytes(n) {
   return n + ' B';
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-function statusText(item) {
-  switch (item.status) {
-    case 'queued': return 'Queued';
-    case 'awaiting_session': return 'Starting upload&hellip;';
-    case 'uploading': return item.liveStatus || `${fmtBytes(item.uploadedBytes)} / ${fmtBytes(item.size)}`;
-    case 'interrupted': return item.error || 'Interrupted';
-    case 'finalizing': return 'Verifying&hellip;';
-    case 'done': return `Uploaded (${fmtBytes(item.size)})`;
-    default: return '';
-  }
-}
-
-let topErrorText = '';
-function setTopError(msg) {
-  topErrorText = msg || '';
-  $('top-error').textContent = topErrorText;
-}
-
-function render() {
-  const rows = items.map((item) => {
-    const pct = item.status === 'done' ? 100
-              : item.size ? Math.max(0, Math.min(100, (item.uploadedBytes / item.size) * 100)) : 0;
-    const isError = item.status === 'interrupted';
-    const isOk = item.status === 'done';
-    const canResume = item.status === 'interrupted' && !item.fatal && item.file;
-    const canCancel = item.status === 'awaiting_session' || item.status === 'uploading'
-                     || item.status === 'interrupted';
-    const canRemove = item.status !== 'uploading' && item.status !== 'awaiting_session'
-                     && item.status !== 'finalizing';
-    return `<div class="file-row">
-        <div class="file-name">${escapeHtml(item.name)} <span class="meta">(${fmtBytes(item.size)})</span></div>
-        <div class="bar-track"><div class="bar-fill ${isError ? 'error' : ''}" style="width:${pct.toFixed(1)}%">
-        </div></div>
-        <span class="status-text ${isError ? 'error' : isOk ? 'ok' : 'meta'}">${statusText(item)}</span>
-        ${canResume ? `<button data-id="${item.id}" data-act="resume">Resume</button>` : ''}
-        ${canCancel ? `<button data-id="${item.id}" data-act="cancel" class="danger">Cancel</button>` : ''}
-        ${canRemove ? `<button data-id="${item.id}" data-act="remove" class="danger">Remove</button>` : ''}
-      </div>`;
-  }).join('');
-  $('file-list').innerHTML = rows;
-  const maxFiles = st_args.max_files || 10;
-  $('pick-btn').disabled = items.length >= maxFiles;
-  st_setHeight(56 + items.length * 40 + (topErrorText ? 20 : 0));
+function showButtons({ pick, resume, cancel }) {
+  $('pick-btn').style.display = pick ? '' : 'none';
+  $('resume-btn').style.display = resume ? '' : 'none';
+  $('cancel-btn').style.display = cancel ? '' : 'none';
+  $('pick-btn').disabled = state === 'awaiting_session' || state === 'finalizing';
 }
 
 // ------------------------------------------------------------------------------------------- file selection
@@ -164,144 +133,116 @@ function render() {
 $('pick-btn').addEventListener('click', () => $('file-input').click());
 
 $('file-input').addEventListener('change', () => {
-  const picked = Array.from($('file-input').files);
-  $('file-input').value = '';  // lets the same filename be picked again later (e.g. after Remove)
-  if (!picked.length) return;
+  const picked = $('file-input').files[0];
+  if (!picked) return;
   const maxBytes = st_args.max_bytes || 0;
-  const maxFiles = st_args.max_files || 10;
-  let err = '';
-  for (const f of picked) {
-    // Client-side checks are UX only, never the real boundary - see the file header comment and
-    // tenderlens/storage.py's module docstring. The server re-checks both after each upload finishes.
-    if (items.length >= maxFiles) { err = `At most ${maxFiles} files in this slot.`; break; }
-    if (f.type && f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')) {
-      err = `${f.name}: not a PDF.`; continue;
-    }
-    if (maxBytes && f.size > maxBytes) {
-      err = `${f.name}: ${fmtBytes(f.size)} is over the ${fmtBytes(maxBytes)} limit.`; continue;
-    }
-    items.push({ id: String(nextId++), file: f, name: f.name, size: f.size, status: 'queued', error: null,
-                fatal: false, sessionUrl: null, objectName: null, uploadedBytes: 0 });
-  }
-  setTopError(err);
-  render();
-  maybeStartNext();
-});
-
-function maybeStartNext() {
-  if (active) return;
-  const next = items.find((it) => it.status === 'queued');
-  if (!next) return;
-  active = next;
-  cancelled = false;
-  requestSession(next);
-}
-
-function finishActive(item) {
-  if (active === item) active = null;
-  render();
-  maybeStartNext();
-}
-
-function requestSession(item) {
-  item.status = 'awaiting_session';
-  item.error = null;
-  render();
-  clearTimeout(item.sessionWatchdog);
-  item.sessionWatchdog = setTimeout(() => {
-    if (active === item && item.status === 'awaiting_session') {
-      interrupted(item, 'Starting the upload is taking unusually long. Press Resume to try again.');
-    }
-  }, SESSION_TIMEOUT_MS);
-  st_setValue({ action: 'request_session', file_id: item.id, kind: st_args.kind, filename: item.name,
-               size: item.size, content_type: 'application/pdf' });
-}
-
-// --------------------------------------------------------------------------------------------- row actions
-
-$('file-list').addEventListener('click', (event) => {
-  const btn = event.target.closest('button[data-act]');
-  if (!btn) return;
-  const item = items.find((it) => it.id === btn.dataset.id);
-  if (!item) return;
-  if (btn.dataset.act === 'resume') doResume(item);
-  else if (btn.dataset.act === 'cancel') doCancel(item);
-  else if (btn.dataset.act === 'remove') doRemove(item);
-});
-
-function doCancel(item) {
-  if (active === item) {
-    cancelled = true;
-    clearTimeout(item.sessionWatchdog);
-    if (abortCtrl) abortCtrl.abort();
-  }
-  doRemove(item);
-}
-
-function doRemove(item) {
-  items = items.filter((it) => it !== item);
-  const wasActive = active === item;
-  if (wasActive) active = null;
-  render();
-  // Harmless even if Python never saw this file_id yet (still queued, no session requested) - see
-  // upload_component.py's _handle_remove(), which no-ops on an unknown id.
-  st_setValue({ action: 'remove', file_id: item.id, kind: st_args.kind });
-  if (wasActive) maybeStartNext();
-}
-
-function doResume(item) {
-  if (!item.file) return;  // the page was reloaded - the browser no longer has this file's bytes
-  active = item;
-  cancelled = false;
-  if (!item.sessionUrl) {
-    requestSession(item);  // interrupted before Python ever returned a session - ask again from scratch
+  // Client-side checks are UX only, never the real boundary - see the file header comment and
+  // tenderlens/storage.py's module docstring. The server re-checks both after the upload finishes.
+  if (picked.type && picked.type !== 'application/pdf' && !picked.name.toLowerCase().endsWith('.pdf')) {
+    setStatus('Not a PDF. Choose a .pdf file.', 'error');
     return;
   }
-  item.status = 'uploading';
-  item.error = null;
-  render();
-  runUpload(item);
+  if (maxBytes && picked.size > maxBytes) {
+    setStatus(`${fmtBytes(picked.size)} is over the ${fmtBytes(maxBytes)} limit for this file.`, 'error');
+    return;
+  }
+  file = picked;
+  totalBytes = file.size;
+  uploadedBytes = 0;
+  cancelled = false;
+  $('name').textContent = `${file.name}  (${fmtBytes(file.size)})`;
+  setProgress(0);
+  requestSession();
+});
+
+// Asking Python for a session is one synchronous Streamlit script run - if it hangs (a stalled network
+// call to GCS, or anything else unexpected) this side would otherwise wait forever with no feedback at
+// all, since nothing here times out on its own while waiting for the next streamlit:render message. This
+// watchdog turns that into the same visible, resumable error every other failure in this widget gets.
+const SESSION_TIMEOUT_MS = 25000;
+
+function requestSession() {
+  state = 'awaiting_session';
+  showButtons({ pick: false, resume: false, cancel: true });
+  setStatus('Starting upload&hellip;');
+  clearTimeout(sessionWatchdog);
+  sessionWatchdog = setTimeout(() => {
+    if (state === 'awaiting_session') {
+      interrupted('Starting the upload is taking unusually long. Press Resume to try again.');
+    }
+  }, SESSION_TIMEOUT_MS);
+  st_setValue({ action: 'request_session', kind: st_args.kind, filename: file.name, size: file.size,
+               content_type: 'application/pdf' });
 }
+
+// --------------------------------------------------------------------------------------------- cancel
+
+$('cancel-btn').addEventListener('click', () => {
+  cancelled = true;
+  clearTimeout(sessionWatchdog);
+  if (abortCtrl) abortCtrl.abort();
+  state = 'idle';
+  file = null;
+  sessionUrl = null;
+  objectName = null;
+  setStatus('Cancelled.');
+  setProgress(0);
+  showButtons({ pick: true, resume: false, cancel: false });
+  st_setValue({ action: 'cancelled', kind: st_args.kind });
+});
+
+$('resume-btn').addEventListener('click', () => {
+  if (!file) return; // the page was reloaded - the browser no longer has the file's bytes
+  if (!sessionUrl) {
+    requestSession();  // interrupted before Python ever returned a session - ask again from scratch
+    return;
+  }
+  state = 'uploading';
+  showButtons({ pick: false, resume: false, cancel: true });
+  setStatus('Resuming&hellip;');
+  runUpload();
+});
 
 // --------------------------------------------------------------------------------------- render from Python
 
 function onRender(args) {
-  for (const f of (args.files || [])) {
-    const item = items.find((it) => it.id === f.file_id);
-    if (!item) continue;  // removed locally since this message was sent - nothing to reconcile
-    if (f.error) {
-      if (active === item) clearTimeout(item.sessionWatchdog);
-      interrupted(item, f.error);
-      continue;
-    }
-    if (f.verified) {
-      if (active === item) clearTimeout(item.sessionWatchdog);
-      item.status = 'done';
-      item.size = f.verified.size;
-      item.error = null;
-      item.file = null;  // bytes no longer needed - lets a large File be garbage-collected
-      finishActive(item);
-      continue;
-    }
-    if (item.status === 'awaiting_session' && f.session_url && active === item) {
-      clearTimeout(item.sessionWatchdog);
-      item.sessionUrl = f.session_url;
-      item.objectName = f.object_name;
-      item.status = 'uploading';
-      render();
-      runUpload(item);
-    }
+  st_setHeight(64);
+  if (args.error) {
+    clearTimeout(sessionWatchdog);
+    setStatus(args.error, 'error');
+    setProgress(uploadedBytes / (totalBytes || 1), true);
+    state = 'idle';
+    file = null; sessionUrl = null; objectName = null;
+    showButtons({ pick: true, resume: false, cancel: false });
+    return;
+  }
+  if (args.verified) {
+    clearTimeout(sessionWatchdog);
+    state = 'done';
+    setStatus(`Uploaded and verified (${fmtBytes(args.verified.size)}).`, 'ok');
+    setProgress(1);
+    showButtons({ pick: true, resume: false, cancel: false }); // "pick" lets the user replace the file
+    return;
+  }
+  if (state === 'awaiting_session' && args.session_url && args.kind === st_args.kind) {
+    clearTimeout(sessionWatchdog);
+    sessionUrl = args.session_url;
+    objectName = args.object_name;
+    state = 'uploading';
+    showButtons({ pick: false, resume: false, cancel: true });
+    setStatus('Uploading&hellip;');
+    runUpload();
   }
 }
 
 // Never call uploadChunked() directly: an async function called without awaiting it fails silently on
 // any unexpected exception (not a clean HTTP error, which uploadChunked already handles itself) - the
-// promise just rejects with nobody listening, and the UI is left stuck on "Uploading…" forever, looking
-// frozen with no way out but a page reload. This wrapper is the one thing standing between any such bug
-// and a visible, actionable error with a Resume button.
-function runUpload(item) {
-  uploadChunked(item).catch((err) => {
-    interrupted(item, `Something went wrong during the upload (${err && err.message ? err.message : err}). `
+// promise just rejects with nobody listening, and the UI is left stuck on "Uploading…"/"Resuming…"
+// forever, looking frozen with no way out but a page reload. This wrapper is the one thing standing
+// between any such bug and a visible, actionable error with a Resume button.
+function runUpload() {
+  uploadChunked().catch((err) => {
+    interrupted(`Something went wrong during the upload (${err && err.message ? err.message : err}). `
                + 'Press Resume to try again.');
   });
 }
@@ -318,20 +259,20 @@ function runUpload(item) {
 // headers either - the browser reported each rejection as a plain, status-less "CORS error", with no way
 // for blind retries (resending the same now-wrong range) to ever recover. Returns the confirmed byte
 // count, or null if the check itself failed (caller falls back to its current guess).
-async function queryUploadStatus(item) {
+async function queryUploadStatus() {
   const ctrl = new AbortController();
   const timeoutId = setTimeout(() => ctrl.abort(), 15000);  // a bare status check should be fast
   try {
-    const res = await fetch(item.sessionUrl, {
+    const res = await fetch(sessionUrl, {
       method: 'PUT',
-      headers: { 'Content-Range': `bytes */${item.size}` },
+      headers: { 'Content-Range': `bytes */${totalBytes}` },
       signal: ctrl.signal,
     });
     if (res.status === 308) {
       const range = res.headers.get('Range');
       return range ? parseInt(range.split('-')[1], 10) + 1 : 0;
     }
-    if (res.status === 200 || res.status === 201) return item.size;
+    if (res.status === 200 || res.status === 201) return totalBytes;
   } catch (err) { /* status check itself failed or timed out - fall through to null */
   } finally {
     clearTimeout(timeoutId);
@@ -339,14 +280,14 @@ async function queryUploadStatus(item) {
   return null;
 }
 
-async function uploadChunked(item) {
+async function uploadChunked() {
   // A real freeze was traced to this: with no per-chunk timeout, a connection that stalls (goes quiet
   // mid-request - not a clean drop) never makes fetch() resolve OR reject, so nothing here ever ran: not
   // the success path, not the catch block, not even runUpload()'s own .catch() wrapper - the promise just
   // never settled. abortCtrl is now a fresh AbortController per chunk (not once for the whole upload), with
   // a timer that aborts it if nothing comes back in time, turning a silent hang into the same retry/backoff
   // path a clean network error already takes.
-  let offset = item.uploadedBytes;
+  let offset = uploadedBytes;
   let retries = 0;
 
   async function retryOrGiveUp(giveUpMessage) {
@@ -355,33 +296,30 @@ async function uploadChunked(item) {
     retries += 1;
     if (cancelled) return false;
     if (retries > MAX_CHUNK_RETRIES) {
-      interrupted(item, giveUpMessage);
+      interrupted(giveUpMessage);
       return false;
     }
-    item.liveStatus = `Resyncing&hellip; (${retries}/${MAX_CHUNK_RETRIES})`;
-    render();
-    const confirmed = await queryUploadStatus(item);
+    setStatus(`Resyncing&hellip; (${retries}/${MAX_CHUNK_RETRIES})`);
+    const confirmed = await queryUploadStatus();
     if (confirmed !== null) {
       offset = confirmed;
-      item.uploadedBytes = confirmed;
-      render();
+      uploadedBytes = confirmed;
+      setProgress(uploadedBytes / totalBytes);
     }
-    item.liveStatus = `Retrying&hellip; (${retries}/${MAX_CHUNK_RETRIES})`;
-    render();
+    setStatus(`Retrying&hellip; (${retries}/${MAX_CHUNK_RETRIES})`);
     await sleep(RETRY_BASE_MS * Math.pow(2, retries - 1));
-    item.liveStatus = null;
-    render();
+    setStatus('Uploading&hellip;');
     return true;
   }
 
-  while (offset < item.size && !cancelled) {
-    const end = Math.min(offset + CHUNK_BYTES, item.size);
-    const chunk = item.file.slice(offset, end);
+  while (offset < totalBytes && !cancelled) {
+    const end = Math.min(offset + CHUNK_BYTES, totalBytes);
+    const chunk = file.slice(offset, end);
     abortCtrl = new AbortController();
     const timeoutId = setTimeout(() => abortCtrl.abort(), CHUNK_TIMEOUT_MS);
     let res;
     try {
-      res = await fetch(item.sessionUrl, {
+      res = await fetch(sessionUrl, {
         method: 'PUT',
         headers: {
           // Content-Length is NOT set here on purpose: it's a forbidden header name per the Fetch spec -
@@ -389,7 +327,7 @@ async function uploadChunked(item) {
           // in every browser. Setting it anyway (as this code used to) didn't throw - it just meant the
           // ACTUAL request GCS received didn't match what was likely negotiated, which was the first of
           // two compounding bugs here - see queryUploadStatus() above for the second.
-          'Content-Range': `bytes ${offset}-${end - 1}/${item.size}`,
+          'Content-Range': `bytes ${offset}-${end - 1}/${totalBytes}`,
         },
         body: chunk,
         signal: abortCtrl.signal,
@@ -406,12 +344,13 @@ async function uploadChunked(item) {
       // already finalized). Rather than guess, ask Python's finalize_upload() - it checks the object's
       // real size and bytes in GCS, which is the actual source of truth this whole design relies on either
       // way. If the chunk genuinely never landed, that check fails and reports a normal, resumable error.
-      if (!timedOut && end === item.size) {
-        item.uploadedBytes = item.size;
-        item.status = 'finalizing';
-        render();
-        st_setValue({ action: 'upload_complete', file_id: item.id, kind: st_args.kind,
-                     object_name: item.objectName });
+      if (!timedOut && end === totalBytes) {
+        uploadedBytes = totalBytes;
+        setProgress(1);
+        state = 'finalizing';
+        showButtons({ pick: false, resume: false, cancel: false });
+        setStatus('Verifying&hellip;');
+        st_setValue({ action: 'upload_complete', kind: st_args.kind, object_name: objectName });
         return;
       }
       const ok = await retryOrGiveUp(timedOut
@@ -430,22 +369,23 @@ async function uploadChunked(item) {
       // check, instead of compounding into a permanent failure.
       const range = res.headers.get('Range');            // e.g. "bytes=0-8388607"
       offset = range ? parseInt(range.split('-')[1], 10) + 1 : end;
-      item.uploadedBytes = offset;
+      uploadedBytes = offset;
       retries = 0;
-      render();
+      setProgress(uploadedBytes / totalBytes);
       continue;
     }
     if (res.status === 200 || res.status === 201) {
-      item.uploadedBytes = item.size;
-      item.status = 'finalizing';
-      render();
-      st_setValue({ action: 'upload_complete', file_id: item.id, kind: st_args.kind,
-                   object_name: item.objectName });
+      uploadedBytes = totalBytes;
+      setProgress(1);
+      state = 'finalizing';
+      showButtons({ pick: false, resume: false, cancel: false });
+      setStatus('Verifying&hellip;');
+      st_setValue({ action: 'upload_complete', kind: st_args.kind, object_name: objectName });
       return;
     }
     if (res.status === 499 || res.status === 404) {
       // session cancelled or expired (sessions last 7 days, but can be invalidated server-side)
-      interrupted(item, 'This upload session is no longer valid. Remove and re-add this file.', true);
+      interrupted('This upload session is no longer valid. Press Choose file to start over.', true);
       return;
     }
     // any other status: resync and retry, same as a network drop
@@ -454,15 +394,16 @@ async function uploadChunked(item) {
   }
 }
 
-function interrupted(item, message, fatal) {
-  // Deliberately does NOT advance the queue (unlike finishActive()) - an interrupted upload still occupies
-  // `active` until the user explicitly Resumes it or Removes/Cancels it, same as the old single-file
-  // widget: silently skipping ahead to the next file would bury a failure the user needs to act on.
-  item.status = 'interrupted';
-  item.error = message;
-  item.fatal = !!fatal;
-  item.liveStatus = null;
-  render();
+function interrupted(message, fatal) {
+  state = 'interrupted';
+  setStatus(message, 'error');
+  setProgress(uploadedBytes / (totalBytes || 1), true);
+  if (fatal) {
+    file = null; sessionUrl = null; objectName = null;
+    showButtons({ pick: true, resume: false, cancel: false });
+  } else {
+    showButtons({ pick: false, resume: true, cancel: true });
+  }
 }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
@@ -473,19 +414,17 @@ function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 // this widget must never have. If an upload is in flight when that happens, surface it the same way a
 // real upload error would be, instead of leaving the page stuck.
 window.addEventListener('unhandledrejection', (event) => {
-  if (active && (active.status === 'uploading' || active.status === 'awaiting_session')) {
-    interrupted(active, `Unexpected error (${event.reason && event.reason.message ? event.reason.message : event.reason}). `
+  if (state === 'uploading' || state === 'awaiting_session') {
+    interrupted(`Unexpected error (${event.reason && event.reason.message ? event.reason.message : event.reason}). `
                + 'Press Resume to try again.');
   }
 });
 
 // ------------------------------------------------------------------------------------------------- startup
 
-// Order matters: Streamlit may ignore a setFrameHeight message sent before componentReady, leaving the
-// iframe at its tiny default (and everything in it invisible) until some later rerun happens to trigger
-// another render() - st_ready() must go first, same as the single-file version this replaced.
+showButtons({ pick: true, resume: false, cancel: false });
 st_ready();
-render();
+st_setHeight(64);
 </script>
 </body>
 </html>
