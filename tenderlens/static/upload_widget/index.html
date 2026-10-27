@@ -176,7 +176,7 @@ $('resume-btn').addEventListener('click', () => {
   state = 'uploading';
   showButtons({ pick: false, resume: false, cancel: true });
   setStatus('Resuming&hellip;');
-  uploadChunked();
+  runUpload();
 });
 
 // --------------------------------------------------------------------------------------- render from Python
@@ -204,8 +204,20 @@ function onRender(args) {
     state = 'uploading';
     showButtons({ pick: false, resume: false, cancel: true });
     setStatus('Uploading&hellip;');
-    uploadChunked();
+    runUpload();
   }
+}
+
+// Never call uploadChunked() directly: an async function called without awaiting it fails silently on
+// any unexpected exception (not a clean HTTP error, which uploadChunked already handles itself) - the
+// promise just rejects with nobody listening, and the UI is left stuck on "Uploading…"/"Resuming…"
+// forever, looking frozen with no way out but a page reload. This wrapper is the one thing standing
+// between any such bug and a visible, actionable error with a Resume button.
+function runUpload() {
+  uploadChunked().catch((err) => {
+    interrupted(`Something went wrong during the upload (${err && err.message ? err.message : err}). `
+               + 'Press Resume to try again.');
+  });
 }
 
 // ------------------------------------------------------------------------------------------ chunked upload
@@ -237,7 +249,9 @@ async function uploadChunked() {
         interrupted('The connection dropped repeatedly. Check your network and press Resume.');
         return;
       }
+      setStatus(`Connection dropped, retrying&hellip; (${retries}/${MAX_CHUNK_RETRIES})`);
       await sleep(RETRY_BASE_MS * Math.pow(2, retries - 1));
+      setStatus('Uploading&hellip;');
       continue;
     }
 
@@ -271,7 +285,9 @@ async function uploadChunked() {
       interrupted(`Upload stalled (server said HTTP ${res.status}). Press Resume to try again.`);
       return;
     }
+    setStatus(`Server said HTTP ${res.status}, retrying&hellip; (${retries}/${MAX_CHUNK_RETRIES})`);
     await sleep(RETRY_BASE_MS * Math.pow(2, retries - 1));
+    setStatus('Uploading&hellip;');
   }
 }
 
@@ -288,6 +304,18 @@ function interrupted(message, fatal) {
 }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+// Last-resort safety net: runUpload() already catches uploadChunked()'s own promise, but if some other
+// bug anywhere in this file throws inside an async context, the default browser behaviour is to log it to
+// the console and do nothing visible - the exact "silently frozen, no way out but a reload" failure mode
+// this widget must never have. If an upload is in flight when that happens, surface it the same way a
+// real upload error would be, instead of leaving the page stuck.
+window.addEventListener('unhandledrejection', (event) => {
+  if (state === 'uploading' || state === 'awaiting_session') {
+    interrupted(`Unexpected error (${event.reason && event.reason.message ? event.reason.message : event.reason}). `
+               + 'Press Resume to try again.');
+  }
+});
 
 // ------------------------------------------------------------------------------------------------- startup
 
