@@ -223,6 +223,37 @@ function runUpload() {
 
 // ------------------------------------------------------------------------------------------ chunked upload
 
+// Ask GCS what it actually has, rather than trusting our own locally-tracked offset - this is the
+// official way to resume per Google's resumable-upload docs (a status-check PUT: no body, Content-Range:
+// bytes */total), and it's what actually fixes a failure mode a real browser hit repeatedly: our offset
+// drifted from GCS's own confirmed byte count (most likely because res.headers.get('Range') on a 308 came
+// back null under real CORS enforcement, even though it reads fine when checked outside a browser - see
+// the Content-Range comment below), so every later chunk's declared range no longer matched what GCS
+// expected, GCS rejected every one of them, and - because an error response doesn't reliably carry CORS
+// headers either - the browser reported each rejection as a plain, status-less "CORS error", with no way
+// for blind retries (resending the same now-wrong range) to ever recover. Returns the confirmed byte
+// count, or null if the check itself failed (caller falls back to its current guess).
+async function queryUploadStatus() {
+  const ctrl = new AbortController();
+  const timeoutId = setTimeout(() => ctrl.abort(), 15000);  // a bare status check should be fast
+  try {
+    const res = await fetch(sessionUrl, {
+      method: 'PUT',
+      headers: { 'Content-Range': `bytes */${totalBytes}` },
+      signal: ctrl.signal,
+    });
+    if (res.status === 308) {
+      const range = res.headers.get('Range');
+      return range ? parseInt(range.split('-')[1], 10) + 1 : 0;
+    }
+    if (res.status === 200 || res.status === 201) return totalBytes;
+  } catch (err) { /* status check itself failed or timed out - fall through to null */
+  } finally {
+    clearTimeout(timeoutId);
+  }
+  return null;
+}
+
 async function uploadChunked() {
   // A real freeze was traced to this: with no per-chunk timeout, a connection that stalls (goes quiet
   // mid-request - not a clean drop) never makes fetch() resolve OR reject, so nothing here ever ran: not
@@ -232,6 +263,28 @@ async function uploadChunked() {
   // path a clean network error already takes.
   let offset = uploadedBytes;
   let retries = 0;
+
+  async function retryOrGiveUp(giveUpMessage) {
+    // Shared by both failure paths below. Re-syncing via queryUploadStatus() before every retry (not just
+    // after giving up) is what actually prevents the permanent-CORS-error loop described above.
+    retries += 1;
+    if (cancelled) return false;
+    if (retries > MAX_CHUNK_RETRIES) {
+      interrupted(giveUpMessage);
+      return false;
+    }
+    setStatus(`Resyncing&hellip; (${retries}/${MAX_CHUNK_RETRIES})`);
+    const confirmed = await queryUploadStatus();
+    if (confirmed !== null) {
+      offset = confirmed;
+      uploadedBytes = confirmed;
+      setProgress(uploadedBytes / totalBytes);
+    }
+    setStatus(`Retrying&hellip; (${retries}/${MAX_CHUNK_RETRIES})`);
+    await sleep(RETRY_BASE_MS * Math.pow(2, retries - 1));
+    setStatus('Uploading&hellip;');
+    return true;
+  }
 
   while (offset < totalBytes && !cancelled) {
     const end = Math.min(offset + CHUNK_BYTES, totalBytes);
@@ -246,12 +299,8 @@ async function uploadChunked() {
           // Content-Length is NOT set here on purpose: it's a forbidden header name per the Fetch spec -
           // browsers silently refuse to let JS set it and compute it themselves from the body, every time,
           // in every browser. Setting it anyway (as this code used to) didn't throw - it just meant the
-          // ACTUAL request GCS received didn't match what was likely negotiated, and GCS's error response
-          // then came back without CORS headers, which the browser reports as a CORS failure ("No
-          // Access-Control-Allow-Origin header is present") even though the real cause is upstream of
-          // CORS entirely. This is exactly why server-side testing (Python's requests library, used for
-          // this feature's own live-check validation) never caught it: requests has no such restriction,
-          // so every chunk succeeded there while every real browser was guaranteed to fail this same way.
+          // ACTUAL request GCS received didn't match what was likely negotiated, which was the first of
+          // two compounding bugs here - see queryUploadStatus() above for the second.
           'Content-Range': `bytes ${offset}-${end - 1}/${totalBytes}`,
         },
         body: chunk,
@@ -259,28 +308,22 @@ async function uploadChunked() {
       });
     } catch (err) {
       clearTimeout(timeoutId);
-      // a network drop OR a timeout abort (not an HTTP error) - retry with backoff, then fall back to an
-      // explicit Resume
-      retries += 1;
       if (cancelled) return;
-      if (retries > MAX_CHUNK_RETRIES) {
-        const timedOut = err && err.name === 'AbortError';
-        interrupted(timedOut
-          ? 'The upload stalled and timed out. Check your network and press Resume.'
-          : 'The connection dropped repeatedly. Check your network and press Resume.');
-        return;
-      }
-      setStatus(`${err && err.name === 'AbortError' ? 'Connection stalled' : 'Connection dropped'}, `
-               + `retrying&hellip; (${retries}/${MAX_CHUNK_RETRIES})`);
-      await sleep(RETRY_BASE_MS * Math.pow(2, retries - 1));
-      setStatus('Uploading&hellip;');
+      const timedOut = err && err.name === 'AbortError';
+      const ok = await retryOrGiveUp(timedOut
+        ? 'The upload stalled and timed out. Check your network and press Resume.'
+        : 'The connection dropped repeatedly. Check your network and press Resume.');
+      if (!ok) return;
       continue;
     }
     clearTimeout(timeoutId);
 
     if (res.status === 308) {
       // chunk accepted (maybe partially) - the Range header says how much GCS actually has so far;
-      // trust that over what we think we sent, per Google's own resumable-upload guidance.
+      // trust that over what we think we sent, per Google's own resumable-upload guidance. If the header
+      // isn't visible here (see queryUploadStatus()'s comment), this falls back to our own count, same as
+      // before - the difference now is that a wrong guess gets corrected by the NEXT retry's status
+      // check, instead of compounding into a permanent failure.
       const range = res.headers.get('Range');            // e.g. "bytes=0-8388607"
       offset = range ? parseInt(range.split('-')[1], 10) + 1 : end;
       uploadedBytes = offset;
@@ -302,15 +345,9 @@ async function uploadChunked() {
       interrupted('This upload session is no longer valid. Press Choose file to start over.', true);
       return;
     }
-    // any other status: retry the same chunk with backoff, same as a network drop
-    retries += 1;
-    if (retries > MAX_CHUNK_RETRIES) {
-      interrupted(`Upload stalled (server said HTTP ${res.status}). Press Resume to try again.`);
-      return;
-    }
-    setStatus(`Server said HTTP ${res.status}, retrying&hellip; (${retries}/${MAX_CHUNK_RETRIES})`);
-    await sleep(RETRY_BASE_MS * Math.pow(2, retries - 1));
-    setStatus('Uploading&hellip;');
+    // any other status: resync and retry, same as a network drop
+    const ok = await retryOrGiveUp(`Upload stalled (server said HTTP ${res.status}). Press Resume to try again.`);
+    if (!ok) return;
   }
 }
 
