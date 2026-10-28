@@ -36,19 +36,34 @@
   .error { color: #c0392b; font-size: 13px; }
   .ok { color: #2e7d32; font-size: 13px; }
   input[type=file] { display: none; }
+  /* The attached file gets its own clearly-bordered card once picked, with the filename bold and up
+     front - rather than a plain inline caption easy to miss next to the buttons. */
+  .file-card { border: 1px solid #8884; border-radius: 10px; padding: 10px 12px; margin-top: 8px;
+              display: flex; flex-direction: column; gap: 6px; max-width: 560px; }
+  .file-card-head { display: flex; align-items: center; gap: 8px; }
+  .file-badge { font-size: 10px; font-weight: 700; letter-spacing: .04em; color: #c0392b;
+               border: 1px solid #c0392b55; border-radius: 4px; padding: 2px 6px; flex: 0 0 auto; }
+  .file-name { font-weight: 600; font-size: 14px; flex: 1 1 auto; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
   <div class="row">
     <button id="pick-btn" type="button">Choose file</button>
     <input id="file-input" type="file" accept="application/pdf,.pdf">
-    <div class="bar-track"><div id="bar" class="bar-fill"></div></div>
-    <span id="pct" class="meta"></span>
-    <button id="resume-btn" type="button" style="display:none">Resume</button>
-    <button id="cancel-btn" type="button" class="danger" style="display:none">Cancel</button>
   </div>
-  <div id="name" class="meta"></div>
-  <div id="status"></div>
+  <div id="file-card" class="file-card" style="display:none">
+    <div class="file-card-head">
+      <span class="file-badge">PDF</span>
+      <span id="name" class="file-name"></span>
+      <button id="cancel-btn" type="button" class="danger" style="display:none">Cancel</button>
+    </div>
+    <div class="row">
+      <div class="bar-track"><div id="bar" class="bar-fill"></div></div>
+      <span id="pct" class="meta"></span>
+      <button id="resume-btn" type="button" style="display:none">Resume</button>
+    </div>
+    <div id="status"></div>
+  </div>
 
 <script>
 'use strict';
@@ -103,6 +118,10 @@ let sessionWatchdog = null;   // see requestSession() below - Python creating a 
 
 const $ = (id) => document.getElementById(id);
 
+function showCard(show) {
+  $('file-card').style.display = show ? '' : 'none';
+}
+
 function setStatus(html, cls) {
   $('status').innerHTML = cls ? `<span class="${cls}">${html}</span>` : html;
 }
@@ -151,6 +170,7 @@ $('file-input').addEventListener('change', () => {
   uploadedBytes = 0;
   cancelled = false;
   $('name').textContent = `${file.name}  (${fmtBytes(file.size)})`;
+  showCard(true);
   setProgress(0);
   requestSession();
 });
@@ -187,6 +207,7 @@ $('cancel-btn').addEventListener('click', () => {
   objectName = null;
   setStatus('Cancelled.');
   setProgress(0);
+  showCard(false);
   showButtons({ pick: true, resume: false, cancel: false });
   st_setValue({ action: 'cancelled', kind: st_args.kind });
 });
@@ -206,13 +227,14 @@ $('resume-btn').addEventListener('click', () => {
 // --------------------------------------------------------------------------------------- render from Python
 
 function onRender(args) {
-  st_setHeight(64);
+  st_setHeight(file ? 124 : 48);
   if (args.error) {
     clearTimeout(sessionWatchdog);
     setStatus(args.error, 'error');
     setProgress(uploadedBytes / (totalBytes || 1), true);
     state = 'idle';
     file = null; sessionUrl = null; objectName = null;
+    showCard(false);
     showButtons({ pick: true, resume: false, cancel: false });
     return;
   }
@@ -424,7 +446,7 @@ window.addEventListener('unhandledrejection', (event) => {
 
 showButtons({ pick: true, resume: false, cancel: false });
 st_ready();
-st_setHeight(64);
+st_setHeight(48);
 </script>
 </body>
 </html>
