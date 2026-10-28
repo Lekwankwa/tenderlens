@@ -227,7 +227,6 @@ $('resume-btn').addEventListener('click', () => {
 // --------------------------------------------------------------------------------------- render from Python
 
 function onRender(args) {
-  st_setHeight(file ? 124 : 48);
   if (args.error) {
     clearTimeout(sessionWatchdog);
     setStatus(args.error, 'error');
@@ -446,7 +445,11 @@ window.addEventListener('unhandledrejection', (event) => {
 
 showButtons({ pick: true, resume: false, cancel: false });
 st_ready();
-st_setHeight(48);
+// Report the frame's real content height, not a guessed fixed number - a guess (what this used to do)
+// clips the file card whenever its content needs more room than expected (a long filename wrapping to a
+// second line, a wrapped byte-count/status row, a resume button appearing). ResizeObserver catches every
+// layout change, including ones caused by CSS alone (text wrap) that no onRender() call would see.
+new ResizeObserver(() => st_setHeight(document.body.scrollHeight)).observe(document.body);
 </script>
 </body>
 </html>
