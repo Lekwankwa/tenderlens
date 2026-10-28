@@ -44,6 +44,7 @@
   .file-badge { font-size: 10px; font-weight: 700; letter-spacing: .04em; color: #c0392b;
                border: 1px solid #c0392b55; border-radius: 4px; padding: 2px 6px; flex: 0 0 auto; }
   .file-name { font-weight: 600; font-size: 14px; flex: 1 1 auto; overflow-wrap: anywhere; }
+  .icon-btn { padding: 2px 9px; line-height: 1.4; font-size: 15px; font-weight: 700; flex: 0 0 auto; }
 </style>
 </head>
 <body>
@@ -55,7 +56,7 @@
     <div class="file-card-head">
       <span class="file-badge">PDF</span>
       <span id="name" class="file-name"></span>
-      <button id="cancel-btn" type="button" class="danger" style="display:none">Cancel</button>
+      <button id="cancel-btn" type="button" class="danger icon-btn" style="display:none" title="Remove this file">&times;</button>
     </div>
     <div class="row">
       <div class="bar-track"><div id="bar" class="bar-fill"></div></div>
@@ -120,6 +121,9 @@ const $ = (id) => document.getElementById(id);
 
 function showCard(show) {
   $('file-card').style.display = show ? '' : 'none';
+  // The remove ("x") button is tied to the card's own visibility, not to upload state - it must stay
+  // available after a successful upload too, so an already-verified attachment can still be taken back off.
+  $('cancel-btn').style.display = show ? '' : 'none';
 }
 
 function setStatus(html, cls) {
@@ -140,10 +144,11 @@ function fmtBytes(n) {
   return n + ' B';
 }
 
-function showButtons({ pick, resume, cancel }) {
+// The remove ("x") button's visibility is handled by showCard(), not here - it needs to stay available
+// for the whole time a file is attached (including after a successful upload), not just mid-upload.
+function showButtons({ pick, resume }) {
   $('pick-btn').style.display = pick ? '' : 'none';
   $('resume-btn').style.display = resume ? '' : 'none';
-  $('cancel-btn').style.display = cancel ? '' : 'none';
   $('pick-btn').disabled = state === 'awaiting_session' || state === 'finalizing';
 }
 

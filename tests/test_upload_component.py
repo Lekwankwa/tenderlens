@@ -68,6 +68,24 @@ def test_request_session_with_no_bucket_configured_sets_an_error_not_a_crash(mon
     assert state["error"]
 
 
+def test_request_session_clears_a_previous_result(backend):
+    """Picking a second, bigger file after one was already verified must not leave the old verified
+    result sitting in state - the widget's onRender() treats a truthy `verified` as "nothing to do",
+    which left the UI stuck showing the old file's result instead of the new upload's progress."""
+    state = fresh_state()
+    upload_component._handle_request_session(state, "pack", "job-1",
+                                              {"filename": "a.pdf", "size": len(PDF_BYTES),
+                                               "content_type": "application/pdf"})
+    object_name = state["session"]["object_name"]
+    backend.put_object(object_name, PDF_BYTES)
+    upload_component._handle_upload_complete(state, {"object_name": object_name})
+    assert state["result"] is not None
+
+    upload_component._handle_request_session(state, "pack", "job-1",
+                                              {"filename": "b.pdf", "size": 2000, "content_type": "application/pdf"})
+    assert state["result"] is None
+
+
 # --------------------------------------------------------------------------- upload_complete
 
 def test_upload_complete_verifies_and_stores_the_result(backend):

@@ -85,6 +85,10 @@ def _handle_request_session(state: dict, kind: str, job_id: str, msg: dict) -> N
     # args, never logged. Only object_name (server-generated, no user data) would ever be safe to log.
     state["session"] = {"session_url": session.session_url, "object_name": session.object_name}
     state["error"] = None
+    # A new session means a new file was picked to replace a previously-verified one - without clearing
+    # this, the widget kept re-rendering the OLD result (args.verified stays truthy) instead of showing the
+    # new upload's progress, since onRender() checks args.verified before it checks for a session_url.
+    state["result"] = None
 
 
 def _handle_upload_complete(state: dict, msg: dict) -> None:
