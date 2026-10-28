@@ -35,6 +35,7 @@ try:  # hosted (e.g. Streamlit Community Cloud): its Secrets become env vars our
 except Exception:
     pass  # no secrets.toml locally - fine, that's what .env / the environment is for
 PILOT = pilot.pilot_enabled()  # TENDERLENS_PILOT=1. Off: the app behaves exactly as it always has.
+IDLE_TIMEOUT_MIN = float(os.environ.get("TENDERLENS_IDLE_TIMEOUT_MIN", "45"))  # pilot only - see idle watcher below
 PROVIDER_LABEL = "Meta's Model API"  # the only model provider TenderLens talks to - never the key, just the label
 # GCS_BUCKET set: large files (up to storage.max_upload_mb()) go browser-to-bucket, bypassing Cloud Run's own
 # 32 MiB request limit - see tenderlens/storage.py. Unset (the default - nothing to configure for local use
@@ -47,6 +48,42 @@ WORK = ROOT / ".cache"
 BLANK = ROOT / "samples" / "blank"
 
 st.set_page_config(page_title="TenderLens", page_icon=None, layout="wide", initial_sidebar_state="expanded")
+
+if PILOT and st.query_params.get("session_expired") == "1":
+    # The idle watcher below sent the browser here after TENDERLENS_IDLE_TIMEOUT_MIN of no activity -
+    # clear everything (pilot code, lockout counters, any in-progress upload/job state) so the pilot
+    # code prompt comes back fresh, same as a real logout.
+    st.session_state.clear()
+    st.query_params.clear()
+    st.info("Your session ended after a period of inactivity. Please re-enter your pilot code to continue.")
+
+if PILOT:
+    # Client-side only: Streamlit can't detect "nothing happened" server-side (no reruns fire while idle),
+    # so this tracks real mouse/keyboard/scroll activity on the actual browser tab (window.parent - this
+    # script runs in components.html's own iframe) and sends the tab back to itself with ?session_expired=1
+    # once it's been quiet for IDLE_TIMEOUT_MIN. Installed once per tab (the __tlIdleWatcherInstalled guard)
+    # so it survives every Streamlit rerun re-mounting this iframe without re-registering listeners.
+    st.components.v1.html(f"""
+    <script>
+    (function() {{
+        const top = window.parent;
+        if (top.__tlIdleWatcherInstalled) return;
+        top.__tlIdleWatcherInstalled = true;
+        const LIMIT_MS = {IDLE_TIMEOUT_MIN} * 60 * 1000;
+        let last = Date.now();
+        const bump = () => {{ last = Date.now(); }};
+        ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel", "click"].forEach(evt =>
+            top.document.addEventListener(evt, bump, {{passive: true}}));
+        setInterval(() => {{
+            if (Date.now() - last > LIMIT_MS) {{
+                const url = new URL(top.location.href);
+                url.searchParams.set("session_expired", "1");
+                top.location.href = url.toString();
+            }}
+        }}, 15000);
+    }})();
+    </script>
+    """, height=0)
 
 st.markdown("""
 <style>
