@@ -36,7 +36,7 @@ try:  # hosted (e.g. Streamlit Community Cloud): its Secrets become env vars our
 except Exception:
     pass  # no secrets.toml locally - fine, that's what .env / the environment is for
 PILOT = pilot.pilot_enabled()  # TENDERLENS_PILOT=1. Off: the app behaves exactly as it always has.
-IDLE_TIMEOUT_MIN = float(os.environ.get("TENDERLENS_IDLE_TIMEOUT_MIN", "1"))  # pilot only - see idle watcher below
+IDLE_TIMEOUT_MIN = float(os.environ.get("TENDERLENS_IDLE_TIMEOUT_MIN", "45"))  # pilot only - see idle watcher below
 PROVIDER_LABEL = "Meta's Model API"  # the only model provider TenderLens talks to - never the key, just the label
 # GCS_BUCKET set: large files (up to storage.max_upload_mb()) go browser-to-bucket, bypassing Cloud Run's own
 # 32 MiB request limit - see tenderlens/storage.py. Unset (the default - nothing to configure for local use
