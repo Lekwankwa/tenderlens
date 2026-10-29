@@ -20,3 +20,6 @@ tests/fixtures/v2/*.pdf
 # so this is how the pilot codes survive a redeploy at all. Everything else here stays out of git.
 pilot/*
 !pilot/pilot.db
+
+# downloaded public tender documents (large) - regenerate with tools/scrape_cidb_tenders.py --documents
+tools/tender_documents/

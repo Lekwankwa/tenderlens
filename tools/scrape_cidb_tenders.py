@@ -9,6 +9,7 @@ Run:
     python tools/scrape_cidb_tenders.py            # headless, prints a table and a JSON block
     python tools/scrape_cidb_tenders.py --visible  # watch the browser
     python tools/scrape_cidb_tenders.py --output samples.json
+    python tools/scrape_cidb_tenders.py --documents   # OPEN tenders + download their PDFs (see below)
 
 How it works (checked against the live portal's own page script, not guessed):
   - The "Closed" tab on /Home/opportunities loads its table from a server-side JSON endpoint,
@@ -20,17 +21,23 @@ How it works (checked against the live portal's own page script, not guessed):
   - Playwright drives a real browser session (fake desktop User-Agent, opens the Closed tab like a person
     would) and makes the paging requests through that browser context, with a random 2-5 s pause between
     every page transition.
+Documents: the portal keeps NO attached documents for closed tenders (checked: 0 of 100), only for tenders that
+are still open. So `--documents` switches to the Advertised tab, picks one open tender per grade that has PDFs
+(or a zip containing PDFs) attached, and saves them under tools/tender_documents/<grade>_<bid number>/.
 Be a good citizen: this is public data, but the portal is shared infrastructure. Keep the delays.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
+import io
 import json
 import random
 import re
 import sys
+import zipfile
 from datetime import datetime
+from pathlib import Path
 
 from playwright.async_api import async_playwright
 
@@ -38,6 +45,9 @@ PORTAL = "https://www.etenders.gov.za"
 LIST_PAGE = f"{PORTAL}/Home/opportunities?id=2"
 FILTER_URL = f"{PORTAL}/Home/TenderFilter/"
 STATUS_CLOSED = 3  # the portal's own status code for its "Closed" tab (see its page script)
+STATUS_ADVERTISED = 1  # the "Active"/advertised tab: the only one whose rows carry attached documents
+DOWNLOAD_URL = f"{PORTAL}/home/Download/"
+MAX_DOC_BYTES = 150 * 1024 * 1024
 PAGE_SIZE = 100
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
               "Chrome/126.0.0.0 Safari/537.36")
@@ -111,14 +121,14 @@ async def polite_pause(lo: float, hi: float, why: str) -> None:
     await asyncio.sleep(delay)
 
 
-async def open_closed_tab(page) -> None:
+async def open_tab(page, selector: str = "#btnClosed") -> None:
     await page.goto(LIST_PAGE, wait_until="domcontentloaded", timeout=60_000)
     try:
         # The portal opens an "educational" pop-up over the tabs on arrival, which swallows real clicks, so
         # close it (best effort) and fire the tab's click event directly rather than clicking its coordinates.
         await page.evaluate("document.querySelectorAll('.modal.show').forEach(m => window.jQuery && "
                             "window.jQuery(m).modal('hide'))")
-        await page.dispatch_event("#btnClosed", "click", timeout=15_000)
+        await page.dispatch_event(selector, "click", timeout=15_000)
         await page.wait_for_load_state("networkidle", timeout=30_000)
     except Exception as err:  # noqa: BLE001 - tab layout changed or slow: paging below doesn't depend on it
         print(f"  (could not click the Closed tab, continuing with the data endpoint directly: {err})",
@@ -138,8 +148,9 @@ async def resolve_categories(page) -> list[dict]:
     return [{"id": o["id"], "name": o["name"]} for o in ranked] or FALLBACK_CATEGORIES
 
 
-async def fetch_page(context, category_id: str, start: int, attempts: int = 3) -> dict | None:
-    params = {"draw": "1", "start": str(start), "length": str(PAGE_SIZE), "status": str(STATUS_CLOSED),
+async def fetch_page(context, category_id: str, start: int, attempts: int = 3,
+                     status: int = STATUS_CLOSED) -> dict | None:
+    params = {"draw": "1", "start": str(start), "length": str(PAGE_SIZE), "status": str(status),
               "category": category_id, "department": "", "province": "", "cluster": "", "type": "",
               "tenderNumber": "", "company": "", "supplierNumber": "",
               "order[0][column]": "2", "order[0][dir]": "desc"}
@@ -168,7 +179,7 @@ async def scrape(max_pages: int, headless: bool, delay: tuple[float, float]) -> 
         page = await context.new_page()
         try:
             print("Opening the eTenders Closed tab ...", file=sys.stderr)
-            await open_closed_tab(page)
+            await open_tab(page)
             categories = await resolve_categories(page)
             print(f"Categories to search: {', '.join(c['name'] for c in categories)}", file=sys.stderr)
 
@@ -218,6 +229,131 @@ async def scrape(max_pages: int, headless: bool, delay: tuple[float, float]) -> 
     return [found[g] for g in sorted(found)]
 
 
+def _safe_name(name: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._ -]+", "_", name).strip(" .") or "file"
+
+
+def pdf_or_zip_docs(row: dict) -> list[dict]:
+    return [d for d in (row.get("supportDocument") or []) if str(d.get("extension", "")).lower() in (".pdf", ".zip")]
+
+
+async def download_documents(context, row: dict, folder: Path, delay: tuple[float, float]) -> list[str]:
+    """Save a tender's PDFs (and the PDFs inside any attached zip) into `folder`; returns the saved paths."""
+    saved: list[str] = []
+    folder.mkdir(parents=True, exist_ok=True)
+
+    def save(name: str, data: bytes) -> None:
+        target = folder / _safe_name(name)
+        n = 1
+        while target.exists():  # two zip members with the same file name in different sub-folders
+            target = folder / f"{n}_{_safe_name(name)}"
+            n += 1
+        target.write_bytes(data)
+        saved.append(str(target))
+
+    for doc in pdf_or_zip_docs(row):
+        await polite_pause(*delay, f"before downloading {doc.get('fileName')}")
+        try:
+            resp = await context.request.get(
+                DOWNLOAD_URL, timeout=180_000,
+                params={"blobName": f"{doc['supportDocumentID']}{doc['extension']}",
+                        "downloadedFileName": doc.get("fileName") or ""},
+                headers={"User-Agent": USER_AGENT, "Referer": LIST_PAGE})
+            if not resp.ok:
+                continue
+            body = await resp.body()
+        except Exception as err:  # noqa: BLE001 - one bad download must not stop the run
+            print(f"  download failed ({doc.get('fileName')}): {err}", file=sys.stderr)
+            continue
+        if len(body) > MAX_DOC_BYTES:
+            continue
+        if str(doc["extension"]).lower() == ".pdf":
+            if body.startswith(b"%PDF"):
+                name = doc.get("fileName") or f"{doc['supportDocumentID']}.pdf"
+                save(name if name.lower().endswith(".pdf") else name + ".pdf", body)
+            continue
+        try:
+            with zipfile.ZipFile(io.BytesIO(body)) as zf:
+                for info in zf.infolist():
+                    if info.is_dir() or not info.filename.lower().endswith(".pdf") or info.file_size > MAX_DOC_BYTES:
+                        continue
+                    data = zf.read(info)
+                    if data.startswith(b"%PDF"):
+                        save(Path(info.filename).name, data)  # basename only: never trust paths inside a zip
+        except zipfile.BadZipFile:
+            print(f"  not a valid zip: {doc.get('fileName')}", file=sys.stderr)
+    return saved
+
+
+async def scrape_documents(max_pages: int, headless: bool, delay: tuple[float, float], out_dir: Path) -> list[dict]:
+    """One OPEN tender per grade (the only ones with documents), its PDFs downloaded into out_dir."""
+    candidates: dict[str, list] = {g: [] for g in TARGET_GRADES}
+    seen: set = set()
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=headless)
+        context = await browser.new_context(user_agent=USER_AGENT, locale="en-ZA",
+                                            viewport={"width": 1366, "height": 850})
+        page = await context.new_page()
+        try:
+            print("Opening the eTenders Advertised tab ...", file=sys.stderr)
+            await open_tab(page, "#btnActive")
+            categories = await resolve_categories(page)
+            for cat in categories + [{"id": "", "name": "All categories"}]:
+                if cat["id"] == "" and all(candidates.values()):
+                    break  # the broad all-categories pass is only needed if a grade has no candidate yet
+                start = 0
+                for page_no in range(1, max_pages + 1):
+                    await polite_pause(*delay, f"before '{cat['name']}' page {page_no}")
+                    data = await fetch_page(context, cat["id"], start, status=STATUS_ADVERTISED)
+                    if not data or not data.get("data"):
+                        break
+                    for row in data["data"]:
+                        try:
+                            if row.get("id") in seen or not pdf_or_zip_docs(row):
+                                continue
+                            text = f"{row.get('description') or ''} {row.get('conditions') or ''}"
+                            grades = find_grades(text)
+                            if not grades:
+                                continue
+                            seen.add(row.get("id"))
+                            clean = len(grades) == 1 and len(distinct_designations(text)) <= 1
+                            docs = pdf_or_zip_docs(row)
+                            has_pdf = any(str(d.get("extension", "")).lower() == ".pdf" for d in docs)
+                            # A main tender document beats a pile of drawing sheets as a training sample.
+                            main_doc = any(re.search(r"tender|bid doc|rfq|invitation", str(d.get("fileName", "")), re.I)
+                                           for d in docs)
+                            for grade, evidence in grades.items():
+                                candidates[grade].append(((0 if clean else 1, 0 if main_doc else 1,
+                                                           0 if has_pdf else 1),
+                                                          to_record(row, grade, evidence, cat["name"]), row))
+                        except Exception as err:  # noqa: BLE001
+                            print(f"  skipped a row: {err}", file=sys.stderr)
+                    start += PAGE_SIZE
+                    if start >= int(data.get("recordsFiltered") or 0):
+                        break
+
+            chosen: dict[str, dict] = {}
+            used: set = set()
+            for grade in TARGET_GRADES:
+                for _, record, row in sorted(candidates[grade], key=lambda c: c[0]):
+                    if row.get("id") in used:
+                        continue
+                    folder = out_dir / f"{grade}_{_safe_name(record['bid_number'])}"
+                    files = await download_documents(context, row, folder, delay)
+                    if files:
+                        record["documents"] = files
+                        chosen[grade] = record
+                        used.add(row.get("id"))
+                        print(f"  {grade}: {record['bid_number']} ({record['institution']}) - {len(files)} PDF(s)",
+                              file=sys.stderr)
+                        break
+                    if folder.exists() and not any(folder.iterdir()):
+                        folder.rmdir()
+        finally:
+            await browser.close()
+    return [chosen[g] for g in sorted(chosen)]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--max-pages", type=int, default=60, help="page cap per category (100 rows each)")
@@ -225,13 +361,21 @@ def main() -> int:
     ap.add_argument("--min-delay", type=float, default=2.0)
     ap.add_argument("--max-delay", type=float, default=5.0)
     ap.add_argument("--output", help="also write the JSON to this file")
+    ap.add_argument("--documents", action="store_true",
+                    help="use OPEN tenders and download their PDFs (closed tenders have no documents)")
+    ap.add_argument("--docs-dir", default=str(Path(__file__).resolve().parent / "tender_documents"),
+                    help="where --documents saves the PDFs")
     args = ap.parse_args()
 
-    records = asyncio.run(scrape(args.max_pages, not args.visible, (args.min_delay, args.max_delay)))
+    delay = (args.min_delay, args.max_delay)
+    if args.documents:
+        records = asyncio.run(scrape_documents(args.max_pages, not args.visible, delay, Path(args.docs_dir)))
+    else:
+        records = asyncio.run(scrape(args.max_pages, not args.visible, delay))
 
     try:
         import pandas as pd
-        print(pd.DataFrame(records).drop(columns=["evidence"], errors="ignore").to_string(index=False))
+        print(pd.DataFrame(records).drop(columns=["evidence", "documents"], errors="ignore").to_string(index=False))
         print()
     except ImportError:
         pass  # pandas is optional; the JSON below is the primary output

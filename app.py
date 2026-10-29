@@ -35,7 +35,7 @@ try:  # hosted (e.g. Streamlit Community Cloud): its Secrets become env vars our
 except Exception:
     pass  # no secrets.toml locally - fine, that's what .env / the environment is for
 PILOT = pilot.pilot_enabled()  # TENDERLENS_PILOT=1. Off: the app behaves exactly as it always has.
-IDLE_TIMEOUT_MIN = float(os.environ.get("TENDERLENS_IDLE_TIMEOUT_MIN", "45"))  # pilot only - see idle watcher below
+IDLE_TIMEOUT_MIN = float(os.environ.get("TENDERLENS_IDLE_TIMEOUT_MIN", "1"))  # pilot only - see idle watcher below
 PROVIDER_LABEL = "Meta's Model API"  # the only model provider TenderLens talks to - never the key, just the label
 # GCS_BUCKET set: large files (up to storage.max_upload_mb()) go browser-to-bucket, bypassing Cloud Run's own
 # 32 MiB request limit - see tenderlens/storage.py. Unset (the default - nothing to configure for local use
@@ -55,7 +55,19 @@ if PILOT and st.query_params.get("session_expired") == "1":
     # code prompt comes back fresh, same as a real logout.
     st.session_state.clear()
     st.query_params.clear()
-    st.info("Your session ended after a period of inactivity. Please re-enter your pilot code to continue.")
+    st.session_state["_expired_notice"] = True
+
+if PILOT and st.session_state.get("_expired_notice") and not st.session_state.get("pilot_code"):
+    # Stays up until a code is typed, so the user always sees what to do next, not just a one-off flash.
+    _mins = f"{IDLE_TIMEOUT_MIN:g} minute" + ("" if IDLE_TIMEOUT_MIN == 1 else "s")
+    st.warning(
+        f"**You were signed out after {_mins} of inactivity.** To carry on:\n\n"
+        "1. Enter your **pilot access code** in the sidebar on the left.\n"
+        "2. **Attach your files again** - the RFQ/Tender document(s) and the response pack. Files from before "
+        "were cleared.\n"
+        "3. Choose **Draft pack** or **Final pack**, tick the privacy box, then press **Audit the pack**.\n\n"
+        "If this page ever looks stuck or blank, refresh it (**Cmd+R** on a Mac, **Ctrl+R** on Windows).",
+        icon=None)
 
 if PILOT:
     # Client-side only: Streamlit can't detect "nothing happened" server-side (no reruns fire while idle),
@@ -74,13 +86,18 @@ if PILOT:
         const bump = () => {{ last = Date.now(); }};
         ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel", "click"].forEach(evt =>
             top.document.addEventListener(evt, bump, {{passive: true}}));
+        // Work with no mouse/keyboard input still counts as activity: the upload widget (its own iframe, so
+        // its mouse events never reach this page) posts {{tlActivity: true}} while a file is uploading, and
+        // Streamlit shows its running indicator while an audit is executing.
+        top.addEventListener("message", (e) => {{ if (e.data && e.data.tlActivity) bump(); }});
         setInterval(() => {{
+            if (top.document.querySelector('[data-testid="stStatusWidget"]')) bump();
             if (Date.now() - last > LIMIT_MS) {{
                 const url = new URL(top.location.href);
                 url.searchParams.set("session_expired", "1");
                 top.location.href = url.toString();
             }}
-        }}, 15000);
+        }}, 5000);
     }})();
     </script>
     """, height=0)

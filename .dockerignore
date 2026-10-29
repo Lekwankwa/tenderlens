@@ -41,3 +41,5 @@ pilot/*
 Dockerfile
 .dockerignore
 deploy.sh
+
+tools/tender_documents/

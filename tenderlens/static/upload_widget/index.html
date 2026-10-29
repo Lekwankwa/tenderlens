@@ -499,6 +499,14 @@ st_ready();
 // would see on its own.
 new ResizeObserver(() => st_setHeight(document.body.scrollHeight)).observe(document.body);
 render();
+// Tell the page the user's session is still in use while a file is queued/uploading/verifying: a long upload
+// involves no mouse or keyboard input, and this iframe's own events never reach the page's idle-logout timer
+// (see app.py), which would otherwise sign the user out mid-upload.
+setInterval(() => {
+  if (items.some((it) => ['queued', 'awaiting_session', 'uploading', 'finalizing'].includes(it.status))) {
+    window.parent.postMessage({ tlActivity: true }, '*');
+  }
+}, 5000);
 </script>
 </body>
 </html>
