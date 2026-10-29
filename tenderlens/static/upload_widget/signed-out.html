@@ -1,0 +1,54 @@
+<!doctype html>
+<!--
+  Static "you were signed out" page. app.py's idle watcher sends the browser here (instead of leaving it on a
+  live Streamlit page) once a pilot session has been inactive too long: this page has no Streamlit connection,
+  so the tab stops holding a Cloud Run instance open (and billed) while nobody is using it. It lives in the
+  upload widget's component folder only because Streamlit already serves every file in that folder at
+  /component/<component name>/ - plain static serving refuses .html. Nothing here talks to a server.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signed out - TenderLens</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --fg: #1f2328; --muted: #5b636b; --line: #d0d7de; --accent: #1a5fb4; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0e1117; --fg: #e6e8eb; --muted: #9aa3ad; --line: #30363d; --accent: #6ea8fe; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); min-height: 100vh; display: flex;
+         align-items: center; justify-content: center; font-family: -apple-system, system-ui, "Segoe UI", sans-serif; }
+  main { max-width: 520px; padding: 24px; }
+  .brand { font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; margin: 0 0 4px; }
+  h1 { font-size: 1.15rem; margin: 22px 0 6px; }
+  p, li { line-height: 1.55; }
+  p { margin: 0 0 14px; color: var(--muted); }
+  ol { margin: 0 0 22px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  a.btn { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600;
+          padding: 10px 20px; border-radius: 8px; }
+  .tip { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); font-size: .9rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <p class="brand">TenderLens</p>
+  <h1 id="title">You were signed out</h1>
+  <p>This is to keep your session secure. Anything you had attached was cleared.</p>
+  <ol>
+    <li>Press <b>Sign back in</b> below.</li>
+    <li>Enter your <b>pilot access code</b> in the sidebar.</li>
+    <li><b>Attach your files again</b> - the RFQ/Tender document(s) and the response pack.</li>
+    <li>Choose <b>Draft pack</b> or <b>Final pack</b>, tick the privacy box, then press <b>Audit the pack</b>.</li>
+  </ol>
+  <a class="btn" href="/?session_expired=1">Sign back in</a>
+  <p class="tip">If the page ever looks stuck or blank, refresh it: <b>Cmd+R</b> on a Mac, <b>Ctrl+R</b> on Windows.</p>
+</main>
+<script>
+  // ?m=<minutes> is set by the app so the headline can say how long the timeout was.
+  const m = parseFloat(new URLSearchParams(location.search).get('m'));
+  if (m > 0) {
+    const label = m === 1 ? '1 minute' : `${m} minutes`;
+    document.getElementById('title').textContent = `You were signed out after ${label} of inactivity`;
+  }
+</script>
+</body>
+</html>

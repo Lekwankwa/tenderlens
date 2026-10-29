@@ -73,7 +73,8 @@ if PILOT and st.session_state.get("_expired_notice") and not st.session_state.ge
 if PILOT:
     # Client-side only: Streamlit can't detect "nothing happened" server-side (no reruns fire while idle),
     # so a watcher tracks real mouse/keyboard/scroll activity and, once the tab has been quiet for
-    # IDLE_TIMEOUT_MIN, sends it back to itself with ?session_expired=1. The watcher is injected as a <script>
+    # IDLE_TIMEOUT_MIN, sends it to a static signed-out page (its button comes back with ?session_expired=1).
+    # The watcher is injected as a <script>
     # into the PAGE (not left running inside components.html's iframe): Streamlit unmounts that iframe on the
     # first rerun, and timers created inside it die with it - the first version of this silently never fired.
     _IDLE_WATCHER_JS = """
@@ -90,13 +91,14 @@ if PILOT:
         setInterval(() => {
             if (document.querySelector('[data-testid="stStatusWidget"]')) bump();
             if (Date.now() - last > LIMIT_MS) {
-                const url = new URL(window.location.href);
-                url.searchParams.set("session_expired", "1");
-                window.location.href = url.toString();
+                // Leave the Streamlit page entirely: a static page holds no connection, so Cloud Run can
+                // shut the instance down instead of billing it for an abandoned tab.
+                window.location.href = "__SIGNED_OUT_URL__";
             }
         }, 5000);
     })();
-    """.replace("__LIMIT_MS__", str(int(IDLE_TIMEOUT_MIN * 60 * 1000)))
+    """.replace("__LIMIT_MS__", str(int(IDLE_TIMEOUT_MIN * 60 * 1000))).replace(
+        "__SIGNED_OUT_URL__", f"/component/{upload_component._component.name}/signed-out.html?m={IDLE_TIMEOUT_MIN:g}")
     st.components.v1.html(f"""
     <script>
     (function () {{
