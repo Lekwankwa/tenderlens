@@ -274,18 +274,21 @@ with st.sidebar:
 
     st.markdown("<div class='tl-step'>3 &middot; Pack stage</div>", unsafe_allow_html=True)
     stage_col1, stage_col2 = st.columns(2)
+    # on_click callbacks run BEFORE the script reruns, so the highlighted ("primary") button below already
+    # reflects the click. Setting the stage after `if st.button(...)` instead meant the first press was
+    # recorded but the button still rendered unselected, so users pressed twice to see it take.
     with stage_col1:
-        if st.button("Draft pack", width="stretch",
-                    type="primary" if st.session_state.get("pack_stage") == "draft" else "secondary",
-                    help="Initials are skipped at this stage. A page with no initials in the bottom-right "
-                         "corner is not flagged as an issue."):
-            st.session_state["pack_stage"] = "draft"
+        st.button("Draft pack", width="stretch", key="stage_draft_btn",
+                  type="primary" if st.session_state.get("pack_stage") == "draft" else "secondary",
+                  on_click=st.session_state.__setitem__, args=("pack_stage", "draft"),
+                  help="Initials are skipped at this stage. A page with no initials in the bottom-right "
+                       "corner is not flagged as an issue.")
     with stage_col2:
-        if st.button("Final pack", width="stretch",
-                    type="primary" if st.session_state.get("pack_stage") == "final" else "secondary",
-                    help="Initials are checked at this stage. A page with no initials in the bottom-right "
-                         "corner is flagged as an issue."):
-            st.session_state["pack_stage"] = "final"
+        st.button("Final pack", width="stretch", key="stage_final_btn",
+                  type="primary" if st.session_state.get("pack_stage") == "final" else "secondary",
+                  on_click=st.session_state.__setitem__, args=("pack_stage", "final"),
+                  help="Initials are checked at this stage. A page with no initials in the bottom-right "
+                       "corner is flagged as an issue.")
     pack_stage = st.session_state.get("pack_stage")
     if pack_stage is None:
         st.caption("Choose Draft pack or Final pack before auditing.")

@@ -68,3 +68,24 @@ def test_gcs_upload_path_renders_without_a_simulated_upload(monkeypatch):
         assert any(b.label == "Audit the pack" and b.disabled for b in at.button)
     finally:
         storage.set_backend_for_testing(None)
+
+
+def test_pack_stage_button_highlights_after_a_single_click(monkeypatch):
+    """Regression: the highlight used to be decided before the click was processed, so the first press was
+    recorded but looked like nothing happened, and users pressed twice."""
+    from streamlit.testing.v1 import AppTest
+    _blank_env(monkeypatch)
+    at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
+    assert not at.exception
+
+    def btn(label):
+        return next(b for b in at.button if b.label == label)
+
+    assert btn("Final pack").proto.type == "secondary"
+    btn("Final pack").click().run()
+    assert at.session_state["pack_stage"] == "final"
+    assert btn("Final pack").proto.type == "primary"
+    assert btn("Draft pack").proto.type == "secondary"
+    btn("Draft pack").click().run()
+    assert btn("Draft pack").proto.type == "primary"
+    assert btn("Final pack").proto.type == "secondary"
