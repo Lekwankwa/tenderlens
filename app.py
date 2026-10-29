@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
+import json
 import os
 import re
 import secrets
@@ -71,33 +72,40 @@ if PILOT and st.session_state.get("_expired_notice") and not st.session_state.ge
 
 if PILOT:
     # Client-side only: Streamlit can't detect "nothing happened" server-side (no reruns fire while idle),
-    # so this tracks real mouse/keyboard/scroll activity on the actual browser tab (window.parent - this
-    # script runs in components.html's own iframe) and sends the tab back to itself with ?session_expired=1
-    # once it's been quiet for IDLE_TIMEOUT_MIN. Installed once per tab (the __tlIdleWatcherInstalled guard)
-    # so it survives every Streamlit rerun re-mounting this iframe without re-registering listeners.
+    # so a watcher tracks real mouse/keyboard/scroll activity and, once the tab has been quiet for
+    # IDLE_TIMEOUT_MIN, sends it back to itself with ?session_expired=1. The watcher is injected as a <script>
+    # into the PAGE (not left running inside components.html's iframe): Streamlit unmounts that iframe on the
+    # first rerun, and timers created inside it die with it - the first version of this silently never fired.
+    _IDLE_WATCHER_JS = """
+    (function () {
+        const LIMIT_MS = __LIMIT_MS__;
+        let last = Date.now();
+        const bump = () => { last = Date.now(); };
+        ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel", "click"].forEach(evt =>
+            document.addEventListener(evt, bump, {passive: true}));
+        // Work with no mouse/keyboard input still counts as activity: the upload widget (its own iframe, so
+        // its mouse events never reach this page) posts {tlActivity: true} while a file is uploading, and
+        // Streamlit shows its running indicator while an audit is executing.
+        window.addEventListener("message", (e) => { if (e.data && e.data.tlActivity) bump(); });
+        setInterval(() => {
+            if (document.querySelector('[data-testid="stStatusWidget"]')) bump();
+            if (Date.now() - last > LIMIT_MS) {
+                const url = new URL(window.location.href);
+                url.searchParams.set("session_expired", "1");
+                window.location.href = url.toString();
+            }
+        }, 5000);
+    })();
+    """.replace("__LIMIT_MS__", str(int(IDLE_TIMEOUT_MIN * 60 * 1000)))
     st.components.v1.html(f"""
     <script>
-    (function() {{
+    (function () {{
         const top = window.parent;
         if (top.__tlIdleWatcherInstalled) return;
         top.__tlIdleWatcherInstalled = true;
-        const LIMIT_MS = {IDLE_TIMEOUT_MIN} * 60 * 1000;
-        let last = Date.now();
-        const bump = () => {{ last = Date.now(); }};
-        ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel", "click"].forEach(evt =>
-            top.document.addEventListener(evt, bump, {{passive: true}}));
-        // Work with no mouse/keyboard input still counts as activity: the upload widget (its own iframe, so
-        // its mouse events never reach this page) posts {{tlActivity: true}} while a file is uploading, and
-        // Streamlit shows its running indicator while an audit is executing.
-        top.addEventListener("message", (e) => {{ if (e.data && e.data.tlActivity) bump(); }});
-        setInterval(() => {{
-            if (top.document.querySelector('[data-testid="stStatusWidget"]')) bump();
-            if (Date.now() - last > LIMIT_MS) {{
-                const url = new URL(top.location.href);
-                url.searchParams.set("session_expired", "1");
-                top.location.href = url.toString();
-            }}
-        }}, 5000);
+        const s = top.document.createElement("script");
+        s.textContent = {json.dumps(_IDLE_WATCHER_JS)};
+        top.document.head.appendChild(s);
     }})();
     </script>
     """, height=0)
