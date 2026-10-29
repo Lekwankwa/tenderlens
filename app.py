@@ -189,7 +189,7 @@ with st.sidebar:
                 unsafe_allow_html=True)
     st.caption(DISCLAIMER_SHORT)
 
-    st.markdown("<div class='tl-step'>1 &middot; What the buyer sent</div>", unsafe_allow_html=True)
+    st.markdown("<div class='tl-step'>1 &middot; RFQ/Tender document</div>", unsafe_allow_html=True)
     # This is the small-file st.file_uploader path's own limit - irrelevant once GCS_UPLOADS replaces that
     # path with the large-upload slots (storage.max_upload_mb(), shown in their own caption below instead).
     _max_upload_mb = "" if GCS_UPLOADS else os.environ.get("TENDERLENS_MAX_UPLOAD_MB", "").strip()
