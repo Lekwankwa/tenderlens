@@ -247,8 +247,19 @@ def open_for_processing(object_name: str, dest_dir: Path) -> Path:
 
 def delete(object_name: str) -> None:
     """Best-effort: a job's work files should not outlive the job (see Step 5's retention rules) - a
-    failure here is logged by the caller, not raised, since it must never be the reason an audit fails."""
-    _get_backend().delete(object_name)
+    failure here is logged by the caller, not raised, since it must never be the reason an audit fails.
+
+    A missing object is success, not an error: cancelling an upload before it finishes leaves nothing in the
+    bucket (a resumable upload only becomes an object when its last chunk lands), and the real GCS client
+    raises NotFound for that - which used to escape every caller's `except StorageError` and crash the page."""
+    try:
+        _get_backend().delete(object_name)
+    except StorageError:
+        raise
+    except Exception as err:  # noqa: BLE001 - any client/network failure becomes the one error callers handle
+        if getattr(err, "code", None) == 404:
+            return
+        raise StorageError("Could not remove the stored file.") from err
 
 
 # -- small JSON objects: job state (see jobs.py) and the per-page vision cache (see vision_cache.py) -----

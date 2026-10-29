@@ -179,6 +179,32 @@ def test_remove_deletes_an_already_finalized_object_too(backend):
     assert object_name not in backend.objects
 
 
+class _NotFound(Exception):
+    code = 404  # what google.api_core.exceptions.NotFound carries
+
+
+def test_remove_mid_upload_when_gcs_has_no_object_yet_does_not_crash(backend):
+    """Cancelling before the last chunk lands: the real GCS client raises NotFound on delete (the fake
+    backend silently ignores a missing object, which is how this slipped through) - must be a no-op."""
+    state = fresh_state()
+    request_session(state, "f1")
+    def raise_not_found(object_name):
+        raise _NotFound("No such object")
+    backend.delete = raise_not_found
+    upload_component._handle_remove(state, "f1")  # must not raise
+    assert "f1" not in state["items"]
+
+
+def test_remove_survives_any_other_delete_failure_too(backend):
+    state = fresh_state()
+    request_session(state, "f1")
+    def raise_boom(object_name):
+        raise RuntimeError("network down")
+    backend.delete = raise_boom
+    upload_component._handle_remove(state, "f1")  # best-effort cleanup: must not raise
+    assert "f1" not in state["items"]
+
+
 def test_remove_of_an_unknown_file_id_is_a_no_op(backend):
     state = fresh_state()
     upload_component._handle_remove(state, "never-existed")  # must not raise
