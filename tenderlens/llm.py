@@ -30,6 +30,10 @@ Optional backup lane (both the text and the vision client). Fireworks AI is the 
         on the same endpoint as the primary is ignored.
 
 Other:
+    TENDERLENS_LLM_REASONING_EFFORT / TENDERLENS_VISION_REASONING_EFFORT   low | medium | high. Unset (default) sends
+        nothing, so the model uses its own default. For reasoning models on Fireworks (Muse Spark Open cannot
+        switch reasoning off, but "low" cut a full-page read from 6.6s to 3.7s with the same answer in a test).
+        Only set it on an endpoint that accepts the parameter, and compare accuracy on a real pack first.
     TENDERLENS_LLM_TIMEOUT      seconds per call (default 300: a laptop CPU reading a page image is slow)
     TENDERLENS_LLM_JSON_MODE    1 (default) asks the server for strict JSON; 0 turns that off if it ever refuses it
     TENDERLENS_LLM_PRICE_IN/_OUT, TENDERLENS_VISION_PRICE_IN/_OUT
@@ -161,6 +165,8 @@ class LlamaClient:
         self.timeout = float(timeout or (e("TENDERLENS_PRIMARY_TIMEOUT", "60") if self.fallback is not None
                                          else e("TENDERLENS_LLM_TIMEOUT", "300")))
         self.json_mode = e("TENDERLENS_LLM_JSON_MODE", "1") != "0"
+        effort = e(f"TENDERLENS_{prefix}_REASONING_EFFORT", "").strip().lower()
+        self.reasoning_effort = effort if effort in ("low", "medium", "high") else ""
         self.price_in = _num(e(f"TENDERLENS_{prefix}_PRICE_IN", ""))
         self.price_out = _num(e(f"TENDERLENS_{prefix}_PRICE_OUT", ""))
         self.calls = 0
@@ -275,6 +281,8 @@ class LlamaClient:
                 {"role": "user", "content": content if images else user},
             ],
         }
+        if self.reasoning_effort:
+            body["reasoning_effort"] = self.reasoning_effort
         with self._lock:
             self.calls += 1
         if self._failover_active():

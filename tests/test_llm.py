@@ -433,3 +433,23 @@ def test_primary_gets_the_shorter_timeout_only_while_a_backup_exists(monkeypatch
     assert LlamaClient(base_url="http://a/v1", model="m", prefix="VISION").timeout == 300
     monkeypatch.setenv("TOGETHER_MODEL", "x")
     assert LlamaClient(base_url="http://a/v1", model="m", prefix="VISION").timeout == 60
+
+
+# --------------------------------------------------------------------------- opt-in reasoning effort
+
+def test_reasoning_effort_is_not_sent_unless_configured(mock, monkeypatch):
+    monkeypatch.delenv("TENDERLENS_LLM_REASONING_EFFORT", raising=False)
+    m = mock([ok({"ok": True})])
+    client(m).complete_json("sys", "u")
+    assert "reasoning_effort" not in m.requests[0]
+
+
+def test_reasoning_effort_is_sent_when_set_and_ignored_when_invalid(mock, monkeypatch):
+    monkeypatch.setenv("TENDERLENS_LLM_REASONING_EFFORT", "LOW")
+    m = mock([ok({"ok": True})])
+    client(m).complete_json("sys", "u")
+    assert m.requests[0]["reasoning_effort"] == "low"
+    monkeypatch.setenv("TENDERLENS_LLM_REASONING_EFFORT", "none")  # Muse Spark rejects "none"; never forwarded
+    m2 = mock([ok({"ok": True})])
+    client(m2).complete_json("sys", "u")
+    assert "reasoning_effort" not in m2.requests[0]
