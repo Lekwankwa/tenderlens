@@ -46,9 +46,9 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     looks AND the inspect_pages/signature_match checks - see vision_extract's and inspect_pages' own
     docstrings for exactly what each covers). "report" is added by the caller (cli.py's main() / app.py),
     since building the report happens after this function returns. The requirements step (text_model) and
-    the pack's own render+OCR are independent of each other and run concurrently in two threads; nothing
-    past that point can start until both are done (vision needs the classified pack pages AND
-    req.local_content_required), so there is no further overlap opportunity in this pipeline."""
+    the pack's own render+OCR are independent of each other and run concurrently in two threads. Vision needs
+    only the classified pack pages, so it starts as soon as OCR is done and runs while the requirements step
+    finishes; only the rule checks wait for both."""
     llm = llm or ModelClient()
     vision = vision or ModelClient.for_vision(llm)
     timing: dict[str, float] = {}
@@ -76,15 +76,23 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     req_thread = threading.Thread(target=build_req)
     req_thread.start()
     pages = load_pdf(pack, work, progress=(lambda d, t: progress("ocr", d, t)) if progress else None, timing=timing)
-    req_thread.join()
-    req = req_box["req"]
 
     classify_pages(pages, load_templates(blank))
-    # the requirements step already got a real answer from this same endpoint and model a moment ago, so the
-    # one-call "is vision up at all" precheck would only add a wait before the first readings
-    proven = bool(llm.configured and llm.call_stats and llm.base_url == vision.base_url and llm.model == vision.model)
-    facts, res = _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript, extra_facts,
-                                   progress, timing, job_id, endpoint_proven=proven)
+    # Vision does not need the requirements (the local-content fields it reads belong to the declaration form, which
+    # is read whenever it is in the pack), so it starts the moment OCR is done and the requirements step - often the
+    # slowest single stage - finishes alongside it; the rules only need `req` after that. The same endpoint is being
+    # used by the text call right now, so the one-call "is vision up at all" precheck is skipped, as it was when the
+    # text call had already answered.
+    proven = bool(llm.configured and llm.base_url == vision.base_url and llm.model == vision.model)
+
+    def get_req():
+        req_thread.join()
+        if "req" not in req_box:
+            raise RuntimeError("The requirements step stopped before it produced a result.")
+        return req_box["req"]
+
+    facts, res, req = _vision_and_audit(get_req, pages, blank, vision, inspect, passes, pack_stage, transcript,
+                                        extra_facts, progress, timing, job_id, endpoint_proven=proven)
     facts.stage_times = timing
     return req, res, facts, pages
 
@@ -94,7 +102,9 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
     """The part of audit_pack() after OCR/requirements: read the pack with vision (if configured) and run the
     rule checks. Split out so a free re-run (vision was busy, nothing about the pack or the buyer's
     documents changed) can redo just this part, reusing the already-read req/pages instead of paying for
-    OCR and the text model again."""
+    OCR and the text model again. `req` is the Requirements, or a function that waits for them and returns them -
+    the form readings do not need them, so they can still be in progress while vision runs. Returns
+    (facts, result, requirements)."""
     facts = Facts()
     facts.job_id = job_id  # see audit_pack's own docstring and facts._ask()/vision_cache.py
     ocr_facts(pages, facts)
@@ -125,7 +135,9 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
             first_progress = (lambda d, t: progress("vision_first", d, t)) if progress else None
             # a local content declaration that is IN the pack is read and checked whether or not the RFQ said local
             # content applies: its own figures are what the quote total and the SBD 6.2 answers are compared with
-            local = req.local_content_required or any(p.doc_type == "local_content_decl" for p in pages)
+            # (every field that only applies "when local content applies" is on the declaration form itself, so
+            # whether the RFQ/Tender requires local content changes nothing about what vision reads)
+            local = True
             if inspect != "off":
                 start(2, lambda f, t: signature_match(vision, pages, f, progress=checks, timing=t))
             first = None
@@ -158,9 +170,10 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
         tinfo = load_transcript(transcript, facts, pages)
     if extra_facts:
         extra_facts(facts, pages)
+    req = req() if callable(req) else req
     res = Auditor(req, pages, facts, blank, tinfo["unmatched"], pack_stage=pack_stage).run()
     res.ocr_variants.extend(facts.misread_variants)
-    return facts, res
+    return facts, res, req
 
 
 def rerun_vision(req, pages, blank, vision, inspect="forms", passes=2, pack_stage="final", transcript=None,
@@ -172,8 +185,8 @@ def rerun_vision(req, pages, blank, vision, inspect="forms", passes=2, pack_stag
     job_id: see audit_pack's own docstring - with one set, pages vision already answered before this aren't
     re-asked (facts._ask()/vision_cache.py), which is what makes this genuinely free, not just pilot-credit-free."""
     timing: dict[str, float] = {}
-    facts, res = _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript, extra_facts,
-                                   progress, timing, job_id)
+    facts, res, _ = _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript,
+                                      extra_facts, progress, timing, job_id)
     facts.stage_times = timing
     return res, facts
 
