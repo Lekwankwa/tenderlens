@@ -49,6 +49,28 @@ class Facts:
                                       # failed after retries - set by cli.audit_pack once the run is done
         self._lock = threading.Lock()  # protects vision_log, touched from worker threads by _ask (see below)
 
+    def branch(self) -> "Facts":
+        """An empty Facts for one vision step run side by side with others (see cli._vision_and_audit); its
+        results are folded back with merge(), in a fixed order, once every step is done."""
+        f = Facts()
+        f.job_id = self.job_id
+        return f
+
+    def merge(self, other: "Facts") -> None:
+        """Append another step's results after this one's - the same order the steps used to run in one after
+        another - and add up its call counts."""
+        self.items.extend(other.items)
+        self.unread.extend(other.unread)
+        self.misread_variants.extend(other.misread_variants)
+        mine, theirs = self.vision_log, other.vision_log
+        for k in ("calls", "failed", "pages_read", "pages_inspected", "cache_hits"):
+            mine[k] += theirs[k]
+        mine["failed_pages"] |= theirs["failed_pages"]
+        for msg in theirs["errors"]:
+            if msg not in mine["errors"] and len(mine["errors"]) < 4:
+                mine["errors"].append(msg)
+        mine["stopped_early"] = mine["stopped_early"] or theirs["stopped_early"]
+
     def add(self, *a, **k):
         f = Fact(*a, **k)
         self.items.append(f)

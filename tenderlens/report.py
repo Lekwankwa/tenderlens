@@ -236,7 +236,8 @@ def render_html(req: Requirements, res: AuditResult, facts: Facts, pages: list[P
                "probabilistic. The AI model is used to interpret the RFQ and (when attached) read the forms; all comparisons, "
                "sums and date checks are ordinary code so they are repeatable.</div>")
     STAGE_ORDER = [("render", "page rendering"), ("ocr", "OCR"), ("text_model", "text model (requirements)"),
-                  ("vision_first", "vision first readings"), ("vision_second", "vision second looks and checks")]
+                  ("vision_first", "vision first readings"), ("vision_second", "vision second looks and checks"),
+                  ("vision_total", "all vision steps, side by side (wall clock)")]
     times = facts.stage_times or {}
     if any(k in times for k, _ in STAGE_ORDER):
         out.append("<div class=note><b>Timing</b> (page rendering and the text model ran concurrently, so they "

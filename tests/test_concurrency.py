@@ -208,3 +208,39 @@ def test_vision_concurrency_defaults_to_25_and_stays_within_1_to_32(monkeypatch)
     assert vision_concurrency() == 32
     monkeypatch.setenv("TENDERLENS_VISION_CONCURRENCY", "junk")
     assert vision_concurrency() == 25
+
+
+def test_running_inspection_beside_the_form_readings_gives_the_same_facts_in_the_same_order(tmp_path):
+    """cli._vision_and_audit now runs inspect_pages side by side with vision_extract, on a branch Facts merged
+    back afterwards. The result must be exactly what running them one after the other gave: same facts, same
+    order, same call counts."""
+    import threading
+    pages = _blank_pages(tmp_path, 3, doc_type="sbd4")
+    for n in (4, 5):
+        img = tmp_path / f"q{n}.png"
+        Image.new("RGB", (100, 100), "white").save(img)
+        pages.append(Page(n, str(img), doc_type="sbd8"))
+    answer = {"sbd4.name_field": "Excel Supply Holdings", "sbd4.q2_7_state_employed": "Yes", "crossed_out": "yes",
+              "overwritten": "no", "annotation": "yes", "rotated": "no", "cut_off": "no", "illegible": "no",
+              "answer": "yes"}
+    answers = {p.image_path: answer for p in pages}
+
+    def snapshot(f):
+        log = {k: v for k, v in f.vision_log.items() if k != "errors"}
+        return [(x.field, x.value, x.page, x.source, x.verified, x.confidence) for x in f.items], log
+
+    one_after_other = Facts()
+    vision_extract(_Scripted(answers), pages, one_after_other, verify=True)
+    inspect_pages(_Scripted(answers), pages, one_after_other, passes=2)
+
+    side_by_side = Facts()
+    llm = _Scripted(answers)
+    branch = side_by_side.branch()
+    th = threading.Thread(target=lambda: inspect_pages(llm, pages, branch, passes=2))
+    th.start()
+    vision_extract(llm, pages, side_by_side, verify=True)
+    th.join()
+    side_by_side.merge(branch)
+
+    assert snapshot(side_by_side) == snapshot(one_after_other)
+    assert any(x.field.startswith("inspect.") for x in side_by_side.items)

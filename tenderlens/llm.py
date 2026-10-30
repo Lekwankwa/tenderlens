@@ -183,6 +183,10 @@ class LlamaClient:
         self.errors: list[str] = []  # why calls failed, so the report can say so instead of failing silently
         self.call_stats: list[tuple[float, int, int]] = []  # per successful call: seconds, output tokens, of which thinking
         self._lock = threading.Lock()  # calls/prompt_tokens/completion_tokens are updated from worker threads
+        # calls in flight on this client at once, across every thread pool using it (the audit runs several
+        # independent vision steps side by side, each with its own pool) - so the provider never sees more
+        # than TENDERLENS_VISION_CONCURRENCY at a time from one run
+        self._slots = threading.BoundedSemaphore(vision_concurrency())
         # Vision reads pages one at a time across a whole pack, so a slower, longer-patience schedule costs
         # far less relative to the run than it would for the one-shot text (requirements) call.
         self.retry_waits = (2.0, 5.0, 15.0) if prefix == "VISION" else (1.0, 2.0, 4.0)
@@ -246,7 +250,7 @@ class LlamaClient:
         waits = () if self._failover_active() else self.retry_waits  # with a backup, hand over at once
         for attempt in range(len(waits) + 1):
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout, context=_HTTPS_CTX) as r:
+                with self._slots, urllib.request.urlopen(req, timeout=self.timeout, context=_HTTPS_CTX) as r:
                     return json.load(r)
             except urllib.error.HTTPError as err:
                 body_text = _read_error_body(err, self.api_key)

@@ -88,19 +88,44 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
     if vision.configured:
         facts.vision_log["model"] = vision.model
         if vision_precheck(vision, pages, facts):
+            t_vision = time.time()
+            checks = (lambda d, t: progress("vision_checks", d, t)) if progress else None
+            # The page inspection and the signature comparison don't use the form readings, so they run side
+            # by side with them, not after. Each writes to its own Facts and timing, folded back below in the
+            # order the steps used to run one after another - so the report comes out the same; only the wait
+            # is shorter. The vision client caps calls in flight across all three (see LlamaClient._slots).
+            side: list[tuple[Facts, dict, threading.Thread]] = []
+            errors: list[BaseException] = []
+
+            def start(step):
+                f, t = facts.branch(), {}
+
+                def run():
+                    try:
+                        step(f, t)
+                    except BaseException as err:  # noqa: BLE001 - re-raised on the calling thread below
+                        errors.append(err)
+                th = threading.Thread(target=run, daemon=True)
+                th.start()
+                side.append((f, t, th))
+
+            if inspect != "off":
+                start(lambda f, t: inspect_pages(vision, pages, f, passes, progress=checks, timing=t))
+                start(lambda f, t: signature_match(vision, pages, f, progress=checks, timing=t))
             vision_extract(vision, pages, facts, local_content=req.local_content_required, verify=passes >= 2,
                            progress=(lambda d, t: progress("vision_first", d, t)) if progress else None,
                            timing=timing)
             if passes >= 2 and CROP_VERIFY_ENABLED:
                 verify_identifiers(vision, pages, facts)
                 verify_yesno(vision, pages, facts)
-            if inspect != "off":
-                inspect_pages(vision, pages, facts, passes,
-                              progress=(lambda d, t: progress("vision_checks", d, t)) if progress else None,
-                              timing=timing)
-                signature_match(vision, pages, facts,
-                                progress=(lambda d, t: progress("vision_checks", d, t)) if progress else None,
-                                timing=timing)
+            for f, t, th in side:
+                th.join()
+                facts.merge(f)
+                for k, v in t.items():
+                    timing[k] = timing.get(k, 0.0) + v
+            if errors:
+                raise errors[0]
+            timing["vision_total"] = time.time() - t_vision
     if vision.configured and (facts.vision_log.get("stopped_early") or facts.vision_log.get("failed", 0) > 0):
         facts.vision_complete = False
     tinfo = {"unmatched": {}}

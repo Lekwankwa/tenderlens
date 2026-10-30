@@ -102,7 +102,15 @@ def render_pdf(pdf: Path, outdir: Path, dpi: int = DPI) -> list[Path]:
         shutil.rmtree(tmp)
     tmp.mkdir(parents=True)
     try:
-        subprocess.run(["pdftoppm", "-r", str(dpi), "-png", str(pdf), str(tmp / "p")], check=True)
+        # One pdftoppm per CPU, each on its own contiguous page range, all at once. Output is byte-identical
+        # to a single run: pdftoppm numbers (and zero-pads) files by the page's position in the whole PDF.
+        n = max(1, min(_ocr_workers(), want))
+        step = -(-want // n)
+        procs = [subprocess.Popen(["pdftoppm", "-r", str(dpi), "-png", "-f", str(first),
+                                   "-l", str(min(want, first + step - 1)), str(pdf), str(tmp / "p")])
+                 for first in range(1, want + 1, step)]
+        for p in procs:
+            p.wait()  # a range that failed shows up as missing pages in the count check just below
         rendered = sorted(tmp.glob("p-*.png"))
         if len(rendered) != want or not all(_usable_png(p) for p in rendered):
             raise RuntimeError(
