@@ -21,7 +21,7 @@ import streamlit as st
 from pypdf import PdfWriter
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
-from tenderlens import check_log, jobs, pilot, privacy, storage, upload_component
+from tenderlens import check_log, jobs, pilot, privacy, privacy_page, storage, upload_component
 from tenderlens.audit import DOC_LABEL
 from tenderlens.bootstrap import is_local, remote_warning, system_check
 from tenderlens.cli import audit_pack, rerun_vision
@@ -319,6 +319,9 @@ with st.sidebar:
 
     st.markdown("<div class='tl-step'>4 &middot; Privacy</div>", unsafe_allow_html=True)
     st.caption(privacy.notice_short())
+    if privacy_page.build():  # rebuilds privacy.html from PRIVACY.md when the markdown has changed
+        st.markdown(f"<a href='/component/{upload_component._component.name}/privacy.html' target='_blank' "
+                    "rel='noopener'>Read the full privacy policy &#8599;</a>", unsafe_allow_html=True)
     consent = st.checkbox(privacy.CONSENT_LABEL, key="privacy_consent")
 
     if GCS_UPLOADS:

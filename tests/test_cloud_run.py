@@ -89,3 +89,23 @@ def test_pack_stage_button_highlights_after_a_single_click(monkeypatch):
     btn("Draft pack").click().run()
     assert btn("Draft pack").proto.type == "primary"
     assert btn("Final pack").proto.type == "secondary"
+
+
+def test_privacy_page_is_built_from_the_markdown_and_rebuilt_when_it_changes(tmp_path):
+    import os
+    from tenderlens import privacy_page
+    src, out = tmp_path / "PRIVACY.md", tmp_path / "privacy.html"
+    src.write_text("# Notice\n\nWe keep **nothing**.", encoding="utf-8")
+    assert privacy_page.build(src, out)
+    assert "<h1>Notice</h1>" in out.read_text() and "max-width: 800px" in out.read_text()
+    src.write_text("# Notice\n\nChanged.", encoding="utf-8")
+    os.utime(src, (out.stat().st_mtime + 5,) * 2)
+    privacy_page.build(src, out)
+    assert "Changed." in out.read_text()
+
+
+def test_privacy_page_falls_back_to_a_placeholder_when_the_source_is_missing(tmp_path):
+    from tenderlens import privacy_page
+    out = tmp_path / "privacy.html"
+    assert privacy_page.build(tmp_path / "nope.md", out)
+    assert "temporarily unavailable" in out.read_text()

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy - TenderLens</title>
+<style>
+  :root { color-scheme: light dark; --bg: #fff; --fg: #1f2328; --muted: #5b636b; --line: #d0d7de; --accent: #1a5fb4; --code: #f3f4f6; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0e1117; --fg: #e6e8eb; --muted: #9aa3ad; --line: #30363d; --accent: #6ea8fe; --code: #1a1f27; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; line-height: 1.65; }
+  main { max-width: 800px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 1.8rem; letter-spacing: -.02em; margin: 0 0 8px; }
+  h2 { font-size: 1.25rem; margin: 32px 0 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 22px 0 6px; }
+  p, li { margin: 0 0 12px; }
+  a { color: var(--accent); }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
+  table { border-collapse: collapse; width: 100%; display: block; overflow-x: auto; }
+  th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; }
+  .back { font-size: .9rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<p class="back">TenderLens</p>
+<h1>Privacy notice</h1>
+<p><strong>Lekwankwa Corporation (Pty) Ltd</strong> operates TenderLens. This notice explains what happens to a document you
+upload. It is written in plain language, not legal language, and describes what the code actually does - see
+<code>README.md</code> for how to check any of this yourself.</p>
+<h2>Where documents are processed</h2>
+<p>TenderLens runs from one of two places, depending on how this instance is deployed:
+- <strong>Google Cloud Run, Johannesburg (<code>africa-south1</code>)</strong> - the hosting this project packages for (<code>deploy.sh</code>,
+  see README "Hosting on Google Cloud Run"). If you were given a Cloud Run URL, this is where your upload is
+  processed.
+- <strong>Streamlit Community Cloud</strong> - while the pilot is still running there instead, your upload is processed on
+  Streamlit's own infrastructure, not Cloud Run. Streamlit Community Cloud's own hosting region and data
+  handling are Streamlit's, not this project's - see Streamlit's own privacy documentation.</p>
+<p>Either way, running TenderLens entirely on your own machine (<code>streamlit run app.py</code> locally, or self-hosting
+with Ollama - see <code>OLLAMA.md</code>) keeps your files on that machine instead of a shared host.</p>
+<h2>The AI provider (Complete check)</h2>
+<p>Running a <strong>Complete check</strong> sends page images and extracted text to <strong>Meta's Model API</strong> (<code>api.meta.ai</code>,
+model Muse Spark) - TenderLens's only hosted model provider - so handwriting, ticks, stamps and signatures
+can be read. One model reads both the buyer's documents and the scanned pages.</p>
+<p><strong>[CONFIRM: Meta's processing location and data-retention/training policy for Standard-mode Model API
+traffic, from Meta's own documentation.]</strong> This deployment uses Standard mode, not Contributor mode -
+Contributor mode is cheaper but lets Meta train future models on what you send, which this project does not
+opt into. Until that is confirmed, assume sending data to Meta may mean it is processed outside South Africa.</p>
+<p>Self-hosting (your own Ollama instance - see <code>OLLAMA.md</code>) keeps everything on your own machine instead;
+nothing in that case is sent to Meta or anywhere else.</p>
+<p>A <strong>Fast check</strong> does not call any AI provider - it reads files with OCR and fixed rules only, and nothing
+leaves the host.</p>
+<h2>What is sent, what is kept, and for how long</h2>
+<ul>
+<li><strong>Sent to the AI provider</strong> (Complete check only): the page images of whatever you uploaded, and text
+  extracted from them. The RFQ/Tender documents and response pack are both affected, since both can be read
+  this way.</li>
+<li><strong>Kept on the host</strong>: the files you upload, and the page images rendered from them, are written to a working
+  directory on the host for the duration of the audit. They are deleted automatically after at most
+  <code>TENDERLENS_PURGE_HOURS</code> (24 hours by default; the Cloud Run deployment in <code>deploy.sh</code> sets this to 2 hours).
+  Nothing is kept beyond that window by design.</li>
+<li><strong>The report itself</strong> (the HTML/JSON you download) is generated in your browser session and offered to you
+  directly as a download - it is not written to server storage separately from the working files above.</li>
+<li><strong>Operational logging</strong> (<code>tenderlens/check_log.py</code>) records only counts and booleans for monitoring usage and
+  spend (which check mode ran, how many AI calls it made, whether it succeeded) - never document contents,
+  filenames, bidder names or RFQ references.</li>
+<li><strong>Pilot access codes</strong> are stored only as a one-way hash (SHA-256); the code itself is shown once and never
+  stored.</li>
+</ul>
+<h2>Who can see it</h2>
+<ul>
+<li>Whoever operates the host this instance runs on (Lekwankwa Corporation (Pty) Ltd, for the Cloud Run and
+  Streamlit Community Cloud deployments; you, if you self-host).</li>
+<li>Meta, only when Complete check is used (not at all if you self-host with Ollama instead).</li>
+<li>No one else. TenderLens does not share documents with any other third party.</li>
+</ul>
+<h2>Redaction</h2>
+<p>The "Hide IDs, tax numbers and signatures in page images" option blacks out IDs, tax numbers, bank numbers,
+phone numbers, PINs, handwritten ID/tax fields, the director table and signatures in the <strong>report's own
+embedded images</strong> before you download or share it. It reduces what's exposed in that report. It does <strong>not</strong>
+change what was sent to the AI provider during a Complete check - that model needs to see the unredacted page to
+read handwriting, IDs and signatures in the first place. Redaction is layered but not perfect: look at the
+report before you share it further.</p>
+<p>This notice makes no claim of "data sovereignty" or that personal data never leaves South Africa - see
+"The AI provider" above.</p>
+<h2>Handwriting is read by an AI model</h2>
+<p>Any tick, name, date, amount or other handwritten content reported by TenderLens was read by an AI vision
+model during Complete check (or typed in by hand as a transcript). It can be misread. Nothing it reports is a
+finding of fact - a person must confirm it against the original page before relying on it.</p>
+<h2>Other providers (planned)</h2>
+<p>These are not yet part of TenderLens. This section will be filled in before any of them handle your data.
+- <strong>Supabase</strong> - [ADD when used]
+- <strong>Paystack</strong> - [ADD when used]
+- <strong>Email provider</strong> - [ADD when used]</p>
+<h2>Your rights, and using this responsibly</h2>
+<p>Upload only documents you have the right to upload and share for this purpose. TenderLens is a review aid, not
+a verdict - see <code>README.md</code>.</p>
+<h2>Contact</h2>
+<p>Privacy questions: contact <strong>Lekwankwa Corporation (Pty) Ltd</strong>. [CONFIRM: a contact email/address to publish
+here.]</p>
+<p><em>Last updated: 2026-10-18.</em></p>
+</main>
+</body>
+</html>
