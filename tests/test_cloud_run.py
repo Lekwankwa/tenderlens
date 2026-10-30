@@ -109,3 +109,12 @@ def test_privacy_page_falls_back_to_a_placeholder_when_the_source_is_missing(tmp
     out = tmp_path / "privacy.html"
     assert privacy_page.build(tmp_path / "nope.md", out)
     assert "temporarily unavailable" in out.read_text()
+
+
+def test_a_disabled_audit_button_says_what_is_missing(monkeypatch):
+    from streamlit.testing.v1 import AppTest
+    _blank_env(monkeypatch)
+    at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
+    assert not at.exception
+    hint = [c.value for c in at.caption if c.value.startswith("To start the audit:")]
+    assert hint and "choose Draft pack or Final pack" in hint[0] and "tick the privacy box" in hint[0]

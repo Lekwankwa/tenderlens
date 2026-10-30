@@ -335,6 +335,27 @@ with st.sidebar:
         ready = ready and bool(code_status and code_status.ok)
     ready = privacy.consent_required(ready, consent)
     run = st.button("Audit the pack", type="primary", width="stretch", disabled=not ready)
+    if not ready:
+        # a greyed-out button alone reads as "it does nothing" - say exactly what is still missing
+        todo = []
+        if PILOT and not (code_status and code_status.ok):
+            todo.append("enter a valid pilot access code (step 0)")
+        if GCS_UPLOADS:
+            if not gcs_tender:
+                todo.append("attach the RFQ/Tender document and wait for \"Uploaded and verified\"")
+            if not gcs_pack:
+                todo.append("attach the response pack and wait for \"Uploaded and verified\"")
+        else:
+            if not rfqtender_ups:
+                todo.append("attach the RFQ/Tender document")
+            if not pack_ups:
+                todo.append("attach the response pack")
+        if pack_stage is None:
+            todo.append("choose Draft pack or Final pack")
+        if not consent:
+            todo.append("tick the privacy box")
+        if todo:
+            st.caption("To start the audit: " + "; ".join(todo) + ".")
 
     st.divider()
     same_model = llm.configured and vision.configured and llm.model == vision.model and llm.base_url == vision.base_url
