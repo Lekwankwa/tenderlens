@@ -409,8 +409,27 @@ def test_no_fallback_configured_behaves_as_before(mock, monkeypatch):
     assert c.fallback is None and c.retry_waits == (2.0, 5.0, 15.0)
 
 
-def test_fireworks_lane_is_built_from_env(monkeypatch):
-    monkeypatch.setenv("FIREWORKS_MODEL", "accounts/x/models/y")
-    monkeypatch.setenv("FIREWORKS_API_KEY", "k")
+def test_together_is_preferred_as_the_backup_and_fireworks_is_the_alternative(monkeypatch):
+    monkeypatch.setenv("TOGETHER_MODEL", "meta-models/Muse-Spark-Open-816B-A42B")
+    monkeypatch.setenv("TOGETHER_API_KEY", "k")
+    monkeypatch.setenv("FIREWORKS_MODEL", "accounts/fireworks/models/muse-spark-open")
+    c = LlamaClient(base_url="https://api.fireworks.ai/inference/v1", model="m", prefix="VISION")
+    assert c.fallback.base_url == "https://api.together.ai/v1" and c._failover_active()
+    monkeypatch.delenv("TOGETHER_MODEL")
     c = LlamaClient(base_url="http://a/v1", model="m", prefix="VISION")
-    assert c.fallback.base_url == "https://api.fireworks.ai/inference/v1" and c.retry_waits == ()
+    assert c.fallback.base_url == "https://api.fireworks.ai/inference/v1" and c._failover_active()
+
+
+def test_a_backup_on_the_same_endpoint_as_the_primary_is_ignored(monkeypatch):
+    monkeypatch.setenv("FIREWORKS_MODEL", "accounts/fireworks/models/muse-spark-open")
+    c = LlamaClient(base_url="https://api.fireworks.ai/inference/v1", model="m", prefix="VISION")
+    assert not c._failover_active() and c.retry_waits == (2.0, 5.0, 15.0)
+
+
+def test_primary_gets_the_shorter_timeout_only_while_a_backup_exists(monkeypatch):
+    monkeypatch.delenv("TENDERLENS_LLM_TIMEOUT", raising=False)
+    monkeypatch.delenv("FIREWORKS_MODEL", raising=False)
+    monkeypatch.delenv("TOGETHER_MODEL", raising=False)
+    assert LlamaClient(base_url="http://a/v1", model="m", prefix="VISION").timeout == 300
+    monkeypatch.setenv("TOGETHER_MODEL", "x")
+    assert LlamaClient(base_url="http://a/v1", model="m", prefix="VISION").timeout == 60

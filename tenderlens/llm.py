@@ -15,13 +15,19 @@ is the one case that typically needs these set separately (a small text model, a
     MUSE_VISION_MODEL  e.g. muse-spark-1.3
     META_VISION_API_KEY
 
-Optional Modal -> Fireworks lanes (both the text and the vision client):
+Optional backup lane (both the text and the vision client). Fireworks AI is the primary today
+(META_API_BASE=https://api.fireworks.ai/inference/v1); a Modal-hosted model can be the primary instead:
     MODAL_API_BASE, MODAL_MODEL, MODAL_API_KEY   used when the matching META_* / META_VISION_* variables are not set
         e.g. MODAL_MODEL=meta-models/Muse-Spark-Open-816B-A42B (the endpoint URL is your own Modal deployment's)
-    FIREWORKS_MODEL e.g. accounts/fireworks/models/muse-spark-open (+ FIREWORKS_API_KEY, FIREWORKS_API_BASE default https://api.fireworks.ai/inference/v1)
-        when set, a primary-lane timeout / connection failure / 429 / 5xx is logged and the SAME request is
-        sent to Fireworks at once (no back-off wait), and the primary is skipped for TENDERLENS_LANE_COOLDOWN
-        seconds (default 30) so a down lane costs one timeout, not one per page. Unset = no failover.
+    TOGETHER_MODEL e.g. meta-models/Muse-Spark-Open-816B-A42B (+ TOGETHER_API_KEY, TOGETHER_API_BASE default
+        https://api.together.ai/v1), or FIREWORKS_MODEL e.g. accounts/fireworks/models/muse-spark-open
+        (+ FIREWORKS_API_KEY, FIREWORKS_API_BASE default https://api.fireworks.ai/inference/v1) when Fireworks
+        is NOT the primary. When set, a primary-lane timeout / connection failure / 429 / 5xx is logged and the
+        SAME request is sent to the backup at once (no back-off wait), and the primary is skipped for
+        TENDERLENS_LANE_COOLDOWN seconds (default 30) so a down lane costs one timeout, not one per page.
+        While a backup is set the primary's per-call timeout is TENDERLENS_PRIMARY_TIMEOUT (default 60s)
+        instead of TENDERLENS_LLM_TIMEOUT, so a stalled lane hands over quickly. Unset = no failover. A backup
+        on the same endpoint as the primary is ignored.
 
 Other:
     TENDERLENS_LLM_TIMEOUT      seconds per call (default 300: a laptop CPU reading a page image is slow)
@@ -149,10 +155,11 @@ class LlamaClient:
         self.base_url = (base_url if base_url is not None else (e(env_base, "") or (e("MODAL_API_BASE", "") if modal else ""))).rstrip("/")
         self.model = model if model is not None else (e(env_model, "") or (e("MODAL_MODEL", "") if modal else ""))
         self.api_key = api_key if api_key is not None else (e(env_key, "") or (e("MODAL_API_KEY", "") if modal else ""))
-        self.fallback = (fallback or None) if fallback is not None else (self._fireworks_lane(timeout) if modal else None)
+        self.fallback = (fallback or None) if fallback is not None else (self._backup_lane(timeout) if modal else None)
         self.fallback_calls = 0
         self._lane_down_until = 0.0
-        self.timeout = float(timeout or e("TENDERLENS_LLM_TIMEOUT", "300"))
+        self.timeout = float(timeout or (e("TENDERLENS_PRIMARY_TIMEOUT", "60") if self.fallback is not None
+                                         else e("TENDERLENS_LLM_TIMEOUT", "300")))
         self.json_mode = e("TENDERLENS_LLM_JSON_MODE", "1") != "0"
         self.price_in = _num(e(f"TENDERLENS_{prefix}_PRICE_IN", ""))
         self.price_out = _num(e(f"TENDERLENS_{prefix}_PRICE_OUT", ""))
@@ -165,17 +172,24 @@ class LlamaClient:
         # Vision reads pages one at a time across a whole pack, so a slower, longer-patience schedule costs
         # far less relative to the run than it would for the one-shot text (requirements) call.
         self.retry_waits = (2.0, 5.0, 15.0) if prefix == "VISION" else (1.0, 2.0, 4.0)
-        if self.fallback is not None:
-            self.retry_waits = ()  # fail over at once instead of waiting out back-off on the failing lane
 
     @staticmethod
-    def _fireworks_lane(timeout=None) -> "LlamaClient | None":
+    def _backup_lane(timeout=None) -> "LlamaClient | None":
         e = os.environ.get
-        model = e("FIREWORKS_MODEL", "").strip()
-        if not model:
-            return None
-        return LlamaClient(base_url=e("FIREWORKS_API_BASE", "https://api.fireworks.ai/inference/v1"), model=model,
-                           api_key=e("FIREWORKS_API_KEY", ""), timeout=timeout, prefix="FALLBACK", fallback=False)
+        for name, default_base in (("TOGETHER", "https://api.together.ai/v1"),
+                                   ("FIREWORKS", "https://api.fireworks.ai/inference/v1")):
+            model = e(f"{name}_MODEL", "").strip()
+            if model:
+                return LlamaClient(base_url=e(f"{name}_API_BASE", default_base), model=model,
+                                   api_key=e(f"{name}_API_KEY", ""), timeout=timeout or e("TENDERLENS_LLM_TIMEOUT", "300"),
+                                   prefix="FALLBACK", fallback=False)
+        return None
+
+    def _failover_active(self) -> bool:
+        """A usable backup on a DIFFERENT endpoint (a backup identical to the primary would only double the bill).
+        Checked per call, not once in __init__: for_vision() copies the text client's endpoint over afterwards."""
+        fb = self.fallback
+        return fb is not None and fb.configured and fb.base_url != self.base_url
 
     @property
     def estimated_cost(self) -> float | None:
@@ -215,7 +229,7 @@ class LlamaClient:
         # one 5xx excluded: it means THIS request ran too long, so an unchanged retry just times out again
         # the same way (Meta's own error-handling docs: reduce input/output size or stream instead). Anything
         # else (a bad key, a malformed request, ...) fails immediately: retrying it can't help.
-        waits = self.retry_waits
+        waits = () if self._failover_active() else self.retry_waits  # with a backup, hand over at once
         for attempt in range(len(waits) + 1):
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout, context=_HTTPS_CTX) as r:
@@ -263,7 +277,7 @@ class LlamaClient:
         }
         with self._lock:
             self.calls += 1
-        if self.fallback is not None and self.fallback.configured:
+        if self._failover_active():
             if time.monotonic() < self._lane_down_until:
                 return self._via_fallback(system, user, images, None)
             try:
