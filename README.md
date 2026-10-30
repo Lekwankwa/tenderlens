@@ -4,7 +4,7 @@ Audits a South African RFQ response pack against what the buyer asked for, and r
 potential issue with the page it appears on, the rule it relates to, and what a person should check.
 It is a review aid: it says "needs review", never "disqualified".
 
-> This report was produced with AI (Meta's Llama 4 Scout) and fixed rules. AI can make mistakes and miss
+> This report was produced with AI and fixed rules. AI can make mistakes and miss
 > things. TenderLens is a review aid, not a verdict: check anything that matters against the original
 > documents.
 

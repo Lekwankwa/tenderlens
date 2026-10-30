@@ -223,23 +223,23 @@ def merge(llm_r: Requirements | None, rules_r: Requirements) -> Requirements:
     """Rules result is the floor. Anything Llama found that rules missed is added and tagged;
     any disagreement on scalar values is recorded for a human instead of silently picking one."""
     if llm_r is None:
-        rules_r.notes.append("Requirements built by rules only (no Llama endpoint configured).")
+        rules_r.notes.append("Requirements built by rules only (no model endpoint configured).")
         return rules_r
     out = rules_r
     for fld in ("closing_date", "closing_time", "submit_to_email", "min_quote_validity_days"):
         a, b = getattr(llm_r, fld), getattr(rules_r, fld)
         if a and b and a != b:
-            out.notes.append(f"Llama and rules disagree on {fld}: llama={a!r} rules={b!r} -> needs review")
+            out.notes.append(f"The AI model and rules disagree on {fld}: model={a!r} rules={b!r} -> needs review")
         elif a and not b:
             setattr(out, fld, a)
-            out.notes.append(f"{fld} supplied by Llama only")
+            out.notes.append(f"{fld} supplied by the AI model only")
     have = {d.id for d in out.documents}
     for d in llm_r.documents:
         if d.id not in have:
             out.documents.append(d)
-            out.notes.append(f"Document requirement '{d.id}' supplied by Llama only")
+            out.notes.append(f"Document requirement '{d.id}' supplied by the AI model only")
     out.notes.extend(llm_r.notes)
-    out.notes.append("Requirements cross-checked: Llama + rules.")
+    out.notes.append("Requirements cross-checked: AI model + rules.")
     return out
 
 
@@ -261,5 +261,5 @@ def build_requirements(rfq_pdfs: Path | list[Path], spec_text: str, spec_name: s
         try:
             llm_r = llm_extract(llm, email_text, email_name, spec_text, spec_name)
         except (LLMUnavailable, OSError, ValueError) as ex:
-            rules_r.notes.append(f"Llama call failed ({type(ex).__name__}: {ex}); used rules only.")
+            rules_r.notes.append(f"AI model call failed ({type(ex).__name__}: {ex}); used rules only.")
     return merge(llm_r, rules_r)

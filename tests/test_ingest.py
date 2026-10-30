@@ -9,6 +9,7 @@ that were never rendered.
 """
 from __future__ import annotations
 
+import shutil
 import sys
 from pathlib import Path
 
@@ -133,3 +134,41 @@ def test_page_count_estimate_ignores_a_junk_rate_value(monkeypatch):
     monkeypatch.setenv("TENDERLENS_SECONDS_PER_PAGE_FAST", "not-a-number")
     out = ingest.page_count_estimate(5, "fast")
     assert out == "5 page(s)."
+
+
+# --------------------------------------------------------------------------- one Tesseract run per page
+
+def _text_page(path):
+    from PIL import Image, ImageDraw, ImageFont
+    im = Image.new("RGB", (1240, 400), "white")
+    d = ImageDraw.Draw(im)
+    f = ImageFont.load_default(size=40)
+    d.text((60, 60), "SBD 4 DECLARATION OF INTEREST", fill="black", font=f)
+    d.text((60, 160), "Company registration number 2010/123456/07", fill="black", font=f)
+    d.text((60, 260), "CIDB grading 7GB   Date 12/03/2026", fill="black", font=f)
+    im.save(path, dpi=(150, 150))  # a rendered page carries a resolution tag, like pdftoppm's output
+
+
+@pytest.mark.skipif(shutil.which("tesseract") is None, reason="needs the tesseract program")
+def test_single_pass_ocr_matches_the_two_pytesseract_calls_it_replaced(tmp_path):
+    import pytesseract
+    from PIL import Image
+    from tenderlens.ingest import Word, ocr_image
+    png = tmp_path / "p-1.png"
+    _text_page(png)
+    img = Image.open(png)
+    old_text = pytesseract.image_to_string(img, config="--psm 4")
+    data = pytesseract.image_to_data(img, config="--psm 4", output_type=pytesseract.Output.DICT)
+    old_words = [Word(t.strip(), float(data["conf"][i]), data["left"][i], data["top"][i], data["width"][i],
+                      data["height"][i]) for i, t in enumerate(data["text"]) if t.strip()]
+    text, words = ocr_image(png)
+    assert "DECLARATION" in text and old_words
+    assert text == old_text and words == old_words
+
+
+def test_ocr_workers_honours_the_override_and_stays_in_range(monkeypatch):
+    from tenderlens.ingest import _ocr_workers
+    monkeypatch.setenv("TENDERLENS_OCR_WORKERS", "3")
+    assert _ocr_workers() == 3
+    monkeypatch.delenv("TENDERLENS_OCR_WORKERS")
+    assert 1 <= _ocr_workers() <= 8

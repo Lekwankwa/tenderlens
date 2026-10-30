@@ -23,13 +23,13 @@ SEV = {
     "low": ("Minor", "#4a6572"),
     "info": ("For information", "#5f6b73"),
 }
-SRC_LABEL = {"ocr": "read by OCR", "manual": "manual transcription", "vision": "read by Llama vision",
+SRC_LABEL = {"ocr": "read by OCR", "manual": "manual transcription", "vision": "read by AI vision",
              "image": "image analysis"}
 
 # One wording, used everywhere a disclaimer is shown (report banner, "How this was read", the demo, the README),
 # so it never drifts between places. See Step 5 of FIX_ALL_PROMPT.md.
 DISCLAIMER_SHORT = (
-    "This report was produced with AI (Meta's Llama 4 Scout) and fixed rules. AI can make mistakes and miss things. "
+    "This report was produced with AI and fixed rules. AI can make mistakes and miss things. "
     "TenderLens is a review aid, not a verdict: check anything that matters against the original documents.")
 DISCLAIMER_LONG = (
     "Handwriting, ticks, stamps and signatures are read by an AI vision model and can be misread, including digits, "
@@ -228,12 +228,12 @@ def render_html(req: Requirements, res: AuditResult, facts: Facts, pages: list[P
                + (f"Handwriting was read by {facts.vision_log['model']} ({facts.vision_log['pages_read']} pages read, "
                   f"{facts.vision_log['pages_inspected']} inspected, {facts.vision_log['failed']} calls failed). "
                   if facts.vision_log.get("calls") else "") +
-               "Printed text is read by OCR. Handwriting, ticks and stamps are read by a multimodal Llama model or a "
+               "Printed text is read by OCR. Handwriting, ticks and stamps are read by a multimodal AI model or a "
                "human transcription; a vision reading that would raise an issue is asked a second time, worded "
                "differently, and only counts as an issue if it agrees. Items marked 'manual transcription' were typed "
                "in by a person and should be spot-checked. "
                "Signature, stray-mark and highlight findings come from image analysis of the scan, which is "
-               "probabilistic. Llama is used to interpret the RFQ and (when attached) read the forms; all comparisons, "
+               "probabilistic. The AI model is used to interpret the RFQ and (when attached) read the forms; all comparisons, "
                "sums and date checks are ordinary code so they are repeatable.</div>")
     STAGE_ORDER = [("render", "page rendering"), ("ocr", "OCR"), ("text_model", "text model (requirements)"),
                   ("vision_first", "vision first readings"), ("vision_second", "vision second looks and checks")]

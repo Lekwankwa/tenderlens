@@ -14,7 +14,8 @@ LOG_PATH = Path(os.environ.get("TENDERLENS_CHECK_LOG", ".cache/check_log.jsonl")
 
 def record(*, check_mode: str, complete: bool, pages_failed: list[int], vision_calls: int, vision_retries: int,
           text_retries: int, credit_used: bool, free_rerun: bool = False, seconds: float | None = None,
-          stages: dict[str, float] | None = None, path: Path = LOG_PATH) -> None:
+          stages: dict[str, float] | None = None, tokens: dict[str, int] | None = None,
+          latency: dict[str, dict] | None = None, path: Path = LOG_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     row = {
         "ts": round(time.time()),
@@ -30,6 +31,10 @@ def record(*, check_mode: str, complete: bool, pages_failed: list[int], vision_c
     if seconds is not None:  # how long the whole run took, and the seconds spent in each stage (render, ocr, ...)
         row["seconds"] = round(seconds, 1)
         row["stages"] = {k: round(v, 1) for k, v in (stages or {}).items()}
+    if tokens is not None:  # model token counts (a reasoning model's hidden thinking is billed and timed as output)
+        row["tokens"] = {k: int(v) for k, v in tokens.items()}
+    if latency:  # per-call seconds and output tokens, for finding out why a stage was slow
+        row["latency"] = latency
     with open(path, "a") as f:
         f.write(json.dumps(row) + "\n")
     print("check_log " + json.dumps(row), flush=True)  # the file is lost on a Cloud Run restart; stdout is kept

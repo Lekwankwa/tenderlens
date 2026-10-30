@@ -52,3 +52,11 @@ def test_record_can_carry_total_and_per_stage_seconds(tmp_path, capsys):
     row = json.loads(path.read_text().strip())
     assert row["seconds"] == 41.2 and row["stages"] == {"ocr": 3.0, "vision_first": 13.0}
     assert capsys.readouterr().out.startswith("check_log {")  # also on stdout, which Cloud Run keeps
+
+
+def test_record_can_carry_token_counts(tmp_path):
+    path = tmp_path / "check_log.jsonl"
+    check_log.record(check_mode="complete", complete=True, pages_failed=[], vision_calls=2, vision_retries=0,
+                     text_retries=0, credit_used=False, tokens={"vision_prompt": 5800, "vision_completion": 9100},
+                     path=path)
+    assert json.loads(path.read_text().strip())["tokens"] == {"vision_prompt": 5800, "vision_completion": 9100}

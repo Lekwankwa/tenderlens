@@ -435,7 +435,7 @@ class Auditor:
                 self.res.human_only.append(
                     "Handwritten entries were NOT read: no vision model is connected and no transcript was supplied. "
                     "That covers the ticks on SBD 4 and SBD 8, handwritten names, dates, amounts and the "
-                    "commissioner's stamp. Connect Llama vision (see OLLAMA.md) and these checks run automatically.")
+                    "commissioner's stamp. Connect a vision model (see OLLAMA.md) and these checks run automatically.")
             return
         for dtype, entries in F.FORMS.items():
             if not self.pg(dtype):

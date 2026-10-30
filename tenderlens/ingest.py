@@ -118,37 +118,91 @@ def sha1_file(path: Path) -> str:
     return hashlib.sha1(Path(path).read_bytes()).hexdigest()
 
 
+def _tsv_words(tsv: str) -> list[Word]:
+    """The words in a Tesseract TSV (one row per word, box and confidence), parsed exactly as pytesseract's
+    image_to_data does: every column but the last (the text) read as int(float(...)), and a final row whose
+    empty text cell was dropped by Tesseract padded back out."""
+    rows = [r.split("\t") for r in tsv.strip().split("\n")]
+    if len(rows) < 2:
+        return []
+    header, words = rows[0], []
+    col = {name: i for i, name in enumerate(header)}
+    for row in rows[1:]:
+        if len(row) < len(header):
+            row = row + [""] * (len(header) - len(row))
+        t = row[col["text"]].strip()
+        if not t:
+            continue
+        n = lambda k: int(float(row[col[k]]))  # noqa: E731
+        words.append(Word(t, float(n("conf")), n("left"), n("top"), n("width"), n("height")))
+    return words
+
+
 def ocr_image(png: Path, cache: Path | None = None) -> tuple[str, list[Word]]:
     """OCR one page image. The cache is keyed by the image's content hash, so a page that appears
-    unchanged in a modified pack is never read twice (and always reads the same way)."""
+    unchanged in a modified pack is never read twice (and always reads the same way).
+    One Tesseract run writes both outputs (plain text and the word-box TSV). This used to be two separate
+    runs over the same image - the same result, twice the CPU - and the dominant cost of every audit."""
     if cache and cache.exists():
         d = json.loads(cache.read_text())
         return d["text"], [Word(**w) for w in d["words"]]
+    import tempfile
     img = Image.open(png)
-    text = pytesseract.image_to_string(img, config="--psm 4")
-    data = pytesseract.image_to_data(img, config="--psm 4", output_type=pytesseract.Output.DICT)
-    words = []
-    for i, t in enumerate(data["text"]):
-        t = t.strip()
-        if not t:
-            continue
-        words.append(
-            Word(t, float(data["conf"][i]), data["left"][i], data["top"][i], data["width"][i], data["height"][i])
-        )
+    if "A" in img.getbands():  # as pytesseract does: a transparent page is read on a white background
+        flat = Image.new("RGB", img.size, (255, 255, 255))
+        flat.paste(img, (0, 0), img.getchannel("A"))
+        img = flat
+    with tempfile.TemporaryDirectory() as tmp:
+        # The image is re-saved to a temporary PNG first - exactly what pytesseract did on every call - and NOT
+        # handed to Tesseract as the original file. Re-saving drops the PNG's resolution tag, and Tesseract reads
+        # a page differently with and without it (a different word count on a test page), so skipping this
+        # step would silently change every page's OCR text.
+        src = Path(tmp) / "in.png"
+        img.save(src, format="PNG")
+        base = Path(tmp) / "out"
+        proc = subprocess.run(["tesseract", str(src), str(base), "--psm", "4", "txt", "tsv"],
+                              capture_output=True, env={**os.environ, "OMP_THREAD_LIMIT": "1"})
+        if proc.returncode != 0:
+            raise RuntimeError(f"tesseract failed on {Path(png).name}: {proc.stderr.decode('utf-8', 'replace')[:300]}")
+        text = base.with_suffix(".txt").read_text(encoding="utf-8")
+        words = _tsv_words(base.with_suffix(".tsv").read_text(encoding="utf-8"))
     if cache:
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps({"text": text, "words": [w.__dict__ for w in words]}))
     return text, words
 
 
+def _available_cpus() -> float:
+    """CPUs this process may really use. os.cpu_count() is the machine's, not the container's: on Cloud Run a
+    2-vCPU service can still report many more, so the container's CPU quota (cgroup v2, then v1) caps it."""
+    n = float(os.cpu_count() or 1)
+    try:
+        quota, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()[:2]
+        if quota != "max":
+            n = min(n, int(quota) / int(period))
+    except (OSError, ValueError):
+        try:
+            quota = int(Path("/sys/fs/cgroup/cpu/cpu.cfs_quota_us").read_text())
+            period = int(Path("/sys/fs/cgroup/cpu/cpu.cfs_period_us").read_text())
+            if quota > 0:
+                n = min(n, quota / period)
+        except (OSError, ValueError):
+            pass
+    return max(n, 1.0)
+
+
 def _ocr_workers() -> int:
+    """Pages OCR'd at once: TENDERLENS_OCR_WORKERS if set, otherwise one per available CPU (one fewer than all
+    of them on a big machine, so a laptop stays usable), at most 8. Each Tesseract process is pinned to one
+    thread (see ocr_image), so this is the whole parallelism."""
     raw = os.environ.get("TENDERLENS_OCR_WORKERS", "").strip()
     if raw:
         try:
             return max(1, int(raw))
         except ValueError:
             pass
-    return max(1, (os.cpu_count() or 2) - 1)
+    cpus = _available_cpus()
+    return max(1, min(8, int(cpus) if cpus <= 4 else int(cpus) - 1))
 
 
 def load_pdf(pdf: Path, workdir: Path, progress=None, timing: dict | None = None) -> list[Page]:
@@ -181,6 +235,7 @@ def load_pdf(pdf: Path, workdir: Path, progress=None, timing: dict | None = None
         jobs.append((i, png, sha, cache))
 
     workers = _ocr_workers()
+    print(f"ocr pages={len(jobs)} workers={workers} cpus={_available_cpus():.1f}", flush=True)  # no content: just sizing
     results: list = [None] * len(jobs)
     if workers > 1 and len(jobs) > 1:
         # a thread pool, not a process pool: pytesseract shells out to the real tesseract binary via

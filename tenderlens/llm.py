@@ -181,6 +181,7 @@ class LlamaClient:
         self.completion_tokens = 0
         self.retries = 0  # how many times _post() actually waited and retried, for the per-check log
         self.errors: list[str] = []  # why calls failed, so the report can say so instead of failing silently
+        self.call_stats: list[tuple[float, int, int]] = []  # per successful call: seconds, output tokens, of which thinking
         self._lock = threading.Lock()  # calls/prompt_tokens/completion_tokens are updated from worker threads
         # Vision reads pages one at a time across a whole pack, so a slower, longer-patience schedule costs
         # far less relative to the run than it would for the one-shot text (requirements) call.
@@ -318,7 +319,24 @@ class LlamaClient:
         self.fallback.prompt_tokens = self.fallback.completion_tokens = 0
         return out
 
+    def call_summary(self) -> dict:
+        """How long calls took and how many tokens they produced (p50 / p90 / max), for the run log: tells a few
+        slow outliers (which hold up a whole batch of parallel calls) apart from every call being slow."""
+        with self._lock:
+            stats = list(self.call_stats)
+        if not stats:
+            return {}
+
+        def pct(values, q):
+            v = sorted(values)
+            return v[min(len(v) - 1, int(q * len(v)))]
+
+        secs, out, think = [s[0] for s in stats], [s[1] for s in stats], [s[2] for s in stats]
+        return {"n": len(stats), "p50_s": round(pct(secs, .5), 1), "p90_s": round(pct(secs, .9), 1),
+                "max_s": round(max(secs), 1), "p50_tok": pct(out, .5), "max_tok": max(out), "thinking_tok": sum(think)}
+
     def _complete(self, body: dict) -> dict:
+        t_call = time.monotonic()
         try:
             if self.json_mode:
                 try:
@@ -330,9 +348,11 @@ class LlamaClient:
             else:
                 payload = self._post(body)
             usage = payload.get("usage") or {}
+            thinking = int((usage.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0)
             with self._lock:
                 self.prompt_tokens += int(usage.get("prompt_tokens") or 0)
                 self.completion_tokens += int(usage.get("completion_tokens") or 0)
+                self.call_stats.append((time.monotonic() - t_call, int(usage.get("completion_tokens") or 0), thinking))
             return parse_json_loose(payload["choices"][0]["message"]["content"])
         except Exception as err:  # noqa: BLE001 - recorded, then re-raised for the caller to decide
             msg = str(err)[:300] if isinstance(err, LLMError) else f"{type(err).__name__}: {str(err)[:160]}"

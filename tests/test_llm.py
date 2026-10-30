@@ -500,3 +500,17 @@ def test_the_request_carries_the_encoded_mime_type(mock, tmp_path, monkeypatch):
     m2 = mock([ok({"ok": True})])
     client(m2).complete_json("sys", "u", images=[str(tmp_path / "scan.png")])
     assert m2.requests[0]["messages"][1]["content"][1]["image_url"]["url"].startswith("data:image/png;base64,")
+
+
+def test_call_summary_reports_percentiles_and_thinking_tokens(mock):
+    body = {"choices": [{"message": {"content": "{\"ok\": true}"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 50,
+                      "completion_tokens_details": {"reasoning_tokens": 40}}}
+    m = mock([(200, body)])
+    c = client(m)
+    assert c.call_summary() == {}
+    for _ in range(3):
+        c.complete_json("sys", "u")
+    s = c.call_summary()
+    assert s["n"] == 3 and s["p50_tok"] == 50 and s["max_tok"] == 50 and s["thinking_tok"] == 120
+    assert 0 <= s["p50_s"] <= s["p90_s"] <= s["max_s"]

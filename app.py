@@ -393,7 +393,10 @@ if run:
                 pages_failed=sorted(facts.vision_log.get("failed_pages") or []) if facts else [],
                 vision_calls=run_vision.calls, vision_retries=run_vision.retries, text_retries=llm.retries,
                 credit_used=credit_used, seconds=time.time() - t0,
-                stages=dict(facts.stage_times) if facts else None)
+                stages=dict(facts.stage_times) if facts else None,
+                tokens=dict(vision_prompt=run_vision.prompt_tokens, vision_completion=run_vision.completion_tokens,
+                            text_prompt=llm.prompt_tokens, text_completion=llm.completion_tokens),
+                latency={"vision": run_vision.call_summary(), "text": llm.call_summary()})
         except Exception:
             pass  # the log must never be why a run fails
 
@@ -454,7 +457,7 @@ if run:
             t_report = time.time()
             R = Renderer(pages, redact, strict)
             html = render_html(req, res, facts, pages, bidder or "Bidder", req.reference,
-                               "Llama + rules" if llm.configured else "rules only", redact=redact, strict=strict,
+                               "AI + rules" if llm.configured else "rules only", redact=redact, strict=strict,
                                check_mode=check_mode)
             facts.stage_times["report"] = time.time() - t_report
             check_complete = check_mode == "fast" or facts.vision_complete
@@ -589,7 +592,7 @@ else:
                     pass
                 R2 = Renderer(out["pages"], out["redact"], False)
                 html2 = render_html(out["req"], res2, facts2, out["pages"], out["bidder"], out["req"].reference,
-                                    "Llama + rules" if llm.configured else "rules only", redact=out["redact"],
+                                    "AI + rules" if llm.configured else "rules only", redact=out["redact"],
                                     check_mode="complete")
                 st.session_state["out"] = {**out, "res": res2, "facts": facts2, "R": R2, "html": html2,
                                            "json": to_json(out["req"], res2)}
@@ -718,8 +721,8 @@ with tab_how:
     st.info(DISCLAIMER_LONG, icon=None)
     src = Counter(f.source for f in facts.items if f.field != "page.doc_type")
     st.markdown("**Facts by source:** " + ", ".join(f"{k} {v}" for k, v in sorted(src.items())))
-    st.markdown("**Requirements read by:** " + (f"Llama ({llm.model}) cross-checked with rules" if llm.configured
-                                               else "rules only (no Llama endpoint configured)"))
+    st.markdown("**Requirements read by:** " + (f"AI model ({llm.model}) cross-checked with rules" if llm.configured
+                                               else "rules only (no model endpoint configured)"))
     vl = facts.vision_log
     if vl.get("stopped_early"):
         st.warning(f"A vision model is connected ({vl.get('model', vision.model)}) but its calls failed, so the "
@@ -765,7 +768,7 @@ with tab_how:
             st.caption("No price per token is set (TENDERLENS_LLM_PRICE_IN/_OUT, TENDERLENS_VISION_PRICE_IN/_OUT), "
                       "so only token counts are shown, not an estimated cost.")
 
-    st.write("Printed text is read by OCR. Handwriting and ticks are read by a multimodal Llama model or a human "
+    st.write("Printed text is read by OCR. Handwriting and ticks are read by a multimodal AI model or a human "
              "transcription; anything marked manual should be spot-checked. Signature, stray-mark and blank-page "
              "findings come from image analysis, which is probabilistic. All comparisons, sums and date checks are "
              "ordinary code, so they are repeatable.")
