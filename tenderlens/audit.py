@@ -1132,14 +1132,38 @@ class Auditor:
     # text/entry fields) to also find a mark on the same page before they count as more than a lead.
     _NEEDS_IMAGE_CORROBORATION = {"annotation", "overwritten"}
 
+    # (what it means, what to do, rule) - an alteration is something written on the form; a cut-off, rotated or
+    # unreadable page is a scan problem, so it is not described as an unauthorised amendment
+    _INSPECTION_WORDING = {
+        "_alteration": ("Alterations to a standard form should be initialled by the bidder.",
+                        "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+                        "Standard form must be returned unaltered"),
+        "cut_off": ("Part of the page may be missing from the scan, so something on it may not have been read.",
+                    "Compare with the paper copy; ask for a complete scan of the page if anything is cut off.",
+                    "Every page of the pack must be complete and legible"),
+        "rotated": ("The page appears to be scanned upside down or sideways.",
+                    "Check the page reads correctly; ask for a straight scan if it does not.",
+                    "Every page of the pack must be complete and legible"),
+        "illegible": ("The scan of this page may be too poor to read reliably.",
+                      "Ask for a clearer scan if anything on the page cannot be read.",
+                      "Every page of the pack must be complete and legible"),
+    }
+
     def vision_inspection(self):
         sev = {"crossed_out": "medium", "overwritten": "medium", "annotation": "medium", "rotated": "low",
                "cut_off": "medium", "illegible": "low"}
         found = 0
+        unconfirmed: list[str] = []
         for key, (_q, _q2, title) in F.INSPECTIONS.items():
             for f in self.f.all(f"inspect.{key}"):
-                found += 1
                 page = self.by_no[f.page]
+                form = DOC_LABEL.get(page.doc_type, "page")
+                if f.source == "vision" and f.confidence <= 0.4 and not f.verified:
+                    # a second, differently worded look disagreed: a lead that did not hold up is counted in one line
+                    # below, not listed as a finding of its own
+                    unconfirmed.append(f"{title} on {form} (page {f.page})")
+                    continue
+                found += 1
                 corroborated = ""
                 if key in self._NEEDS_IMAGE_CORROBORATION:
                     issue = any(r.kind in ("margin", "overwrite") for r in V.stray_marks(page, self.vocab))
@@ -1147,15 +1171,13 @@ class Auditor:
                         corroborated = "; a non-AI check of the page image also found ink there"
                 else:
                     issue = f.confidence >= 0.8
-                form = DOC_LABEL.get(page.doc_type, "page")
                 checker = "A vision check" if f.source == "vision" else "A check"
+                what, advice, rule = self._INSPECTION_WORDING.get(key, self._INSPECTION_WORDING["_alteration"])
                 self.find(sev[key], "stray_mark", f"{title} on {form} (page {f.page})",
                           f"{checker} of the page found this ({f.source}"
                           + (", confirmed by a second look" if f.verified and f.source == "vision" else "")
                           + corroborated
-                          + (f"; {f.note}" if f.note else "") + "). Alterations to a standard form should be "
-                          "initialled by the bidder.", "Look at the page. If the alteration is real, ask for it to be "
-                          "initialled or re-issued.", "Standard form must be returned unaltered",
+                          + (f"; {f.note}" if f.note else "") + "). " + what, advice, rule,
                           [self.E(f.page, title, source=f.source)], tier="issue" if issue else "observation")
         for f in [x for x in self.f.items if x.field.startswith("sigmatch.")]:
             found += 1
@@ -1165,6 +1187,10 @@ class Auditor:
                       + (f" ({f.note})" if f.note else "") + ". Handwriting similarity is a lead, not proof: people "
                       "sign differently on different days.", "Look at the two signatures side by side.", "",
                       [self.E(f.page, "signature", source=f.source)], tier="observation")
+        if unconfirmed:
+            self.res.human_only.append(
+                f"{len(unconfirmed)} possible finding(s) from the vision check were not confirmed by a second, "
+                "differently worded look and are not reported as findings: " + "; ".join(unconfirmed) + ".")
         log = self.f.vision_log
         if log.get("pages_inspected") and not found:
             self.ok(f"Vision check of {log['pages_inspected']} handwritten pages: nothing crossed out, overwritten, "
@@ -1231,7 +1257,7 @@ class Auditor:
             self.find("medium", "initials", f"Initials missing on {len(missing)} page(s)",
                       f"Pages {missing} have no initials in the bottom-right corner. A page without them may have "
                       "been replaced or added after the pack was initialled.", "Check these pages are the originals.",
-                      "", [self.E(n, source="image") for n in missing[:4]])
+                      "", [self.E(n, source="image") for n in missing])
 
     def ocr_quality(self):
         weak = [p.number for p in self.pages if p.mean_conf < 80]

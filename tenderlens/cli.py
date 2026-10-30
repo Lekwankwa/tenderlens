@@ -20,7 +20,7 @@ from .requirements import build_requirements
 
 def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm=None, local_content="auto",
                vision=None, inspect="forms", passes=2, extra_facts=None, progress=None, pack_stage="final",
-               job_id=None):
+               job_id=None, live=None):
     """The whole pipeline, returning (requirements, audit result, facts, pages). Used by the CLI, the app and the tests.
 
     rfq      the buyer's RFQ, as one path or a list: the cover email/letter plus any attachments it came
@@ -36,6 +36,9 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     passes   2 = a vision 'yes' needs a second, differently worded look to count as an issue
     progress, if given, is called as progress(stage, done, total) from whichever stage is currently running
              ("ocr", "vision_first", "vision_second"/"vision_checks") - for a live "page N of M" indicator.
+    live     a live.LiveState, if the caller wants to show progress page by page while the audit runs (the pages and
+             their form types once classified, each page's first reading and second looks, and the requirements the
+             moment the text step has them). None (the default) changes nothing.
     job_id   None (the default, every caller outside the Cloud Run large-upload path) means no vision
              caching - today's exact behaviour. Given, it lets a vision call already answered before this
              same job was interrupted be skipped on resume instead of re-asked - see facts._ask() and
@@ -72,12 +75,17 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
         req_box["req"] = build_requirements(rfq_files, spec_text, spec_name, llm if llm.configured else None,
                                             local_content, work=work)
         timing["text_model"] = timing.get("text_model", 0.0) + (time.time() - t0)
+        if live is not None:
+            live.set_requirements(req_box["req"])
 
     req_thread = threading.Thread(target=build_req)
     req_thread.start()
     pages = load_pdf(pack, work, progress=(lambda d, t: progress("ocr", d, t)) if progress else None, timing=timing)
 
     classify_pages(pages, load_templates(blank))
+    if live is not None:
+        from .audit import DOC_LABEL
+        live.set_pages(pages, lambda dtype: DOC_LABEL.get(dtype, dtype))
     # Vision does not need the requirements (the local-content fields it reads belong to the declaration form, which
     # is read whenever it is in the pack), so it starts the moment OCR is done and the requirements step - often the
     # slowest single stage - finishes alongside it; the rules only need `req` after that. The same endpoint is being
@@ -92,13 +100,13 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
         return req_box["req"]
 
     facts, res, req = _vision_and_audit(get_req, pages, blank, vision, inspect, passes, pack_stage, transcript,
-                                        extra_facts, progress, timing, job_id, endpoint_proven=proven)
+                                        extra_facts, progress, timing, job_id, endpoint_proven=proven, live=live)
     facts.stage_times = timing
     return req, res, facts, pages
 
 
 def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript, extra_facts, progress,
-                      timing, job_id=None, endpoint_proven=False):
+                      timing, job_id=None, endpoint_proven=False, live=None):
     """The part of audit_pack() after OCR/requirements: read the pack with vision (if configured) and run the
     rule checks. Split out so a free re-run (vision was busy, nothing about the pack or the buyer's
     documents changed) can redo just this part, reusing the already-read req/pages instead of paying for
@@ -148,7 +156,7 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
                 # facts.combined_first_pass) - half the page images sent, so less queuing at the provider
                 first = combined_first_pass(vision, pages, facts, local_content=local,
                                             inspect=inspect != "off", progress=first_progress, timing=timing,
-                                            prefetch=ahead)
+                                            prefetch=ahead, live=live)
             if inspect != "off":
                 start(1, lambda f, t: inspect_pages(vision, pages, f, passes, progress=checks, timing=t,
                                                     first_answers=first, prefetched=ahead))

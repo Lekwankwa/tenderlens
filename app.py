@@ -26,6 +26,7 @@ from tenderlens.audit import DOC_LABEL
 from tenderlens.bootstrap import is_local, remote_warning, system_check
 from tenderlens.cli import audit_pack, rerun_vision
 from tenderlens.ingest import page_count_estimate, pdf_page_count
+from tenderlens.live import LiveState
 from tenderlens.llm import BUSY_MESSAGE, ModelClient, is_rate_limited, load_env
 from tenderlens.report import DISCLAIMER_LONG, DISCLAIMER_SHORT, NO_ISSUES_NOTE, SEV, SRC_LABEL, Renderer, render_html, to_json
 
@@ -459,25 +460,75 @@ if run:
             check_mode = "fast" if fast_mode else "complete"
             run_vision = ModelClient(base_url="", model="") if fast_mode else vision
             st.write(f"Reading the buyer's documents and the response pack, then running the checks ({check_mode} check).")
-            progress_line = st.empty()
             stage_label = {"ocr": "OCR", "vision_first": "vision first readings", "vision_checks": "vision checks"}
-            main_ctx = get_script_run_ctx()
+            live = LiveState()
+            prog = {"stage": "", "done": 0, "total": 0}
+            bar = st.progress(0.0, text="Starting...")
+            table = st.empty()
+            req_box = st.sidebar.empty()
 
             if job_id:
                 jobs.save(job_id, "running", stage="start")
 
             def app_progress(stage, done, total):
-                # called from OCR/vision worker threads, which have no Streamlit context of their own -
-                # without this, any st.* call here raises NoSessionContext instead of updating the page.
-                add_script_run_ctx(threading.current_thread(), main_ctx)
-                progress_line.caption(f"{stage_label.get(stage, stage)}: {done} of {total}")
+                # called from OCR/vision worker threads: it only records the numbers. The page itself is drawn by
+                # the loop below, on the script's own thread, so no worker thread ever calls st.*
+                prog.update(stage=stage, done=done, total=total)
                 if job_id:
                     jobs.save(job_id, "running", stage=stage, done=done, total=total)
 
-            req, res, facts, pages = audit_pack(rfq, spec, pack, BLANK, transcript, WORK, llm, lc, vision=run_vision,
-                                                inspect="forms" if inspect else "off", passes=2 if second else 1,
-                                                progress=app_progress, pack_stage=pack_stage, job_id=job_id)
-            progress_line.empty()
+            outcome: dict = {}
+
+            def run_audit():
+                try:
+                    outcome["result"] = audit_pack(
+                        rfq, spec, pack, BLANK, transcript, WORK, llm, lc, vision=run_vision,
+                        inspect="forms" if inspect else "off", passes=2 if second else 1,
+                        progress=app_progress, pack_stage=pack_stage, job_id=job_id, live=live)
+                except BaseException as err:  # noqa: BLE001 - re-raised below, on the script's own thread
+                    outcome["error"] = err
+
+            worker = threading.Thread(target=run_audit, daemon=True)
+            worker.start()
+            drawn: dict = {"table": None, "req": False}
+
+            def draw():
+                done, total = live.counts()
+                if total:
+                    bar.progress(min(done / total, 1.0), text=f"Auditing page {min(done + 1, total)}/{total}"
+                                 f"  ({done} finished)")
+                elif prog["stage"]:
+                    bar.progress(0.0, text=f"{stage_label.get(prog['stage'], prog['stage'])}: "
+                                           f"{prog['done']} of {prog['total']}")
+                rows = [(r.number, r.form, r.status, "; ".join(r.leads)) for r in live.snapshot()]
+                if rows and rows != drawn["table"]:
+                    drawn["table"] = rows
+                    table.dataframe(
+                        [{"Page": n, "Form": form, "Status": status, "First readings worth a look (provisional)": leads}
+                         for n, form, status, leads in rows], hide_index=True, width="stretch")
+                got = live.requirements()
+                if got is not None and not drawn["req"]:
+                    drawn["req"] = True
+                    with req_box.container():
+                        st.markdown("#### What the buyer asked for")
+                        st.caption("Read from the RFQ/Tender; ready before the pages finish.")
+                        lines = [f"**Closing:** {got.closing_date} {got.closing_time}".strip(),
+                                 f"**Submit to:** {got.submit_to_email or 'not found'}",
+                                 f"**Minimum quote validity:** {got.min_quote_validity_days or 'not stated'} days"]
+                        if got.spec:
+                            lines.append("**Specification:** " + "; ".join(
+                                f"{k}: {v}" for k, v in got.spec.items() if k != "source_doc" and v)[:300])
+                        lines.append(f"**Documents required:** {len(got.documents)}; **conditions:** {len(got.conditions)}")
+                        st.markdown("\n\n".join(lines))
+
+            while worker.is_alive():
+                draw()
+                worker.join(0.5)
+            draw()
+            bar.empty()
+            if "error" in outcome:
+                raise outcome["error"]
+            req, res, facts, pages = outcome["result"]
             st.write("Building the report.")
             t_report = time.time()
             R = Renderer(pages, redact, strict)
@@ -773,7 +824,8 @@ with tab_how:
             st.caption("Some calls failed: " + "; ".join(vl.get("errors") or []))
 
     stage_names = [("render", "Page rendering"), ("ocr", "OCR"), ("text_model", "Text model (requirements)"),
-                  ("vision_first", "Vision first readings"), ("vision_second", "Vision second looks and checks"),
+                  ("vision_first", "Vision first readings (with each page's second looks)"),
+                  ("vision_second", "Vision follow-up checks (signatures, remaining second looks)"),
                   ("report", "Report")]
     times = getattr(facts, "stage_times", None) or {}
     if any(k in times for k, _ in stage_names):

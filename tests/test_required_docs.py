@@ -157,3 +157,37 @@ def test_final_pack_flags_any_missing_initial(monkeypatch):
     a.initials()
     found = next(f for f in a.res.findings if "Initials missing" in f.title)
     assert "2" in found.detail
+
+
+def test_initials_finding_cites_every_missing_page(monkeypatch):
+    from tenderlens import vision as V
+    monkeypatch.setattr(V, "initials_present", lambda page: page.number > 6)  # pages 1-6 have no initials
+    pages = [Page(n, "x", doc_type="sbd4") for n in range(1, 9)]
+    a = Auditor(Requirements(), pages, Facts(), BLANK_DIR, pack_stage="final")
+    a.initials()
+    found = next(f for f in a.res.findings if "Initials missing" in f.title)
+    assert [e.page for e in found.evidence] == [1, 2, 3, 4, 5, 6]
+
+
+def _inspection_auditor(**leads):
+    """An Auditor over three SBD 4 pages with these vision leads: {field: (confidence, verified)} on page 1."""
+    pages = [Page(n, "x", doc_type="sbd4") for n in (1, 2, 3)]
+    facts = Facts()
+    for field, (conf, verified) in leads.items():
+        facts.add(field, True, 1, "vision", conf, verified=verified)
+    return Auditor(Requirements(), pages, facts, BLANK_DIR)
+
+
+def test_a_lead_the_second_look_did_not_confirm_is_counted_not_listed():
+    a = _inspection_auditor(**{"inspect.cut_off": (0.4, False)})
+    a.vision_inspection()
+    assert not [f for f in a.res.findings if "cut off" in f.title.lower()]
+    assert any("not confirmed" in line and "cut off" in line.lower() for line in a.res.human_only)
+
+
+def test_a_confirmed_cut_off_page_is_described_as_a_scan_problem_not_an_amendment():
+    a = _inspection_auditor(**{"inspect.cut_off": (0.9, True)})
+    a.vision_inspection()
+    found = next(f for f in a.res.findings if "cut off" in f.title.lower())
+    assert "initialled" not in found.detail and "missing from the scan" in found.detail
+    assert "initialled" not in found.action

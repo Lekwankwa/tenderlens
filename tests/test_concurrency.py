@@ -421,3 +421,29 @@ def test_a_pages_second_look_does_not_wait_for_a_slow_page_to_finish_its_first_r
     llm = Tracking({p.image_path: _PIPE_ANSWER for p in pages})
     combined_first_pass(llm, pages, Facts(), prefetch={})
     assert events.index("first:" + Path(slow).name + ":end") > min(i for i, e in enumerate(events) if e.startswith("second:p1"))
+
+
+def test_live_view_follows_each_page_and_counts_finished_pages(tmp_path):
+    from tenderlens.facts import combined_first_pass
+    from tenderlens.live import LiveState
+    pages = _mixed_pages(tmp_path)
+    live = LiveState()
+    live.set_pages(pages, lambda dtype: dtype.upper())
+    llm = _Scripted({p.image_path: _PIPE_ANSWER for p in pages})
+    combined_first_pass(llm, pages, Facts(), prefetch={}, live=live)
+    rows = live.snapshot()
+    assert [r.number for r in rows] == [1, 2, 3, 4, 5]
+    assert all(r.status == "done" for r in rows) and live.counts() == (5, 5)
+    assert rows[0].form == "SBD4" and rows[3].form == "SBD8"
+    assert any("crossed out" in lead.lower() for lead in rows[3].leads)  # a provisional lead from the first reading
+
+
+def test_live_view_shows_a_page_that_could_not_be_read_as_finished_not_stuck(tmp_path):
+    from tenderlens.facts import combined_first_pass
+    from tenderlens.live import LiveState
+    pages = _mixed_pages(tmp_path)
+    live = LiveState()
+    llm = _Scripted({p.image_path: _PIPE_ANSWER for p in pages}, fail_for={pages[2].image_path})
+    combined_first_pass(llm, pages, Facts(), prefetch={}, live=live)
+    assert {r.number: r.status for r in live.snapshot()}[3] == "not read"
+    assert live.counts() == (5, 5)

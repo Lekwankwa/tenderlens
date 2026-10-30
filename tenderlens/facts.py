@@ -653,6 +653,27 @@ def _prefetch_second_looks(llm: ModelClient, facts: Facts, page: Page, data: dic
     store.update({k: r for (k, _), r in zip(calls, results)})
 
 
+def _first_reading_leads(data, fields, qs) -> list[str]:
+    """Short, plain-English leads from one page's first reading, for the live view only (provisional: the audit's
+    own checks, which compare pages with each other, decide what becomes a finding)."""
+    if not isinstance(data, dict):
+        return []
+    out: list[str] = []
+    for key in (qs or {}):
+        lead, _ = _inspect_lead(key, data.get(key))
+        if lead:
+            out.append(F.INSPECTIONS[key][2] if key in F.INSPECTIONS else "signature may be missing")
+    for e in (fields[1] if fields else []):
+        raw = data.get(e.key)
+        raw = raw.get("value") if isinstance(raw, dict) else raw
+        c = F.clean(e.kind, raw)
+        if c is F.NOT_ON_PAGE or c is F.UNREAD:
+            continue
+        if F.is_deviation(e, c):
+            out.append(f"{e.label}: blank" if c is F.BLANK else f"{e.label}: {c}")
+    return out
+
+
 def combined_vision_enabled() -> bool:
     """TENDERLENS_VISION_COMBINED, on by default: '0' goes back to separate field-reading and inspection calls."""
     return os.environ.get("TENDERLENS_VISION_COMBINED", "1").strip() != "0"
@@ -660,14 +681,15 @@ def combined_vision_enabled() -> bool:
 
 def combined_first_pass(llm: ModelClient, pages: list[Page], facts: Facts, local_content: bool = True,
                         inspect: bool = True, progress=None, timing: dict | None = None,
-                        prefetch: dict | None = None) -> dict[int, dict]:
+                        prefetch: dict | None = None, live=None) -> dict[int, dict]:
     """ONE vision call per form page that both reads the handwritten fields (what vision_extract asks) and
     answers the inspection questions (what inspect_pages asks), instead of sending the same page image twice.
     Returns {page number: answer}; vision_extract and inspect_pages then take their first readings from it
     (first_answers=...) and carry on exactly as before - merging, second looks, findings. A page with only
     fields, or only questions, gets the same prompt it always did.
     prefetch, if given (a dict), turns on the pipelined second looks: each page's task asks its own second looks the
-    moment its first reading is in (see _prefetch_second_looks) and records them there."""
+    moment its first reading is in (see _prefetch_second_looks) and records them there.
+    live, if given (a live.LiveState), is told each page's progress and what its first reading turned up."""
     t0 = time.time()
     by_page: dict[int, dict] = {}
     for dtype, entries, pgs in _forms_here(pages, local_content):
@@ -695,6 +717,8 @@ def combined_first_pass(llm: ModelClient, pages: list[Page], facts: Facts, local
                 + "\nQuestions:\n" + json.dumps(_main_questions(qs), indent=1))
 
     items = [by_page[n] for n in sorted(by_page)]
+    if live is not None:
+        live.expect(it["page"].number for it in items)
     focused = _focused_tasks(llm, facts, [(it["page"], it["qs"]) for it in items if it.get("qs")])
     done = [0]
 
@@ -704,11 +728,19 @@ def combined_first_pass(llm: ModelClient, pages: list[Page], facts: Facts, local
             progress(done[0], len(items) + len(focused))
 
     def read_page(it):
-        data = _ask(llm, facts, prompt(it), [it["page"].image_path], page_no=it["page"].number)
+        n = it["page"].number
+        if live is not None:
+            live.page(n, "reading")
+        data = _ask(llm, facts, prompt(it), [it["page"].image_path], page_no=n)
+        if live is not None:
+            live.page(n, "second look" if isinstance(data, dict) else "not read",
+                      _first_reading_leads(data, it.get("fields"), it.get("qs")))
         if prefetch is not None and isinstance(data, dict):
             dtype = it["fields"][0] if it.get("fields") else None
             _prefetch_second_looks(llm, facts, it["page"], data, it.get("fields"), it.get("qs"),
                                    [q for q in pages if q.doc_type == dtype], prefetch)
+        if live is not None and isinstance(data, dict):
+            live.page(n, "done")
         return data
 
     tasks = [(lambda it=it: read_page(it)) for it in items] + [call for _, _, call in focused]
