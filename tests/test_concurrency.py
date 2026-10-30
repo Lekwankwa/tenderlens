@@ -301,3 +301,53 @@ def test_one_combined_call_per_page_gives_the_same_facts_with_half_the_calls(tmp
 
     assert snapshot(combined) == snapshot(separate)
     assert llm_b.calls == llm_a.calls - len(pages)  # one first-reading call per page instead of two
+
+
+class _ByPrompt(LlamaClient):
+    """Answers according to what the prompt asks, so a test can tell the focused call from the question list."""
+
+    def __init__(self, rules):
+        super().__init__(base_url="http://scripted", model="scripted")
+        self.rules, self.prompts = rules, []
+
+    def complete_json(self, system, user, images=None):
+        self.calls += 1
+        self.prompts.append(user)
+        for needle, answer in self.rules:
+            if needle in user:
+                return answer
+        return {}
+
+
+_NO_ALL = {"crossed_out": "no", "overwritten": "no", "annotation": "no", "rotated": "no", "cut_off": "no",
+           "illegible": "no", "signature_seen": "yes"}
+
+
+def test_the_overwrite_question_is_asked_in_a_call_of_its_own(tmp_path):
+    """On the tampered pack the six-question list said 'no' to this every time while the question asked alone said
+    'yes' 5 times in 6, so it now has its own call - and the answer still ends up as an ordinary inspection finding."""
+    pages = _blank_pages(tmp_path, 1, doc_type="sbd8")
+    llm = _ByPrompt([("scratched out", {"answer": "yes"}), ("Answer each question", _NO_ALL)])
+    facts = Facts()
+    inspect_pages(llm, pages, facts, passes=1)
+    assert any(f.field == "inspect.overwritten" for f in facts.items)
+    list_prompt = next(p for p in llm.prompts if "Answer each question" in p)
+    assert "scratched out" not in list_prompt          # not in the crowded list any more
+    assert any("scratched out" in p and "Answer each question" not in p for p in llm.prompts)  # asked on its own
+
+
+def test_a_failed_main_call_stays_failed_even_if_the_focused_call_answers(tmp_path):
+    from tenderlens.facts import _merge_focused
+    answers = {1: None, 2: {"crossed_out": "no"}}
+    _merge_focused(answers, [(1, "overwritten"), (2, "overwritten")], [{"answer": "yes"}, {"answer": "yes"}])
+    assert answers[1] is None and answers[2]["overwritten"] == "yes"
+
+
+def test_two_model_looks_at_a_cut_off_page_are_only_a_lead_without_a_non_ai_check(tmp_path):
+    pages = _blank_pages(tmp_path, 3, doc_type="sbd8")
+    yes_cut = {**_NO_ALL, "cut_off": "yes"}
+    llm = _ByPrompt([("Answer each question", yes_cut), ("run off the edge", {"answer": "yes"})])
+    facts = Facts()
+    inspect_pages(llm, pages, facts, passes=2)
+    cut = [f for f in facts.items if f.field == "inspect.cut_off"]
+    assert cut and all(f.verified and f.confidence < 0.8 for f in cut)  # confirmed by the model, still only a lead

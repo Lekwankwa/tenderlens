@@ -554,10 +554,34 @@ def _fields_prompt(p: Page, dtype: str, entries) -> str:
             + json.dumps(fields, indent=1))
 
 
+def _main_questions(qs: dict) -> dict:
+    return {k: v for k, v in qs.items() if k not in F.FOCUSED_INSPECTIONS}
+
+
 def _questions_prompt(p: Page, qs: dict) -> str:
     return (f"This image is page {p.number} of a bid pack (form '{p.doc_type}'). Answer each question with "
             "exactly yes or no. Say yes only if you can clearly see it. Return JSON {\"<key>\": \"yes\" or "
-            "\"no\"}.\n" + json.dumps(qs, indent=1))
+            "\"no\"}.\n" + json.dumps(_main_questions(qs), indent=1))
+
+
+def _focused_prompt(p: Page, question: str) -> str:
+    return (f"This image is page {p.number} of a bid pack (form '{p.doc_type}'). {question} Answer exactly yes or no. "
+            "Say yes only if you can clearly see it. Return JSON {\"answer\": \"yes\" or \"no\"}.")
+
+
+def _focused_tasks(llm: LlamaClient, facts: Facts, targets: list[tuple[Page, dict]]):
+    """[(page number, key, zero-arg call)] - one dedicated call per focused question per inspected page."""
+    return [(p.number, key, (lambda p=p, key=key, q=qs[key]: _ask(llm, facts, _focused_prompt(p, q),
+                                                                  [p.image_path], page_no=p.number)))
+            for p, qs in targets for key in F.FOCUSED_INSPECTIONS if key in qs]
+
+
+def _merge_focused(answers: dict[int, dict | None], focused: list[tuple[int, str]], results: list) -> None:
+    """Fold each focused answer into its page's answers, as if it had come in the same reply. A page whose main
+    call failed stays failed (None) - a focused answer must not make a failed read look like a successful one."""
+    for (number, key), data in zip(focused, results):
+        if isinstance(answers.get(number), dict):
+            answers[number][key] = (data or {}).get("answer") if isinstance(data, dict) else None
 
 
 def _signing_pages(pages: list[Page]) -> dict[int, str]:
@@ -617,22 +641,25 @@ def combined_first_pass(llm: LlamaClient, pages: list[Page], facts: Facts, local
                 f"Part 2 - for EACH question listed under Questions, {_QUESTIONS_HOW}\n"
                 "Return JSON {\"<field or question key>\": \"<answer>\"} with every key from both lists.\nFields:\n"
                 + json.dumps({e.key: f"[{e.kind}] {e.desc}" for e in entries}, indent=1)
-                + "\nQuestions:\n" + json.dumps(qs, indent=1))
+                + "\nQuestions:\n" + json.dumps(_main_questions(qs), indent=1))
 
     items = [by_page[n] for n in sorted(by_page)]
+    focused = _focused_tasks(llm, facts, [(it["page"], it["qs"]) for it in items if it.get("qs")])
     done = [0]
 
     def tick():
         done[0] += 1
         if progress:
-            progress(done[0], len(items))
+            progress(done[0], len(items) + len(focused))
 
     tasks = [(lambda it=it: _ask(llm, facts, prompt(it), [it["page"].image_path], page_no=it["page"].number))
-             for it in items]
+             for it in items] + [call for _, _, call in focused]
     results = run_concurrent(tasks, vision_concurrency(), tick)
+    answers = {it["page"].number: data for it, data in zip(items, results)}
+    _merge_focused(answers, [(n, k) for n, k, _ in focused], results[len(items):])
     if timing is not None:
         timing["vision_first"] = timing.get("vision_first", 0.0) + (time.time() - t0)
-    return {it["page"].number: data for it, data in zip(items, results)}
+    return answers
 
 
 def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_content: bool = True,
@@ -936,9 +963,13 @@ def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int
     if first_answers is not None:  # already asked by combined_first_pass, together with the field reading
         datas = [first_answers.get(p.number) for p, _ in targets]
     else:
+        focused = _focused_tasks(llm, facts, targets)
         tasks = [(lambda p=p, qs=qs: _ask(llm, facts, _questions_prompt(p, qs), [p.image_path], page_no=p.number))
-                 for p, qs in targets]
-        datas = run_concurrent(tasks, vision_concurrency(), tick)
+                 for p, qs in targets] + [call for _, _, call in focused]
+        results = run_concurrent(tasks, vision_concurrency(), tick)
+        by_number = {p.number: data for (p, _), data in zip(targets, results)}
+        _merge_focused(by_number, [(n, k) for n, k, _ in focused], results[len(targets):])
+        datas = [by_number[p.number] for p, _ in targets]
 
     pending: list[tuple[Fact, Page, str]] = []
     for (p, qs), data in zip(targets, datas):
@@ -969,6 +1000,10 @@ def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int
             again = F.clean(F.BOOL, _answer(data))
             if again is True:
                 fact.verified, fact.confidence = True, 0.9
+                if fact.field == "inspect.cut_off":
+                    # no non-AI check (page shorter than the rest, or text against an edge) backs this up - those
+                    # settle the question without the model - so two model looks agreeing is still only a lead
+                    fact.confidence = 0.7
             else:
                 fact.confidence, fact.note = 0.4, "a second, differently worded look did not confirm it"
     if timing is not None:

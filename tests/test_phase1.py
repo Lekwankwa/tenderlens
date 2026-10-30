@@ -527,3 +527,38 @@ def test_one_failing_rule_is_reported_for_a_person_and_the_rest_of_the_audit_sti
     monkeypatch.setattr(a, "local_content", local_content)
     res = a.run()
     assert any("local content" in n and "could not run" in n for n in res.human_only)
+
+
+def test_a_bid_number_written_with_spaces_matches_the_rfq_number():
+    """A false alarm on the clean pack once the local content declaration was read: '5/2/1 (0310) 21/22' (as
+    written by hand) against the RFQ's '5/2/1(0310)21/22'."""
+    f = Facts()
+    f.add("local_content_decl.bid_no", "5/2/1 (0310) 21/22", 12, "vision", 0.9)
+    a = Auditor(Requirements(reference="5/2/1(0310)21/22"), [], f, BLANK_DIR)
+    a.quote_checks()
+    assert not [x for x in a.res.findings if "Bid number" in x.title]
+    assert any("Bid number on the local content declaration matches" in p.title for p in a.res.passed)
+    f2 = Facts()
+    f2.add("local_content_decl.bid_no", "5/2/1 (0311) 21/22", 12, "vision", 0.9)
+    b = Auditor(Requirements(reference="5/2/1(0310)21/22"), [], f2, BLANK_DIR)
+    b.quote_checks()
+    assert [x for x in b.res.findings if "Bid number" in x.title]  # a real difference is still caught
+
+
+def test_the_page_with_the_altered_company_name_is_always_among_the_cited_pages():
+    """Key row 21: seven pages carry the company name; the SARS page (24) names 'Excel Trading Holdings'. The
+    evidence used to be the first six in field order, which left page 24 out."""
+    f = Facts()
+    for fld, page, name in [("bbbee_affidavit.enterprise_name", 25, "Excel Supply Holdings"),
+                            ("cipc.enterprise_name", 30, "EXCEL SUPPLY HOLDINGS"),
+                            ("sbd6_1.company_name", 7, "Excel Supply Holdings"),
+                            ("sbd4.name_field", 16, "Excelsupply Holdings"),
+                            ("local_content_decl.bidder", 13, "Excel Supply Holdings"),
+                            ("sbd9.bidder", 23, "Excel supply Holdings"),
+                            ("tcs.taxpayer_name", 24, "Excel Trading Holdings"),
+                            ("csd.legal_name", 26, "EXCEL SUPPLY HOLDINGS")]:
+        f.add(fld, name, page, "ocr", 0.9)
+    a = Auditor(Requirements(), [], f, BLANK_DIR)
+    a.names()
+    found = next(x for x in a.res.findings if "Company name differs" in x.title)
+    assert 24 in {e.page for e in found.evidence}

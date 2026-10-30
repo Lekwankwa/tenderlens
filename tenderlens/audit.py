@@ -789,9 +789,16 @@ class Auditor:
             self.ok("Company name consistent across documents",
                     ("written as " + "; ".join(f"'{r}'" for r in raw)) if len(raw) > 1 else "", pages)
         else:
+            # cite the pages whose name differs from the usual one FIRST (the old "first six in field order" cut
+            # dropped the SARS page whose name was altered), then a couple of pages showing the usual name
+            groups: dict[str, list] = {}
+            for v, f in items:
+                groups.setdefault(norm_name(v), []).append((v, f))
+            usual = max(groups.values(), key=len)
+            differing = [it for g in groups.values() if g is not usual for it in g]
             self.find("medium", "inconsistency", "Company name differs between documents", "; ".join(raw),
                       "Compare with the CIPC certificate.", "",
-                      [self.E(f.page, f"'{v}'", source=f.source) for v, f in items][:6])
+                      [self.E(f.page, f"'{v}'", source=f.source) for v, f in (differing + usual[:2])][:10])
 
     # -- 7. quote ----------------------------------------------------------------
     def quote_checks(self):
@@ -856,7 +863,9 @@ class Auditor:
                               f"'{ref.value}' vs '{rfq_ref}'", "Check the quote.", "RFQ subject line",
                               [self.E(ref.page, "quote reference line", box, "ocr", pad=(40, 20, 40, 20))])
         f = self.f.best("local_content_decl.bid_no")
-        if f and rfq_ref and f.value == rfq_ref:
+        if f and rfq_ref and re.sub(r"\s", "", str(f.value)).lower() == re.sub(r"\s", "", rfq_ref).lower():
+            # compared without spaces or case, as the quote reference above is: a handwritten '5/2/1 (0310) 21/22'
+            # and the RFQ's '5/2/1(0310)21/22' are the same number
             self.ok("Bid number on the local content declaration matches the RFQ", pages=[f.page])
         elif f and rfq_ref:
             self.find("medium", "inconsistency", "Bid number on the local content declaration differs from the RFQ",

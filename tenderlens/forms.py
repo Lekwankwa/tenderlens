@@ -46,7 +46,9 @@ FORMS: dict[str, list[Entry]] = {
     "sbd6_1": [
         E("sbd6_1.points_claimed", "Number of B-BBEE points claimed in section 7.1 (a number, 'maximum of 10 or 20 points')",
           NUMBER, "points claimed"),
-        E("sbd6_1.subcontracting", "Section 4: will any part of the contract be subcontracted? Which box is ticked, YES or NO",
+        E("sbd6_1.subcontracting", "Section 7.1 SUB-CONTRACTING, 'Will any portion of the contract be sub-contracted?': the "
+          "printed row reads YES [box] NO [box] - each box sits immediately to the RIGHT of its label. Which box holds the "
+          "X or tick: the box right after YES, or the box right after NO? Answer Yes or No",
           YESNO, "subcontracting answer"),
         E("sbd6_1.company_type_ticked", "Section 8.5: which company type is ticked (e.g. Company, CC, Partnership, Sole proprietor)",
           CHOICE, "company type"),
@@ -165,6 +167,9 @@ INSPECTIONS: dict[str, tuple[str, str, str]] = {
     "illegible": ("Is any part of the page too faint, dark or blurred to read?",
                   "Are there areas where the writing cannot be read because of scan quality?", "Part of the page unreadable"),
 }
+# Questions asked in a call of their own, not in the list with the others. A model asked six things at once gave "no"
+# to this one every time on a page where it had been white-out-and-retyped, and "yes" 5 times in 6 when asked alone.
+FOCUSED_INSPECTIONS = ("overwritten",)
 INSPECTION_FORMS = ("quote", "sbd6_1", "sbd6_2", "local_content_decl", "sbd4", "sbd8", "sbd9", "bbbee_affidavit", "tcs")
 SIGNING_PAGE = {"quote": -1, "sbd6_1": -1, "local_content_decl": -1, "sbd4": -1, "sbd8": -1, "sbd9": -1,
                 "bbbee_affidavit": 0}
