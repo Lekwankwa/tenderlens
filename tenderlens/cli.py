@@ -141,17 +141,20 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
             if inspect != "off":
                 start(2, lambda f, t: signature_match(vision, pages, f, progress=checks, timing=t))
             first = None
+            # each page's second looks are asked as soon as that page's first reading is in, not after every page's
+            ahead: dict | None = {} if passes >= 2 else None
             if combined_vision_enabled():
                 # one call per form page for both the field reading and the inspection questions (see
                 # facts.combined_first_pass) - half the page images sent, so less queuing at the provider
                 first = combined_first_pass(vision, pages, facts, local_content=local,
-                                            inspect=inspect != "off", progress=first_progress, timing=timing)
+                                            inspect=inspect != "off", progress=first_progress, timing=timing,
+                                            prefetch=ahead)
             if inspect != "off":
                 start(1, lambda f, t: inspect_pages(vision, pages, f, passes, progress=checks, timing=t,
-                                                    first_answers=first))
+                                                    first_answers=first, prefetched=ahead))
             vision_extract(vision, pages, facts, local_content=local, verify=passes >= 2,
                            progress=None if first is not None else first_progress, timing=timing,
-                           first_answers=first)
+                           first_answers=first, prefetched=ahead)
             if passes >= 2 and CROP_VERIFY_ENABLED:
                 verify_identifiers(vision, pages, facts)
                 verify_yesno(vision, pages, facts)

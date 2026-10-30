@@ -367,3 +367,57 @@ def test_focused_checks_can_be_switched_off_to_save_calls(tmp_path, monkeypatch)
         monkeypatch.delenv("TENDERLENS_FOCUSED_CHECKS", raising=False)
         importlib.reload(FM)
     assert FM.FOCUSED_INSPECTIONS == ("overwritten",)
+
+
+def _mixed_pages(tmp_path):
+    pages = _blank_pages(tmp_path, 3, doc_type="sbd4")
+    for n in (4, 5):
+        img = tmp_path / f"q{n}.png"
+        Image.new("RGB", (100, 100), "white").save(img)
+        pages.append(Page(n, str(img), doc_type="sbd8"))
+    return pages
+
+
+_PIPE_ANSWER = {"sbd4.name_field": "Excel Supply Holdings", "sbd4.q2_7_state_employed": "Yes", "crossed_out": "yes",
+                "overwritten": "no", "annotation": "yes", "rotated": "no", "cut_off": "no", "illegible": "no",
+                "answer": "yes"}
+
+
+def test_second_looks_asked_as_each_page_arrives_give_the_same_facts(tmp_path):
+    from tenderlens.facts import combined_first_pass
+
+    def run(pipelined: bool):
+        pages = _mixed_pages(tmp_path)
+        llm, facts = _Scripted({p.image_path: _PIPE_ANSWER for p in pages}), Facts()
+        ahead = {} if pipelined else None
+        first = combined_first_pass(llm, pages, facts, prefetch=ahead)
+        inspect_pages(llm, pages, facts, passes=2, first_answers=first, prefetched=ahead)
+        vision_extract(llm, pages, facts, verify=True, first_answers=first, prefetched=ahead)
+        return [(x.field, x.value, x.page, x.source, x.verified, x.confidence) for x in facts.items], llm.calls
+
+    plain, plain_calls = run(False)
+    piped, piped_calls = run(True)
+    assert piped == plain
+    assert any(f[0].startswith("inspect.") and f[4] for f in piped)  # second looks really confirmed something
+    assert piped_calls <= plain_calls + 4  # at most a few speculative extras
+
+
+def test_a_pages_second_look_does_not_wait_for_a_slow_page_to_finish_its_first_reading(tmp_path):
+    from tenderlens.facts import combined_first_pass
+    pages = _mixed_pages(tmp_path)
+    slow = pages[1].image_path
+    events: list[str] = []
+    lock = threading.Lock()
+
+    class Tracking(_Scripted):
+        def complete_json(self, system, user, images=None):
+            second = '"answer"' in user and "Part 1" not in user
+            if images[0] == slow and not second:
+                time.sleep(0.4)
+            with lock:
+                events.append(("second" if second else "first") + ":" + Path(images[0]).name + (":end" if images[0] == slow and not second else ""))
+            return super().complete_json(system, user, images)
+
+    llm = Tracking({p.image_path: _PIPE_ANSWER for p in pages})
+    combined_first_pass(llm, pages, Facts(), prefetch={})
+    assert events.index("first:" + Path(slow).name + ":end") > min(i for i, e in enumerate(events) if e.startswith("second:p1"))

@@ -609,18 +609,65 @@ def _inspection_questions(p: Page, pages: list[Page], signing: dict[int, str]):
     return qs, cutoff
 
 
+_SIGNATURE_SECOND_Q = "Is the signing line empty, with no pen signature on it?"
+
+
+def _inspect_lead(key: str, answer) -> tuple[bool, str]:
+    """(is this inspection answer a lead worth a second look, the differently worded second question)."""
+    ans = F.clean(F.BOOL, answer)
+    if key == "signature_seen":
+        return ans is False, _SIGNATURE_SECOND_Q
+    return ans is True, F.INSPECTIONS[key][1]
+
+
+def _inspect_second_prompt(page: Page, second_q: str) -> str:
+    return f"Page {page.number}. {second_q} Answer JSON {{\"answer\": \"yes\" or \"no\"}}."
+
+
+def _prefetch_second_looks(llm: ModelClient, facts: Facts, page: Page, data: dict, fields, qs,
+                           form_pages: list[Page], store: dict) -> None:
+    """Right after ONE page's first reading arrives, ask that page's second looks (same prompts, same leads as
+    inspect_pages and vision_extract would use) without waiting for any other page. The answers go in `store`;
+    those two functions use a stored answer instead of asking again, and ask for themselves anything not found
+    there - so the findings are the same as before and only the waiting changes. A reading that vision_extract
+    ends up not using (another page's value wins) costs one call, never a wrong finding."""
+    calls: list[tuple[tuple, str]] = []
+    for key in (qs or {}):
+        lead, second_q = _inspect_lead(key, data.get(key))
+        if lead:
+            calls.append((("q", page.number, key), _inspect_second_prompt(page, second_q)))
+    if fields:
+        for e in fields[1]:
+            raw = data.get(e.key)
+            raw = raw.get("value") if isinstance(raw, dict) else raw
+            c = F.clean(e.kind, raw)
+            if c is F.NOT_ON_PAGE or c is F.UNREAD or not F.is_deviation(e, c):
+                continue
+            if c is F.BLANK and page is not (form_pages[-1] if e.where == "last" else form_pages[0]):
+                continue  # vision_extract blames the form's last (or first) page for a blank; not worth guessing
+            calls.append((("f", e.key, page.number), _second_look_prompt(e, page)))
+    if not calls:
+        return
+    results = run_concurrent([(lambda pr=pr: _ask(llm, facts, pr, [page.image_path], page_no=page.number))
+                              for _, pr in calls], vision_concurrency())
+    store.update({k: r for (k, _), r in zip(calls, results)})
+
+
 def combined_vision_enabled() -> bool:
     """TENDERLENS_VISION_COMBINED, on by default: '0' goes back to separate field-reading and inspection calls."""
     return os.environ.get("TENDERLENS_VISION_COMBINED", "1").strip() != "0"
 
 
 def combined_first_pass(llm: ModelClient, pages: list[Page], facts: Facts, local_content: bool = True,
-                        inspect: bool = True, progress=None, timing: dict | None = None) -> dict[int, dict]:
+                        inspect: bool = True, progress=None, timing: dict | None = None,
+                        prefetch: dict | None = None) -> dict[int, dict]:
     """ONE vision call per form page that both reads the handwritten fields (what vision_extract asks) and
     answers the inspection questions (what inspect_pages asks), instead of sending the same page image twice.
     Returns {page number: answer}; vision_extract and inspect_pages then take their first readings from it
     (first_answers=...) and carry on exactly as before - merging, second looks, findings. A page with only
-    fields, or only questions, gets the same prompt it always did."""
+    fields, or only questions, gets the same prompt it always did.
+    prefetch, if given (a dict), turns on the pipelined second looks: each page's task asks its own second looks the
+    moment its first reading is in (see _prefetch_second_looks) and records them there."""
     t0 = time.time()
     by_page: dict[int, dict] = {}
     for dtype, entries, pgs in _forms_here(pages, local_content):
@@ -656,8 +703,15 @@ def combined_first_pass(llm: ModelClient, pages: list[Page], facts: Facts, local
         if progress:
             progress(done[0], len(items) + len(focused))
 
-    tasks = [(lambda it=it: _ask(llm, facts, prompt(it), [it["page"].image_path], page_no=it["page"].number))
-             for it in items] + [call for _, _, call in focused]
+    def read_page(it):
+        data = _ask(llm, facts, prompt(it), [it["page"].image_path], page_no=it["page"].number)
+        if prefetch is not None and isinstance(data, dict):
+            dtype = it["fields"][0] if it.get("fields") else None
+            _prefetch_second_looks(llm, facts, it["page"], data, it.get("fields"), it.get("qs"),
+                                   [q for q in pages if q.doc_type == dtype], prefetch)
+        return data
+
+    tasks = [(lambda it=it: read_page(it)) for it in items] + [call for _, _, call in focused]
     results = run_concurrent(tasks, vision_concurrency(), tick)
     answers = {it["page"].number: data for it, data in zip(items, results)}
     _merge_focused(answers, [(n, k) for n, k, _ in focused], results[len(items):])
@@ -667,7 +721,8 @@ def combined_first_pass(llm: ModelClient, pages: list[Page], facts: Facts, local
 
 
 def vision_extract(llm: ModelClient, pages: list[Page], facts: Facts, local_content: bool = True,
-                   verify: bool = True, progress=None, timing: dict | None = None, first_answers: dict | None = None):
+                   verify: bool = True, progress=None, timing: dict | None = None, first_answers: dict | None = None,
+                   prefetched: dict | None = None):
     """Read every handwritten entry in forms.FORMS. One call per PAGE (small local models cope badly with
     several images and long answers), then merge: a value on any page beats a 'blank' on another, because
     each entry lives on one page only. Any reading that would raise an issue gets a second look, all run as
@@ -744,7 +799,9 @@ def vision_extract(llm: ModelClient, pages: list[Page], facts: Facts, local_cont
 
     if pending:
         t1 = time.time()
-        tasks = [(lambda e=e, p=p: _ask(llm, facts, _second_look_prompt(e, p), [p.image_path], page_no=p.number))
+        done_already = prefetched or {}
+        tasks = [(lambda e=e, p=p: done_already[("f", e.key, p.number)] if ("f", e.key, p.number) in done_already
+                  else _ask(llm, facts, _second_look_prompt(e, p), [p.image_path], page_no=p.number))
                 for e, _, p in pending]
         results = run_concurrent(tasks, vision_concurrency())
         for (e, fact, _), data in zip(pending, results):
@@ -933,7 +990,8 @@ def verify_yesno(llm: ModelClient, pages: list[Page], facts: Facts) -> None:
 
 
 def inspect_pages(llm: ModelClient, pages: list[Page], facts: Facts, passes: int = 2, progress=None,
-                  timing: dict | None = None, first_answers: dict | None = None) -> None:
+                  timing: dict | None = None, first_answers: dict | None = None,
+                  prefetched: dict | None = None) -> None:
     """Ask a vision model what no rule can see: crossed-out print, correction fluid, notes in the margin, pages
     that are rotated or cut off, scans too poor to read, and whether the signing line holds a real pen signature.
     A 'yes' is a lead. With passes=2 it is repeated as a differently worded question and only a second 'yes'
@@ -981,26 +1039,22 @@ def inspect_pages(llm: ModelClient, pages: list[Page], facts: Facts, passes: int
             continue
         facts.vision_log["pages_inspected"] += 1
         for key in qs:
-            ans = F.clean(F.BOOL, data.get(key))
-            if key == "signature_seen":
-                lead, second_q = ans is False, "Is the signing line empty, with no pen signature on it?"
-                field = "inspect.signature_missing"
-            else:
-                lead, second_q = ans is True, F.INSPECTIONS[key][1]
-                field = f"inspect.{key}"
+            lead, second_q = _inspect_lead(key, data.get(key))
+            field = "inspect.signature_missing" if key == "signature_seen" else f"inspect.{key}"
             if not lead:
                 continue
             fact = facts.add(field, True, p.number, "vision", 0.6)
             if passes >= 2:
-                pending.append((fact, p, second_q))
+                pending.append((fact, p, second_q, key))
 
     if pending:
-        tasks2 = [(lambda p=p, second_q=second_q: _ask(
-                      llm, facts, f"Page {p.number}. {second_q} Answer JSON {{\"answer\": \"yes\" or \"no\"}}.",
-                      [p.image_path], page_no=p.number))
-                 for _, p, second_q in pending]
+        done_already = prefetched or {}
+        tasks2 = [(lambda p=p, second_q=second_q, key=key: done_already[("q", p.number, key)]
+                   if ("q", p.number, key) in done_already
+                   else _ask(llm, facts, _inspect_second_prompt(p, second_q), [p.image_path], page_no=p.number))
+                  for _, p, second_q, key in pending]
         results = run_concurrent(tasks2, vision_concurrency())
-        for (fact, _, _), data in zip(pending, results):
+        for (fact, _, _, _), data in zip(pending, results):
             again = F.clean(F.BOOL, _answer(data))
             if again is True:
                 fact.verified, fact.confidence = True, 0.9
