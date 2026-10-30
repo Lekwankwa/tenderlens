@@ -194,13 +194,16 @@ def b64_to_bytes(b64: str) -> bytes:
     return base64.b64decode(b64)
 
 
-@st.cache_data(ttl=120, show_spinner=False)
+@st.cache_data(ttl=600, show_spinner=False)
 def _cached_system_check():
     """system_check() pings the real text/vision endpoints - without caching this ran on every single
     Streamlit rerun (every widget interaction, every viewer, plus the hourly keep-alive load), which adds
     up to real, avoidable traffic against a shared model endpoint. Re-checked at most once every 2 minutes;
     `python -m tenderlens check-llm` (which calls system_check() directly, not this) always checks live."""
-    return system_check()
+    # No live model calls here (ping=False): each could take up to TENDERLENS_LLM_TIMEOUT while a hosted model
+    # starts up, and the page - including the Audit button - waited on it, blank. The audit itself reports a
+    # model that doesn't answer, clearly, the moment it is used.
+    return system_check(ping=False)
 
 
 def chip(label: str, color: str) -> str:
@@ -377,7 +380,7 @@ with st.sidebar:
     rows = _cached_system_check()
     bad = [item for item, ok, _ in rows if not ok]
     if not bad:
-        st.success("Tesseract, Poppler and both Llama models are ready.", icon=None)
+        st.success("Tesseract, Poppler and both AI models are set up.", icon=None)
     else:
         st.warning("Not ready: " + ", ".join(bad), icon=None)
     with st.expander("Details", expanded=bool(bad)):

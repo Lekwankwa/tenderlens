@@ -56,8 +56,10 @@ def _ollama_has(model: str) -> bool | None:
               for line in out.stdout.splitlines()[1:] if line.split())
 
 
-def system_check() -> list[tuple[str, bool, str]]:
-    """(item, ok, detail) for every program and endpoint the product needs."""
+def system_check(ping: bool = True) -> list[tuple[str, bool, str]]:
+    """(item, ok, detail) for every program and endpoint the product needs. ping=False only checks that each
+    model endpoint is configured, without calling it (the web app: a live call can take minutes on a model that
+    is starting up, and the page would sit blank waiting for it)."""
     load_env()
     rows = [(t, bool(shutil.which(t)), "" if shutil.which(t) else f"install: {hint(t)}")
             for t in ("tesseract", "pdftoppm", "pdftotext")]
@@ -68,7 +70,7 @@ def system_check() -> list[tuple[str, bool, str]]:
             rows.append((name, False, "not configured: copy .env.example to .env, or export TENDERLENS_* "
                         "(see OLLAMA.md)"))
             continue
-        err = c.ping()
+        err = c.ping() if ping else ""
         if not err:
             rows.append((f"{name} ({c.model})", True, c.base_url))
             continue

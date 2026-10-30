@@ -118,3 +118,16 @@ def test_a_disabled_audit_button_says_what_is_missing(monkeypatch):
     assert not at.exception
     hint = [c.value for c in at.caption if c.value.startswith("To start the audit:")]
     assert hint and "choose Draft pack or Final pack" in hint[0] and "tick the privacy box" in hint[0]
+
+
+def test_the_page_never_calls_the_models_just_to_render(monkeypatch):
+    """A live ping on every page load left the page blank (and the Audit button dead) while a hosted model woke up."""
+    from streamlit.testing.v1 import AppTest
+    from tenderlens import llm as llm_mod
+    _blank_env(monkeypatch)
+    monkeypatch.setenv("META_API_BASE", "http://127.0.0.1:9/v1")
+    monkeypatch.setenv("MUSE_MODEL", "m")
+    calls = []
+    monkeypatch.setattr(llm_mod.LlamaClient, "ping", lambda self: calls.append(1) or "")
+    at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
+    assert not at.exception and calls == []
