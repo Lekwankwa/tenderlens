@@ -7,8 +7,8 @@ CONSENT_LABEL = "I have the right to upload this document and I accept the priva
 
 # TenderLens's only hosted model provider - see llm.py. Keep this in sync with that module: a privacy
 # notice naming the wrong processor would be worse than none.
-_PROVIDER_NAME = "Meta's Model API"
-_PROVIDER_HOST = "api.meta.ai"
+_PROVIDER_NAME = "Fireworks AI"
+_PROVIDER_HOST = "api.fireworks.ai"
 
 
 def notice_short() -> str:

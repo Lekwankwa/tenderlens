@@ -38,15 +38,15 @@ upload. It is written in plain language, not legal language, and describes what 
 <p>Either way, running TenderLens entirely on your own machine (<code>streamlit run app.py</code> locally, or self-hosting
 with Ollama - see <code>OLLAMA.md</code>) keeps your files on that machine instead of a shared host.</p>
 <h2>The AI provider (Complete check)</h2>
-<p>Running a <strong>Complete check</strong> sends page images and extracted text to <strong>Meta's Model API</strong> (<code>api.meta.ai</code>,
-model Muse Spark) - TenderLens's only hosted model provider - so handwriting, ticks, stamps and signatures
-can be read. One model reads both the buyer's documents and the scanned pages.</p>
-<p><strong>[CONFIRM: Meta's processing location and data-retention/training policy for Standard-mode Model API
-traffic, from Meta's own documentation.]</strong> This deployment uses Standard mode, not Contributor mode -
-Contributor mode is cheaper but lets Meta train future models on what you send, which this project does not
-opt into. Until that is confirmed, assume sending data to Meta may mean it is processed outside South Africa.</p>
+<p>Running a <strong>Complete check</strong> sends page images and extracted text to <strong>Fireworks AI</strong> (<code>api.fireworks.ai</code>,
+model Muse Spark Open, an open-weight model from Meta) - TenderLens's only hosted model provider - so
+handwriting, ticks, stamps and signatures can be read. One model reads both the buyer's documents and the
+scanned pages. Meta does not receive your files: Fireworks AI only hosts the model.</p>
+<p><strong>[CONFIRM: Fireworks AI's processing location and data-retention/training policy for API traffic, from
+Fireworks' own documentation.]</strong> Until that is confirmed, assume sending data to Fireworks AI may mean it is
+processed outside South Africa.</p>
 <p>Self-hosting (your own Ollama instance - see <code>OLLAMA.md</code>) keeps everything on your own machine instead;
-nothing in that case is sent to Meta or anywhere else.</p>
+nothing in that case is sent to Fireworks AI or anywhere else.</p>
 <p>A <strong>Fast check</strong> does not call any AI provider - it reads files with OCR and fixed rules only, and nothing
 leaves the host.</p>
 <h2>What is sent, what is kept, and for how long</h2>

@@ -26,14 +26,14 @@ def test_consent_required_still_respects_other_readiness_conditions():
 
 def test_privacy_md_exists_and_covers_the_required_points():
     text = (ROOT / "PRIVACY.md").read_text()
-    for marker in ("Lekwankwa Corporation", "Meta", "api.meta.ai", "africa-south1", "Streamlit Community Cloud",
+    for marker in ("Lekwankwa Corporation", "Fireworks AI", "api.fireworks.ai", "africa-south1", "Streamlit Community Cloud",
                    "[CONFIRM", "[ADD when used]", "handwritten", "redaction".title(), "outside", "South Africa"):
         assert marker.lower() in text.lower(), f"PRIVACY.md is missing: {marker!r}"
 
 
-def test_in_app_notice_names_meta_and_points_to_the_full_notice():
+def test_in_app_notice_names_fireworks_and_points_to_the_full_notice():
     notice = privacy.notice_short()
-    assert "meta" in notice.lower() and "api.meta.ai" in notice
+    assert "fireworks" in notice.lower() and "api.fireworks.ai" in notice
     assert "PRIVACY.md" in notice
 
 

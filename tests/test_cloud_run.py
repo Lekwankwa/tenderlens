@@ -41,14 +41,14 @@ def test_upload_size_message_is_absent_when_the_env_var_is_unset(monkeypatch):
     assert not any("accepts packs up to" in c.value for c in at.caption)
 
 
-def test_privacy_caption_names_meta_when_that_s_the_configured_endpoint(monkeypatch):
+def test_privacy_caption_names_the_provider_when_an_endpoint_is_configured(monkeypatch):
     from streamlit.testing.v1 import AppTest
     _blank_env(monkeypatch)
     monkeypatch.setenv("META_API_BASE", "https://api.meta.ai/v1")
     monkeypatch.setenv("MUSE_MODEL", "muse-spark-1.3")
     at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
     assert not at.exception
-    assert any("off-device, at Meta's Model API (USA)" in c.value for c in at.caption)
+    assert any("off-device, at Fireworks AI (USA)" in c.value for c in at.caption)
 
 
 def test_gcs_upload_path_renders_without_a_simulated_upload(monkeypatch):

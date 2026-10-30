@@ -37,7 +37,7 @@ except Exception:
     pass  # no secrets.toml locally - fine, that's what .env / the environment is for
 PILOT = pilot.pilot_enabled()  # TENDERLENS_PILOT=1. Off: the app behaves exactly as it always has.
 IDLE_TIMEOUT_MIN = float(os.environ.get("TENDERLENS_IDLE_TIMEOUT_MIN", "45"))  # pilot only - see idle watcher below
-PROVIDER_LABEL = "Meta's Model API"  # the only model provider TenderLens talks to - never the key, just the label
+PROVIDER_LABEL = "Fireworks AI"  # the only model provider TenderLens talks to - never the key, just the label
 # GCS_BUCKET set: large files (up to storage.max_upload_mb()) go browser-to-bucket, bypassing Cloud Run's own
 # 32 MiB request limit - see tenderlens/storage.py. Unset (the default - nothing to configure for local use
 # or Streamlit Community Cloud): the app behaves exactly as it always has, the small-file st.file_uploader
@@ -517,7 +517,7 @@ if not out:
     c1, c2, c3 = st.columns(3)
     with c1:
         st.markdown("**1. Understand the RFQ/Tender**")
-        st.caption("Meta Llama reads the buyer's RFQ/Tender documents and specification into a checklist. Every item "
+        st.caption("The AI model reads the buyer's RFQ/Tender documents and specification into a checklist. Every item "
                    "must quote its source, or it is dropped.")
     with c2:
         st.markdown("**2. Read the response pack**")
