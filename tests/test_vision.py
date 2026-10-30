@@ -163,7 +163,7 @@ def test_transcript_outranks_a_model_reading():
 
 @pytest.mark.parametrize("kind,raw,want", [
     (F.YESNO, "Yes", "Yes"), (F.YESNO, "ticked NO", "No"), (F.YESNO, "both", "Both"), (F.YESNO, "neither", None),
-    (F.DATE, "6 October 2021", "2021-10-06"), (F.DATE, "06/10/2021", "2021-10-06"), (F.NUMBER, "R 72 324.00", 72324),
+    (F.DATE, "6 October 2021", "2021-10-06"), (F.DATE, "06/10/2021", "2021-10-06"), (F.NUMBER, "R 72 324.00", 72324), (F.NUMBER, "R —", 0), (F.NUMBER, "nil", 0), (F.NUMBER, "see attached", F.UNREAD),
     (F.COUNT, "2", 2), (F.BOOL, "yes", True)])
 def test_cleaning(kind, raw, want):
     assert F.clean(kind, raw) == want

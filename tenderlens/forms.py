@@ -221,7 +221,11 @@ def clean(kind: str, raw):
     if kind in (NUMBER, COUNT):
         m = re.search(r"-?\d[\d\s,]*\.?\d*", s)
         if not m:
-            return BLANK if low in ("none", "zero") and kind == COUNT else s
+            if kind == COUNT:
+                return BLANK if low in ("none", "zero") else UNREAD
+            # a dash (the printed "R -") or "nil" is how a form writes nothing / zero; any other non-number is not
+            # a reading the arithmetic can use, so it is reported as unreadable, never stored as text in a number
+            return 0 if re.fullmatch(r"(?:r|zar)?\s*[-\u2013\u2014]+|nil|zero|none", low.replace(" ", "")) else UNREAD
         txt = re.sub(r"[\s,]", "", m.group(0))
         v = float(txt)
         return int(v) if v == int(v) else v

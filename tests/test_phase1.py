@@ -505,3 +505,25 @@ def test_a_local_content_declaration_in_the_pack_is_audited_even_when_the_rfq_di
 
     assert any("declarant is blank" in t for t in audited(True))
     assert audited(False) == []  # no declaration in the pack, and none required: still nothing to audit
+
+
+def test_a_non_numeric_reading_in_a_number_field_no_longer_crashes_the_audit():
+    """The first re-run of the key packs died with 'unsupported operand type(s) for /: str and int': the model read
+    the declaration's imported content as a dash/text, it was stored as a string, and the local content arithmetic
+    divided by it - aborting the whole audit."""
+    f = Facts()
+    f.add("local_content_decl.bid_price_excl_vat", 70324, 13, "vision", 0.9)
+    f.add("local_content_decl.imported_content", "see attached", 13, "vision", 0.9)  # a string where a number belongs
+    f.add("local_content_decl.local_content_pct", 100, 13, "vision", 0.9)
+    a = Auditor(Requirements(), [], f, BLANK_DIR)
+    a.run()  # must finish, not raise
+    assert isinstance(a.res.findings, list)
+
+
+def test_one_failing_rule_is_reported_for_a_person_and_the_rest_of_the_audit_still_runs(monkeypatch):
+    a = Auditor(Requirements(), [], Facts(), BLANK_DIR)
+    def local_content():
+        return 1 / 0
+    monkeypatch.setattr(a, "local_content", local_content)
+    res = a.run()
+    assert any("local content" in n and "could not run" in n for n in res.human_only)

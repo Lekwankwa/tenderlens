@@ -7,6 +7,7 @@ The wording is "needs review", never "disqualified": the buyer decides that.
 from __future__ import annotations
 
 import glob
+import logging
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -18,6 +19,8 @@ from . import vision as V
 from .facts import ENTRY, Facts
 from .ingest import Page, load_templates
 from .requirements import Requirements
+
+log = logging.getLogger("tenderlens.audit")
 
 DOC_LABEL = {
     "quote": "Quotation", "spec": "Specification sheet", "sbd6_1": "SBD 6.1", "sbd6_2": "SBD 6.2",
@@ -50,6 +53,7 @@ GENERIC_ADDRESS_WORDS = {"road", "rd", "street", "st", "str", "avenue", "ave", "
 
 
 @dataclass
+
 class Evidence:
     page: int
     note: str = ""
@@ -185,7 +189,13 @@ class Auditor:
                    self.sbd62_consistency, self.local_content, self.identifiers, self.names, self.quote_checks,
                    self.spec_checks, self.validity_dates, self.declarations_vs_registers, self.certificates,
                    self.bbbee, self.stray_marks, self.initials, self.ocr_quality, self.not_verifiable):
-            fn()
+            try:
+                fn()
+            except Exception as err:  # noqa: BLE001 - one rule hitting an odd reading must not abort the whole audit
+                log.exception("audit rule %s failed", fn.__name__)
+                self.res.human_only.append(
+                    f"The check '{fn.__name__.replace('_', ' ')}' could not run ({type(err).__name__}: "
+                    f"{str(err)[:100]}). Check that part of the pack by hand.")
         order = {"issue": 0, "observation": 1}
         self.res.findings.sort(key=lambda x: (order[x.tier], SEV_ORDER[x.severity], x.id))
         return self.res
@@ -563,7 +573,7 @@ class Auditor:
         lvl = self.f.value("bbbee_affidavit.level")
         if isinstance(pts, (int, float)) and isinstance(lvl, int):
             f = self.f.best("sbd6_1.points_claimed")
-            total = self.f.value("quote.total") or self.f.value("local_content_decl.bid_price_excl_vat") or 0
+            total = self._num("quote.total") or self._num("local_content_decl.bid_price_excl_vat") or 0
             system, table = ("80/20", POINTS_80_20) if total <= 50_000_000 else ("90/10", POINTS_90_10)
             want = table.get(lvl, 0)
             if int(pts) == want:
@@ -612,11 +622,16 @@ class Auditor:
                     pages=[imp.page])
 
     # -- 5. local content ------------------------------------------------------
+    def _num(self, field, default=None):
+        """A numeric reading, or `default` when the field is missing or holds anything but a number."""
+        v = self.f.value(field, default)
+        return v if isinstance(v, (int, float)) and not isinstance(v, bool) else default
+
     def local_content(self):
-        price = self.f.value("local_content_decl.bid_price_excl_vat")
-        imported = self.f.value("local_content_decl.imported_content", 0)
-        pct = self.f.value("local_content_decl.local_content_pct")
-        thr = self.f.value("sbd6_2.min_threshold_pct")
+        price = self._num("local_content_decl.bid_price_excl_vat")
+        imported = self._num("local_content_decl.imported_content", 0)
+        pct = self._num("local_content_decl.local_content_pct")
+        thr = self._num("sbd6_2.min_threshold_pct")
         if price:
             calc = (1 - imported / price) * 100
             pages = self.fp("local_content_decl.bid_price_excl_vat")
