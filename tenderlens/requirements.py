@@ -62,8 +62,17 @@ class Requirements:
         return asdict(self)
 
 
-def pdf_text(pdf: Path) -> str:
-    return subprocess.run(["pdftotext", "-layout", str(pdf), "-"], capture_output=True, text=True).stdout
+def pdf_text(pdf: Path, work: Path | None = None) -> str:
+    """The document's text. A scan has no text layer, so (when `work` is given) it is read by OCR instead of
+    coming back empty - which left the requirements to be 'extracted' from nothing."""
+    out = subprocess.run(["pdftotext", "-layout", str(pdf), "-"], capture_output=True, text=True).stdout
+    if work is not None and len(out.strip()) < 40:
+        from .ingest import ocr_text
+        try:
+            return ocr_text(pdf, work)
+        except Exception:  # noqa: BLE001 - OCR trouble must not stop the audit; fall back to what text there was
+            return out
+    return out
 
 
 def _norm(s: str) -> str:
@@ -244,13 +253,13 @@ def merge(llm_r: Requirements | None, rules_r: Requirements) -> Requirements:
 
 
 def build_requirements(rfq_pdfs: Path | list[Path], spec_text: str, spec_name: str, llm: LlamaClient | None,
-                       local_content: str = "auto") -> Requirements:
+                       local_content: str = "auto", work: Path | None = None) -> Requirements:
     """rfq_pdfs: the buyer's RFQ, as one path or several (a cover email/letter plus any attachments it came
     with - annexures, a BOQ, blank SBD templates sent separately). Their text is concatenated in the order
     given, so a requirement stated in any one of them is found regardless of how the buyer split them up.
     local_content: 'auto' (decide from the buyer's documents), 'yes' or 'no' (the bidder knows better)."""
     rfqs = [rfq_pdfs] if isinstance(rfq_pdfs, (str, Path)) else list(rfq_pdfs)
-    email_text = "\n\n".join(pdf_text(p) for p in rfqs)
+    email_text = "\n\n".join(pdf_text(p, work) for p in rfqs)
     email_name = rfqs[0].name if len(rfqs) == 1 else f"{rfqs[0].name} (+{len(rfqs) - 1} more)"
     rules_r = rules_extract(email_text, email_name, spec_text, spec_name)
     if local_content in ("yes", "no"):

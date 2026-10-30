@@ -412,3 +412,96 @@ def test_witness_signatures_on_a_last_page_field_ignore_a_stray_reading_elsewher
     vision_extract(WitnessScript(), pages, f, verify=False)
     fact = f.best("sbd6_1.witness_signatures")
     assert fact.page == 7 and fact.value == 2  # the real last page wins, not the page that merely answered first
+
+
+# --------------------------------------------------------------------------- bug-fix regression tests (answer-key rows)
+
+def _ids(f):
+    a = Auditor(Requirements(), [], f, BLANK_DIR)
+    a.identifiers()
+    return a
+
+
+def test_two_altered_pages_that_agree_do_not_hide_the_genuine_page_from_the_evidence():
+    """Key rows 13 and 47: the SBD 4 (p16) and SARS (p24) tax references were both altered to the same wrong value,
+    so the 'majority' is the altered side. The finding must cite all three pages, not just the lone genuine one."""
+    f = Facts()
+    f.add("sbd4.tax_no", "9620000178", 16, "ocr", 0.9)
+    f.add("id.tax_no", "9620000178", 24, "ocr", 0.9)
+    f.add("id.tax_no", "9620000187", 30, "ocr", 0.9)
+    found = next(x for x in _ids(f).res.findings if "Tax reference number differs" in x.title)
+    assert sorted(e.page for e in found.evidence) == [16, 24, 30]
+
+
+def test_a_one_against_one_split_names_both_pages_and_claims_no_majority():
+    """Key row 8: the CSD number on the quote (p1) differs from the CSD report (p26). Neither is 'most pages'."""
+    f = Facts()
+    f.add("id.csd_no", "MAAA0966951", 1, "ocr", 0.9)
+    f.add("id.csd_no", "MAAA0966851", 26, "ocr", 0.9)
+    found = next(x for x in _ids(f).res.findings if "CSD supplier number differs" in x.title)
+    assert sorted(e.page for e in found.evidence) == [1, 26]
+    assert "no majority" in found.detail and "Most pages agree" not in found.detail
+
+
+def test_three_different_readings_on_three_pages_cite_all_three_pages():
+    """Key rows 11 and 46: SA ID read three ways (p25, p30, p16) - the old text said 'most pages agree' on one page."""
+    f = Facts()
+    f.add("id.sa_id", "0204145509097", 25, "ocr", 0.9)
+    f.add("id.sa_id", "0204145509087", 30, "ocr", 0.9)
+    f.add("sbd4.id_no", "0204145509078", 16, "ocr", 0.9)
+    found = next(x for x in _ids(f).res.findings if "SA ID number differs" in x.title)
+    assert sorted(e.page for e in found.evidence) == [16, 25, 30]
+    assert "no majority" in found.detail
+
+
+def _imported_content_auditor(imp_answer, imported_rand):
+    from tenderlens.audit import Auditor
+    f = Facts()
+    f.add("sbd6_2.has_imported_content", imp_answer, 12, "vision", 0.9)
+    if imported_rand is not None:
+        f.add("local_content_decl.imported_content", imported_rand, 13, "vision", 0.9)
+    a = Auditor(Requirements(), [], f, BLANK_DIR)
+    a.sbd62_consistency()
+    return a
+
+
+def test_imported_content_yes_against_an_r0_declaration_is_an_inconsistency():
+    """Key row 42: SBD 6.2 paragraph 4 ticked YES while the declaration says R0 imported."""
+    a = _imported_content_auditor("Yes", 0)
+    found = [x for x in a.res.findings if "declares imported content, but the declaration says R0" in x.title]
+    assert found and {e.page for e in found[0].evidence} == {12, 13}
+
+
+def test_imported_content_yes_alone_is_not_called_an_inconsistency():
+    assert not [x for x in _imported_content_auditor("Yes", None).res.findings if "R0" in x.title]
+    assert not [x for x in _imported_content_auditor("Yes", 5000).res.findings if "R0" in x.title]
+
+
+def test_imported_content_yes_is_not_described_as_subcontracting():
+    """The SBD 6.2 'Yes' finding used SBD 6.1's subcontracting wording."""
+    f = Facts()
+    f.add("sbd6_2.has_imported_content", "Yes", 12, "vision", 0.9)
+    f.add("sbd6_1.subcontracting", "Yes", 6, "vision", 0.9)
+    pages = [Page(12, "x.png", doc_type="sbd6_2"), Page(6, "y.png", doc_type="sbd6_1")]
+    a = Auditor(Requirements(), pages, f, BLANK_DIR)
+    a.handwritten_entries()
+    by_title = {x.title: x.detail for x in a.res.findings}
+    imported = next(d for t, d in by_title.items() if "imported-content answer is answered Yes" in t)
+    sub = next(d for t, d in by_title.items() if "subcontracting answer is answered Yes" in t)
+    assert "Subcontracting" not in imported and "imported content" in imported
+    assert "Subcontracting is declared" in sub
+
+
+def test_a_local_content_declaration_in_the_pack_is_audited_even_when_the_rfq_did_not_require_local_content():
+    """Key rows 43-45: the declaration's entries were skipped because the RFQ only asks for local content 'where
+    there is local content'. A declaration the bidder actually supplied is audited like any other form."""
+    def audited(with_declaration_page):
+        f = Facts()
+        f.add("local_content_decl.declarant", None, 14, "vision", 0.9)  # the declarant's name was wiped
+        pages = [Page(14, "x.png", doc_type="local_content_decl")] if with_declaration_page else []
+        a = Auditor(Requirements(), pages, f, BLANK_DIR)
+        a.handwritten_entries()
+        return [x.title for x in a.res.findings]
+
+    assert any("declarant is blank" in t for t in audited(True))
+    assert audited(False) == []  # no declaration in the pack, and none required: still nothing to audit

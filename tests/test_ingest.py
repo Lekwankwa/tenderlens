@@ -172,3 +172,31 @@ def test_ocr_workers_honours_the_override_and_stays_in_range(monkeypatch):
     assert _ocr_workers() == 3
     monkeypatch.delenv("TENDERLENS_OCR_WORKERS")
     assert 1 <= _ocr_workers() <= 8
+
+
+# --------------------------------------------------------------------------- the spec sheet among the RFQ/Tender uploads
+
+@pytest.mark.skipif(shutil.which("tesseract") is None, reason="needs the tesseract program")
+def test_a_scanned_spec_sheet_is_found_among_the_rfq_documents_and_a_scanned_rfq_is_not_read_as_empty(tmp_path):
+    """Key rows 1, 5, 6: the web app passes one list of RFQ/Tender files and no separate spec, so a scanned
+    specification sheet was never read and its quantity / item / delivery checks never ran."""
+    from PIL import Image, ImageDraw, ImageFont
+    from tenderlens.requirements import pdf_text
+
+    def scan_pdf(path, lines):
+        im = Image.new("RGB", (1240, 1754), "white")
+        d = ImageDraw.Draw(im)
+        f = ImageFont.load_default(size=44)
+        for i, line in enumerate(lines):
+            d.text((80, 100 + i * 90), line, fill="black", font=f)
+        im.save(path, "PDF", resolution=150)  # an image-only PDF: no text layer, like a scan
+        return path
+
+    spec = scan_pdf(tmp_path / "spec.pdf", ["Description Quantity", "105AH Deep Cycle battery (674) 30",
+                                            "Motivation Required for solar lights", "Delivery adress 141 Cresswell Road Pretoria",
+                                            "Specs Verified"])
+    other = scan_pdf(tmp_path / "other.pdf", ["Dear supplier", "Please quote for the attached", "Regards"])
+    work = tmp_path / "work"
+    assert ingest.find_spec_sheet([other, spec], work) == spec
+    assert ingest.find_spec_sheet([other], work) is None
+    assert "Quantity" in pdf_text(spec, work) and pdf_text(spec).strip() == ""  # no work dir -> the old empty read

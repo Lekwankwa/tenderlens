@@ -292,6 +292,34 @@ def first_page_text(pdf: Path, workdir: Path) -> str:
     return ocr_image(pngs[0])[0] if pngs else ""
 
 
+def ocr_text(pdf: Path, workdir: Path, max_pages: int = 12) -> str:
+    """The text of a PDF with no text layer (a scan), by OCR: its first `max_pages` pages, which is where a buyer
+    states what is required. Page images and OCR results are cached under workdir by the PDF's content hash."""
+    outdir = workdir / f"rfq-ocr-{sha1_file(pdf)[:8]}"
+    outdir.mkdir(parents=True, exist_ok=True)
+    pngs = sorted(outdir.glob("p-*.png"))
+    if not pngs or not all(_usable_png(p) for p in pngs):
+        for p in pngs:
+            p.unlink()
+        subprocess.run(["pdftoppm", "-r", str(DPI), "-png", "-f", "1", "-l", str(max_pages), str(pdf),
+                        str(outdir / "p")], check=True)
+        pngs = sorted(outdir.glob("p-*.png"))
+    return "\n\n".join(ocr_image(p, outdir / f"{p.stem}.ocr.json")[0] for p in pngs)
+
+
+def find_spec_sheet(pdfs: list[Path], workdir: Path, max_pages: int = 3) -> Path | None:
+    """The specification sheet among the buyer's uploaded RFQ/Tender documents, or None. The app takes one
+    list of files, so nothing says which one is the spec - and it is usually a scan with no text layer, which
+    plain text extraction reads as empty. A spec is short; a longer document is never taken for one."""
+    for p in pdfs:
+        try:
+            if pdf_page_count(p) <= max_pages and classify_rfq_document(first_page_text(p, workdir)) == "spec":
+                return p
+        except Exception:  # noqa: BLE001 - an unreadable file is simply an ordinary RFQ document here
+            continue
+    return None
+
+
 # A buyer's own RFQ-bundle document (the covering email/letter, or the specification sheet) is classified
 # by wording each conventionally carries in South African government procurement documents generally - not
 # anything specific to one buyer's tender - so this works on a document this code has never seen.

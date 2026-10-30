@@ -12,7 +12,8 @@ from pathlib import Path
 from .audit import Auditor
 from .facts import (CROP_VERIFY_ENABLED, Facts, combined_first_pass, combined_vision_enabled, inspect_pages, load_transcript, ocr_facts, signature_match,
                     verify_identifiers, verify_yesno, vision_extract, vision_precheck)
-from .ingest import classify_pages, load_pdf, load_templates, page_count_estimate, pdf_page_count
+from .ingest import (classify_pages, find_spec_sheet, load_pdf, load_templates, page_count_estimate,
+                     pdf_page_count)
 from .llm import LlamaClient, load_env
 from .report import render_html, to_json
 from .requirements import build_requirements
@@ -57,10 +58,19 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     def build_req():
         t0 = time.time()
         spec_text, spec_name = "", ""
-        if spec:
-            spec_pages = load_pdf(spec, work, timing=timing)
-            spec_text, spec_name = spec_pages[0].text, spec.name
-        req_box["req"] = build_requirements(rfq, spec_text, spec_name, llm if llm.configured else None, local_content)
+        rfq_files, spec_file = ([rfq] if isinstance(rfq, (str, Path)) else list(rfq)), spec
+        if spec_file is None and len(rfq_files) > 1:
+            # The web app has one RFQ/Tender upload and passes no separate spec, so a specification sheet
+            # uploaded with the rest was never read (it is usually a scan, which plain text extraction sees as
+            # empty) and every quantity / item / delivery-address check against it was silently skipped.
+            spec_file = find_spec_sheet(rfq_files, work)
+            if spec_file is not None:
+                rfq_files = [p for p in rfq_files if p != spec_file]
+        if spec_file:
+            spec_pages = load_pdf(spec_file, work, timing=timing)
+            spec_text, spec_name = spec_pages[0].text, spec_file.name
+        req_box["req"] = build_requirements(rfq_files, spec_text, spec_name, llm if llm.configured else None,
+                                            local_content, work=work)
         timing["text_model"] = timing.get("text_model", 0.0) + (time.time() - t0)
 
     req_thread = threading.Thread(target=build_req)
@@ -113,18 +123,21 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
                 side.append((order, f, t, th))
 
             first_progress = (lambda d, t: progress("vision_first", d, t)) if progress else None
+            # a local content declaration that is IN the pack is read and checked whether or not the RFQ said local
+            # content applies: its own figures are what the quote total and the SBD 6.2 answers are compared with
+            local = req.local_content_required or any(p.doc_type == "local_content_decl" for p in pages)
             if inspect != "off":
                 start(2, lambda f, t: signature_match(vision, pages, f, progress=checks, timing=t))
             first = None
             if combined_vision_enabled():
                 # one call per form page for both the field reading and the inspection questions (see
                 # facts.combined_first_pass) - half the page images sent, so less queuing at the provider
-                first = combined_first_pass(vision, pages, facts, local_content=req.local_content_required,
+                first = combined_first_pass(vision, pages, facts, local_content=local,
                                             inspect=inspect != "off", progress=first_progress, timing=timing)
             if inspect != "off":
                 start(1, lambda f, t: inspect_pages(vision, pages, f, passes, progress=checks, timing=t,
                                                     first_answers=first))
-            vision_extract(vision, pages, facts, local_content=req.local_content_required, verify=passes >= 2,
+            vision_extract(vision, pages, facts, local_content=local, verify=passes >= 2,
                            progress=None if first is not None else first_progress, timing=timing,
                            first_answers=first)
             if passes >= 2 and CROP_VERIFY_ENABLED:

@@ -422,7 +422,7 @@ class Auditor:
         return "issue" if f.confidence >= 0.8 else "observation"
 
     def handwritten_entries(self):
-        local = self.req.local_content_required
+        local = self.req.local_content_required or bool(self.pg("local_content_decl"))  # see cli._vision_and_audit
         if not any(f.source in ("manual", "vision") and f.field in ENTRY for f in self.f.items):
             vl = self.f.vision_log
             if vl.get("model"):  # a vision model was configured and at least attempted - just not connected is wrong here
@@ -471,7 +471,11 @@ class Auditor:
                 elif e.kind == F.YESNO and v == "Yes" and e.expect != "Yes":
                     bad += 1
                     sev = "high" if dtype == "sbd8" else "medium"
-                    if e.expect is None:
+                    if e.key == "sbd6_2.has_imported_content":
+                        title, detail = (f"{form}: {e.label} is answered Yes",
+                                         "The bid declares imported content. The declaration's imported-content "
+                                         "figure and the exchange rates in paragraph 4.1 should then agree with it.")
+                    elif e.expect is None:
                         title, detail = (f"{form}: {e.label} is answered Yes",
                                          "Subcontracting is declared. The form then asks for the percentage and the "
                                          "subcontractor's details, which this check cannot see.")
@@ -595,6 +599,14 @@ class Auditor:
                         pages=[tmpl.page])
         imp = self.f.best("sbd6_2.has_imported_content")
         impv = self.f.value("local_content_decl.imported_content")
+        if imp and str(imp.value).lower() == "yes" and impv == 0:
+            self.find("medium", "inconsistency", "SBD 6.2 declares imported content, but the declaration says R0",
+                      f"SBD 6.2 paragraph 4 is answered Yes (page {imp.page}); the local content declaration gives "
+                      "imported content of R0.", "Ask the bidder which is right and have the form corrected.",
+                      "SBD 6.2 paragraph 4; local content declaration",
+                      [self.E(imp.page, "paragraph 4 answered Yes", source=imp.source),
+                       *[self.E(p, "imported content R0", source="vision")
+                         for p in self.fp("local_content_decl.imported_content")]])
         if imp and str(imp.value).lower() == "no" and impv in (0, None):
             self.ok("SBD 6.2 'no imported content' agrees with the declaration (imported content R0)",
                     pages=[imp.page])
@@ -675,7 +687,11 @@ class Auditor:
             ocr_vals = [(v, f) for v, f in vals if f.source == "ocr"]
             pool = ocr_vals or vals
             counts = Counter(v for v, _ in pool)
-            consensus, n = counts.most_common(1)[0]
+            ranked = counts.most_common()
+            consensus, n = ranked[0]
+            # two values backed by the same number of pages (a 1-v-1 split, or three readings on three pages)
+            # have no majority: neither is "what most pages say", so neither page may be treated as the odd one out
+            tied = len(ranked) > 1 and ranked[1][1] == n
             pages = sorted({f.page for v, f in vals if v == consensus})
             others = [(v, f) for v, f in vals if v != consensus]
             far = [(v, f) for v, f in others if edit_distance(v, consensus) > 2]
@@ -706,12 +722,29 @@ class Auditor:
                 # a handwritten (vision) reading can be misread, so a mismatch it is part of is a lead, not a
                 # fact - only a mismatch where every differing page is printed/typed text (OCR) is an issue
                 all_ocr = all(f.source == "ocr" for v, f in far)
-                self.find("medium", "inconsistency", f"{label} differs between documents",
-                          f"Most pages agree on {mask(consensus)} (pages {pages}). Different values: "
-                          + "; ".join(f"{mask(v)} on page {f.page}" for v, f in far),
+                if tied:
+                    by_value: dict[str, list[int]] = {}
+                    for v, f in vals:
+                        by_value.setdefault(v, []).append(f.page)
+                    detail = ("The pages do not agree and there is no majority: "
+                              + "; ".join(f"{mask(v)} on page{'s' if len(set(p)) > 1 else ''} "
+                                          f"{', '.join(map(str, sorted(set(p))))}" for v, p in by_value.items()))
+                else:
+                    detail = (f"Most pages agree on {mask(consensus)} (pages {pages}). Different values: "
+                              + "; ".join(f"{mask(v)} on page {f.page}" for v, f in far))
+                # Every page involved is cited, not only the minority: with two altered pages carrying the same
+                # wrong value the "majority" is the altered side, and the odd page out is the genuine one - so
+                # naming only the minority sent the reader to the wrong page.
+                shown = {id(f) for _, f in far}
+                evidence = [self.E(f.page, source=f.source, box=f.box) for _, f in far]
+                # (Not when a printed value is being compared with handwriting: there the printed page is the
+                # reference and is never the odd one out - only the handwritten pages that differ are cited.)
+                if tied or all(f.source == "ocr" for _, f in vals):
+                    evidence += [self.E(f.page, source=f.source, box=f.box) for v, f in vals
+                                 if id(f) not in shown and (tied or v == consensus)]
+                self.find("medium", "inconsistency", f"{label} differs between documents", detail,
                           "Open the pages and compare. If it is a misread, ignore; if not, correct the form.",
-                          "Cross-document consistency",
-                          [self.E(f.page, source=f.source, box=f.box) for v, f in far],
+                          "Cross-document consistency", evidence,
                           tier="issue" if all_ocr else "observation")
             elif len({f.page for _, f in vals}) >= 2:
                 self.ok(f"{label} consistent across {len({f.page for _, f in vals})} pages",
