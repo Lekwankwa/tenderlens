@@ -77,6 +77,7 @@ def test_a_failed_render_leaves_no_partial_set_at_the_real_location(tmp_path, mo
 
 def test_load_pdf_stops_with_a_clear_message_if_pages_read_dont_match_the_pdf(tmp_path, monkeypatch):
     pdf = _make_pdf(tmp_path / "p.pdf", 3)
+    monkeypatch.setenv("TENDERLENS_STREAM_OCR", "0")  # the streaming path renders pages itself, not via render_pdf
     # bypass render_pdf's own protection to exercise load_pdf's independent, explicit check
     monkeypatch.setattr(ingest, "render_pdf", lambda p, d: [Path("fake1.png"), Path("fake2.png")])
     with pytest.raises(RuntimeError, match=r"read 2 page\(s\) but the PDF has 3"):

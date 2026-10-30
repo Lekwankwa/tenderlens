@@ -545,12 +545,15 @@ _FIELDS_HOW = ("write what is handwritten, ticked or stamped on THIS page. Use \
                "cannot read it. For yes/no questions answer exactly Yes, No, Both (both boxes marked) or blank. "
                "Dates: copy them as written.")
 _QUESTIONS_HOW = "answer exactly yes or no. Say yes only if you can clearly see it."
+# Generation speed is what a page read costs, so the reply is kept to the bare JSON. Written-out answers are NOT
+# shortened: they are copies of what is on the page (names, amounts, dates) and a clipped copy would be a wrong reading.
+_TERSE = " Reply with the JSON object only: no explanation, no notes, no extra keys."
 
 
 def _fields_prompt(p: Page, dtype: str, entries) -> str:
     fields = {e.key: f"[{e.kind}] {e.desc}" for e in entries}
     return (f"This image is page {p.number} of a bid pack and belongs to the form '{dtype}'. For EACH field "
-            f"listed, {_FIELDS_HOW} Return JSON of the form {{\"<field>\": \"<answer>\"}}.\nFields:\n"
+            f"listed, {_FIELDS_HOW} Return JSON of the form {{\"<field>\": \"<answer>\"}}.{_TERSE}\nFields:\n"
             + json.dumps(fields, indent=1))
 
 
@@ -561,7 +564,7 @@ def _main_questions(qs: dict) -> dict:
 def _questions_prompt(p: Page, qs: dict) -> str:
     return (f"This image is page {p.number} of a bid pack (form '{p.doc_type}'). Answer each question with "
             "exactly yes or no. Say yes only if you can clearly see it. Return JSON {\"<key>\": \"yes\" or "
-            "\"no\"}.\n" + json.dumps(_main_questions(qs), indent=1))
+            "\"no\"}." + _TERSE + "\n" + json.dumps(_main_questions(qs), indent=1))
 
 
 def _focused_prompt(p: Page, question: str) -> str:
@@ -639,7 +642,8 @@ def combined_first_pass(llm: ModelClient, pages: list[Page], facts: Facts, local
         return (f"This image is page {p.number} of a bid pack and belongs to the form '{dtype}'. Answer BOTH parts "
                 f"below in ONE JSON object.\nPart 1 - for EACH field listed under Fields, {_FIELDS_HOW}\n"
                 f"Part 2 - for EACH question listed under Questions, {_QUESTIONS_HOW}\n"
-                "Return JSON {\"<field or question key>\": \"<answer>\"} with every key from both lists.\nFields:\n"
+                "Return JSON {\"<field or question key>\": \"<answer>\"} with every key from both lists." + _TERSE
+                + "\nFields:\n"
                 + json.dumps({e.key: f"[{e.kind}] {e.desc}" for e in entries}, indent=1)
                 + "\nQuestions:\n" + json.dumps(_main_questions(qs), indent=1))
 

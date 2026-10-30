@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -122,6 +123,72 @@ def render_pdf(pdf: Path, outdir: Path, dpi: int = DPI) -> list[Path]:
     return sorted(outdir.glob("p-*.png"))
 
 
+def _render_cached(pdf: Path, outdir: Path) -> list[Path] | None:
+    """The cached page images for `pdf` when they are all there and usable, else None (see render_pdf)."""
+    want = pdf_page_count(pdf)
+    existing = sorted(outdir.glob("p-*.png")) if outdir.exists() else []
+    if existing and len(existing) == want and all(_usable_png(p) for p in existing):
+        return existing
+    return None
+
+
+def render_and_ocr(pdf: Path, outdir: Path, ocr_dir: Path, workers: int, progress=None, dpi: int = DPI):
+    """Render and OCR a PDF with no wait in between: each worker renders ONE page (pdftoppm -f N -l N, which
+    names the file exactly as a whole-document run does and produces the same image) and OCRs it straight away,
+    so OCR starts with the first finished page instead of after the last. Same atomic placement as render_pdf:
+    pages go into a temporary sibling folder and are moved into outdir only once every page is usable.
+    Returns (page images in page order, [(text, words)] in page order, [content hash], busy seconds rendering,
+    busy seconds in OCR) - the busy times are summed across workers."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    outdir.mkdir(parents=True, exist_ok=True)
+    want = pdf_page_count(pdf)
+    for p in outdir.glob("p-*.png"):
+        p.unlink()
+    tmp = outdir.parent / f".{outdir.name}.tmp-{os.getpid()}"
+    if tmp.exists():
+        shutil.rmtree(tmp)
+    tmp.mkdir(parents=True)
+    busy = {"render": 0.0, "ocr": 0.0}
+    lock = threading.Lock()
+
+    def one(n: int):
+        t0 = time.time()
+        subprocess.run(["pdftoppm", "-r", str(dpi), "-png", "-f", str(n), "-l", str(n), str(pdf), str(tmp / "p")],
+                       check=True, capture_output=True)
+        found = list(tmp.glob("p-*.png"))
+        png = next((f for f in found if int(f.stem.split("-")[1]) == n), None)
+        if png is None or not _usable_png(png):
+            raise RuntimeError(f"pdftoppm did not produce a usable page {n} from {pdf.name}.")
+        sha = sha1_file(png)
+        t1 = time.time()
+        cache = ocr_dir / f"{sha}.json"
+        legacy = png.with_suffix(".ocr.json")
+        if not cache.exists() and legacy.exists():
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(legacy, cache)
+        result = ocr_image(png, cache)
+        with lock:
+            busy["render"] += t1 - t0
+            busy["ocr"] += time.time() - t1
+        return n, png, sha, result
+
+    got: dict[int, tuple] = {}
+    try:
+        with ThreadPoolExecutor(max_workers=max(1, min(workers, want))) as ex:
+            for fut in as_completed([ex.submit(one, n) for n in range(1, want + 1)]):
+                n, png, sha, result = fut.result()
+                got[n] = (png, sha, result)
+                if progress:
+                    progress(len(got), want)
+        for n in sorted(got):
+            shutil.move(str(got[n][0]), str(outdir / got[n][0].name))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    order = sorted(got)
+    return ([outdir / got[n][0].name for n in order], [got[n][2] for n in order], [got[n][1] for n in order],
+            busy["render"], busy["ocr"])
+
+
 def sha1_file(path: Path) -> str:
     return hashlib.sha1(Path(path).read_bytes()).hexdigest()
 
@@ -222,7 +289,24 @@ def load_pdf(pdf: Path, workdir: Path, progress=None, timing: dict | None = None
     t0 = time.time()
     stem = pdf.stem.replace(" ", "_") + "-" + sha1_file(pdf)[:8]
     imgdir = workdir / stem
-    pngs = render_pdf(pdf, imgdir)
+    ocr_dir = workdir / "ocr"
+    workers = _ocr_workers()
+    pngs = _render_cached(pdf, imgdir)
+    # TENDERLENS_STREAM_OCR=0 goes back to rendering every page before the first is read
+    streaming = os.environ.get("TENDERLENS_STREAM_OCR", "1").strip() != "0"
+    if pngs is None and streaming and workers > 1 and pdf_page_count(pdf) > 1:
+        # Not rendered yet: render and OCR each page back to back on the same workers (see render_and_ocr). The two
+        # phases overlap, so their times are the workers' busy seconds spread over the workers - roughly their
+        # share of the wall clock, adding up to about the real total.
+        print(f"ocr pages={pdf_page_count(pdf)} workers={workers} cpus={_available_cpus():.1f} streaming", flush=True)
+        pngs, results, shas, r_busy, o_busy = render_and_ocr(pdf, imgdir, ocr_dir, workers, progress=progress)
+        if timing is not None:
+            timing["render"] = timing.get("render", 0.0) + r_busy / workers
+            timing["ocr"] = timing.get("ocr", 0.0) + o_busy / workers
+        return [Page(i, str(png), text, words, sha=sha)
+                for i, (png, (text, words), sha) in enumerate(zip(pngs, results, shas), 1)]
+    if pngs is None:
+        pngs = render_pdf(pdf, imgdir)
     if timing is not None:
         timing["render"] = timing.get("render", 0.0) + (time.time() - t0)
     t1 = time.time()
@@ -231,7 +315,6 @@ def load_pdf(pdf: Path, workdir: Path, progress=None, timing: dict | None = None
         raise RuntimeError(
             f"{pdf.name}: read {len(pngs)} page(s) but the PDF has {want}. Stopping rather than auditing a "
             "partial pack - delete the cached render under .cache and try again.")
-    ocr_dir = workdir / "ocr"
     jobs = []  # (page number, png path, content hash, cache path)
     for i, png in enumerate(pngs, 1):
         sha = sha1_file(png)
@@ -242,7 +325,6 @@ def load_pdf(pdf: Path, workdir: Path, progress=None, timing: dict | None = None
             shutil.copy(legacy, cache)
         jobs.append((i, png, sha, cache))
 
-    workers = _ocr_workers()
     print(f"ocr pages={len(jobs)} workers={workers} cpus={_available_cpus():.1f}", flush=True)  # no content: just sizing
     results: list = [None] * len(jobs)
     if workers > 1 and len(jobs) > 1:
