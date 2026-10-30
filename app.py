@@ -119,6 +119,8 @@ st.markdown("""
 [class*="viewerBadge"], a[href^="https://streamlit.io/cloud"] {display:none !important}
 .block-container {padding-top:2.2rem; max-width:1180px}
 .tl-brand {font-size:1.7rem; font-weight:700; letter-spacing:-.02em; margin:0}
+.tl-dl {display:block; text-align:center; padding:.45rem .6rem; border:1px solid rgba(128,128,128,.4); border-radius:.5rem; text-decoration:none !important; font-weight:600; color:inherit !important}
+.tl-dl:hover {border-color:#ff4b4b; color:#ff4b4b !important}
 .tl-sub {color:var(--text-color); opacity:.65; margin:.1rem 0 1.1rem}
 .tl-banner {border-radius:14px; padding:18px 22px; margin:.4rem 0 1rem; border:1px solid rgba(128,128,128,.25);
             border-left-width:8px}
@@ -567,12 +569,21 @@ head, dl1, dl2 = st.columns([5, 1.2, 1.2])
 with head:
     st.markdown(f"<p class='tl-brand'>{out['bidder']}</p><p class='tl-sub'>RFQ {req.reference} &middot; "
                 f"{out['pack']} &middot; {len(pages)} pages &middot; {out['secs']:.0f} s</p>", unsafe_allow_html=True)
+
+
+def _download_link(label: str, data: str, file_name: str, mime: str) -> None:
+    """A download button whose file travels inside the page itself (a data: link), not via Streamlit's
+    st.download_button, which serves the file from the memory of the one server that built the report - a
+    redeploy or a second Cloud Run instance then answers the click with 404 and the report is lost."""
+    b64 = base64.b64encode(data.encode("utf-8")).decode("ascii")
+    st.markdown(f"<a class='tl-dl' download='{file_name}' href='data:{mime};base64,{b64}'>{label}</a>",
+                unsafe_allow_html=True)
+
+
 with dl1:
-    st.download_button("Report (HTML)", out["html"], file_name="tenderlens_report.html", mime="text/html",
-                       width="stretch")
+    _download_link("Report (HTML)", out["html"], "tenderlens_report.html", "text/html")
 with dl2:
-    st.download_button("Data (JSON)", out["json"], file_name="tenderlens_report.json", mime="application/json",
-                       width="stretch")
+    _download_link("Data (JSON)", out["json"], "tenderlens_report.json", "application/json")
 
 st.caption(DISCLAIMER_SHORT)
 if out.get("check_mode") == "fast":
