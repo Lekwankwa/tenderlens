@@ -1153,16 +1153,13 @@ class Auditor:
         sev = {"crossed_out": "medium", "overwritten": "medium", "annotation": "medium", "rotated": "low",
                "cut_off": "medium", "illegible": "low"}
         found = 0
-        unconfirmed: list[str] = []
         for key, (_q, _q2, title) in F.INSPECTIONS.items():
             for f in self.f.all(f"inspect.{key}"):
                 page = self.by_no[f.page]
                 form = DOC_LABEL.get(page.doc_type, "page")
-                if f.source == "vision" and f.confidence <= 0.4 and not f.verified:
-                    # a second, differently worded look disagreed: a lead that did not hold up is counted in one line
-                    # below, not listed as a finding of its own
-                    unconfirmed.append(f"{title} on {form} (page {f.page})")
-                    continue
+                # A lead the second look did not confirm is still listed, as an observation: the second look is the
+                # same model asked again, and in a scored run it disagreed with two real tampers (the correction
+                # fluid on SBD 8 and the clipped declaration page), so hiding such leads loses true findings.
                 found += 1
                 corroborated = ""
                 if key in self._NEEDS_IMAGE_CORROBORATION:
@@ -1187,10 +1184,6 @@ class Auditor:
                       + (f" ({f.note})" if f.note else "") + ". Handwriting similarity is a lead, not proof: people "
                       "sign differently on different days.", "Look at the two signatures side by side.", "",
                       [self.E(f.page, "signature", source=f.source)], tier="observation")
-        if unconfirmed:
-            self.res.human_only.append(
-                f"{len(unconfirmed)} possible finding(s) from the vision check were not confirmed by a second, "
-                "differently worded look and are not reported as findings: " + "; ".join(unconfirmed) + ".")
         log = self.f.vision_log
         if log.get("pages_inspected") and not found:
             self.ok(f"Vision check of {log['pages_inspected']} handwritten pages: nothing crossed out, overwritten, "

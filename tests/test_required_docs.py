@@ -178,11 +178,11 @@ def _inspection_auditor(**leads):
     return Auditor(Requirements(), pages, facts, BLANK_DIR)
 
 
-def test_a_lead_the_second_look_did_not_confirm_is_counted_not_listed():
+def test_a_lead_the_second_look_did_not_confirm_is_still_listed_as_an_observation():
     a = _inspection_auditor(**{"inspect.cut_off": (0.4, False)})
     a.vision_inspection()
-    assert not [f for f in a.res.findings if "cut off" in f.title.lower()]
-    assert any("not confirmed" in line and "cut off" in line.lower() for line in a.res.human_only)
+    found = next(f for f in a.res.findings if "cut off" in f.title.lower())
+    assert found.tier == "observation"
 
 
 def test_a_confirmed_cut_off_page_is_described_as_a_scan_problem_not_an_amendment():

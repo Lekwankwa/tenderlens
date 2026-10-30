@@ -185,7 +185,7 @@ def render_html(req: Requirements, res: AuditResult, facts: Facts, pages: list[P
             out.append(f"<div class=k>Source / rule</div><p class=mut>{e(fnd.rule)}</p>")
         if fnd.evidence:
             out.append("<div class=k>Evidence</div><div class=ev>")
-            for ev in fnd.evidence[:4]:
+            for ev in fnd.evidence[:8]:
                 cited.add(ev.page)
                 dt = DOC_LABEL.get(res.page_types.get(ev.page, ""), "")
                 cap = f"Pack page {ev.page}" + (f" &middot; {e(dt)}" if dt else "") + (f" &middot; {e(ev.note)}" if ev.note else "")
