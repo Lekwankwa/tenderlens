@@ -198,3 +198,13 @@ def test_stage_times_are_recorded(tmp_path):
                                         vision=LlamaClient(base_url="", model=""))
     assert "render" in facts.stage_times and "ocr" in facts.stage_times and "text_model" in facts.stage_times
     assert all(v >= 0 for v in facts.stage_times.values())  # real measurements, never negative/guessed
+
+
+def test_vision_concurrency_defaults_to_25_and_stays_within_1_to_32(monkeypatch):
+    from tenderlens.llm import vision_concurrency
+    monkeypatch.delenv("TENDERLENS_VISION_CONCURRENCY", raising=False)
+    assert vision_concurrency() == 25
+    monkeypatch.setenv("TENDERLENS_VISION_CONCURRENCY", "500")
+    assert vision_concurrency() == 32
+    monkeypatch.setenv("TENDERLENS_VISION_CONCURRENCY", "junk")
+    assert vision_concurrency() == 25

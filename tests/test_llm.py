@@ -453,3 +453,50 @@ def test_reasoning_effort_is_sent_when_set_and_ignored_when_invalid(mock, monkey
     m2 = mock([ok({"ok": True})])
     client(m2).complete_json("sys", "u")
     assert "reasoning_effort" not in m2.requests[0]
+
+
+# --------------------------------------------------------------------------- image encoding for the model
+
+def _noisy_page(path):
+    import random
+    random.seed(0)
+    im = Image.new("L", (400, 500))
+    im.putdata([random.randint(120, 255) for _ in range(400 * 500)])  # scan-like grain: PNG cannot shrink it
+    im.save(path)
+
+
+def _flat_page(path):
+    Image.new("RGB", (400, 500), "white").save(path)  # born-digital: PNG is already tiny
+
+
+def test_a_scanned_page_goes_out_as_a_much_smaller_jpeg(tmp_path):
+    from tenderlens.llm import encode_image
+    _noisy_page(tmp_path / "scan.png")
+    mime, raw = encode_image(tmp_path / "scan.png", 85)
+    assert mime == "image/jpeg" and raw[:2] == b"\xff\xd8"
+    assert len(raw) < (tmp_path / "scan.png").stat().st_size * 0.75
+
+
+def test_a_page_where_jpeg_would_not_help_is_sent_as_the_original_png(tmp_path):
+    from tenderlens.llm import encode_image
+    _flat_page(tmp_path / "flat.png")
+    mime, raw = encode_image(tmp_path / "flat.png", 85)
+    assert mime == "image/png" and raw == (tmp_path / "flat.png").read_bytes()
+
+
+def test_jpeg_quality_zero_always_sends_the_png(tmp_path):
+    from tenderlens.llm import encode_image
+    _noisy_page(tmp_path / "scan.png")
+    assert encode_image(tmp_path / "scan.png", 0)[0] == "image/png"
+
+
+def test_the_request_carries_the_encoded_mime_type(mock, tmp_path, monkeypatch):
+    monkeypatch.delenv("TENDERLENS_VISION_JPEG_QUALITY", raising=False)
+    _noisy_page(tmp_path / "scan.png")
+    m = mock([ok({"ok": True})])
+    client(m).complete_json("sys", "u", images=[str(tmp_path / "scan.png")])
+    assert m.requests[0]["messages"][1]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+    monkeypatch.setenv("TENDERLENS_VISION_JPEG_QUALITY", "0")
+    m2 = mock([ok({"ok": True})])
+    client(m2).complete_json("sys", "u", images=[str(tmp_path / "scan.png")])
+    assert m2.requests[0]["messages"][1]["content"][1]["image_url"]["url"].startswith("data:image/png;base64,")

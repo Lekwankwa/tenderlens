@@ -392,7 +392,8 @@ if run:
                 check_mode="fast" if fast_mode else "complete", complete=complete,
                 pages_failed=sorted(facts.vision_log.get("failed_pages") or []) if facts else [],
                 vision_calls=run_vision.calls, vision_retries=run_vision.retries, text_retries=llm.retries,
-                credit_used=credit_used)
+                credit_used=credit_used, seconds=time.time() - t0,
+                stages=dict(facts.stage_times) if facts else None)
         except Exception:
             pass  # the log must never be why a run fails
 

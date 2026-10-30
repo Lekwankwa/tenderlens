@@ -42,3 +42,13 @@ def test_record_appends_rather_than_overwriting(tmp_path):
         check_log.record(check_mode="complete", complete=True, pages_failed=[], vision_calls=i,
                          vision_retries=0, text_retries=0, credit_used=True, path=path)
     assert len(path.read_text().strip().splitlines()) == 3
+
+
+def test_record_can_carry_total_and_per_stage_seconds(tmp_path, capsys):
+    path = tmp_path / "check_log.jsonl"
+    check_log.record(check_mode="complete", complete=True, pages_failed=[], vision_calls=5, vision_retries=0,
+                     text_retries=0, credit_used=False, seconds=41.234, stages={"ocr": 3.04, "vision_first": 12.96},
+                     path=path)
+    row = json.loads(path.read_text().strip())
+    assert row["seconds"] == 41.2 and row["stages"] == {"ocr": 3.0, "vision_first": 13.0}
+    assert capsys.readouterr().out.startswith("check_log {")  # also on stdout, which Cloud Run keeps

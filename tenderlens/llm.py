@@ -34,6 +34,11 @@ Other:
         nothing, so the model uses its own default. For reasoning models on Fireworks (Muse Spark Open cannot
         switch reasoning off, but "low" cut a full-page read from 6.6s to 3.7s with the same answer in a test).
         Only set it on an endpoint that accepts the parameter, and compare accuracy on a real pack first.
+    TENDERLENS_VISION_JPEG_QUALITY   default 85. Page images are sent as JPEG of this quality when that is clearly
+        smaller than the PNG (on real scanned pages about 2.3x smaller); a page where it is not (a clean
+        born-digital one) is sent as the PNG, unchanged. 0 = always send the PNG. Only what is sent changes: the
+        page files on disk, OCR and the local ink/signature checks still use the original PNG.
+    TENDERLENS_VISION_CONCURRENCY    page reads in flight at once, default 25 (1-32).
     TENDERLENS_LLM_TIMEOUT      seconds per call (default 300: a laptop CPU reading a page image is slow)
     TENDERLENS_LLM_JSON_MODE    1 (default) asks the server for strict JSON; 0 turns that off if it ever refuses it
     TENDERLENS_LLM_PRICE_IN/_OUT, TENDERLENS_VISION_PRICE_IN/_OUT
@@ -165,6 +170,8 @@ class LlamaClient:
         self.timeout = float(timeout or (e("TENDERLENS_PRIMARY_TIMEOUT", "60") if self.fallback is not None
                                          else e("TENDERLENS_LLM_TIMEOUT", "300")))
         self.json_mode = e("TENDERLENS_LLM_JSON_MODE", "1") != "0"
+        q = e("TENDERLENS_VISION_JPEG_QUALITY", "85").strip()
+        self.jpeg_quality = max(0, min(95, int(q))) if q.isdigit() else 85
         effort = e(f"TENDERLENS_{prefix}_REASONING_EFFORT", "").strip().lower()
         self.reasoning_effort = effort if effort in ("low", "medium", "high") else ""
         self.price_in = _num(e(f"TENDERLENS_{prefix}_PRICE_IN", ""))
@@ -271,8 +278,9 @@ class LlamaClient:
             )
         content: list[dict] = [{"type": "text", "text": user}]
         for img in images or []:
-            b64 = base64.b64encode(Path(img).read_bytes()).decode()
-            content.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}})
+            mime, raw = encode_image(img, self.jpeg_quality)
+            content.append({"type": "image_url",
+                            "image_url": {"url": f"data:{mime};base64,{base64.b64encode(raw).decode()}"}})
         body = {
             "model": self.model,
             "temperature": 0,
@@ -343,13 +351,38 @@ class LlamaClient:
             return f"{type(err).__name__}: {str(err)[:200]}"
 
 
+_JPEG_MUST_BE_THIS_FRACTION_OF_PNG = 0.75
+
+
+def encode_image(path, jpeg_quality: int) -> tuple[str, bytes]:
+    """(mime type, bytes) to send for the page image at `path`: a JPEG when that is at least a quarter smaller
+    than the PNG, otherwise the PNG exactly as it is on disk (always the answer when jpeg_quality is 0, or if
+    the image cannot be re-encoded). Lossy compression is never used where it would not save anything."""
+    png = Path(path).read_bytes()
+    if jpeg_quality <= 0:
+        return "image/png", png
+    try:
+        import io
+        from PIL import Image
+        with Image.open(io.BytesIO(png)) as im:
+            buf = io.BytesIO()
+            im.convert("RGB").save(buf, "JPEG", quality=jpeg_quality)
+        jpg = buf.getvalue()
+    except Exception:  # noqa: BLE001 - sending the original is always a safe fallback
+        return "image/png", png
+    if len(jpg) < len(png) * _JPEG_MUST_BE_THIS_FRACTION_OF_PNG:
+        return "image/jpeg", jpg
+    return "image/png", png
+
+
 def vision_concurrency() -> int:
-    """TENDERLENS_VISION_CONCURRENCY, default 8, clamped to [1, 32]."""
-    raw = os.environ.get("TENDERLENS_VISION_CONCURRENCY", "8").strip()
+    """TENDERLENS_VISION_CONCURRENCY, default 25, clamped to [1, 32]. Measured against Fireworks with 25 identical
+    full-page reads: 25 at a time finished in 18 s, 8 at a time in 53 s, with no rate-limit errors either way."""
+    raw = os.environ.get("TENDERLENS_VISION_CONCURRENCY", "25").strip()
     try:
         n = int(raw)
     except ValueError:
-        n = 8
+        n = 25
     return max(1, min(32, n))
 
 
