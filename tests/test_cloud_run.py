@@ -59,12 +59,12 @@ def test_gcs_upload_path_renders_without_a_simulated_upload(monkeypatch):
     from tenderlens import storage
     _blank_env(monkeypatch)
     monkeypatch.setenv("GCS_BUCKET", "fake-test-bucket")
-    monkeypatch.setenv("MAX_UPLOAD_MB", "300")
+    monkeypatch.setenv("MAX_UPLOAD_MB", "100")
     storage.set_backend_for_testing(object())  # must never actually be called in this test
     try:
         at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
         assert not at.exception
-        assert any("Files up to 300 MB each" in c.value for c in at.caption)
+        assert any("Files up to 100 MB each" in c.value for c in at.caption)
         assert any(b.label == "Audit the pack" and b.disabled for b in at.button)
     finally:
         storage.set_backend_for_testing(None)

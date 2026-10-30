@@ -12,7 +12,7 @@ request; see the Step 1 docs findings for why.
 
 Config:
     GCS_BUCKET               the one private bucket uploads go to
-    MAX_UPLOAD_MB             default 300. Decimal MB (1 MB = 1,000,000 bytes), applied to EACH file
+    MAX_UPLOAD_MB             default 100. Decimal MB (1 MB = 1,000,000 bytes), applied to EACH file
                               separately (the tender document and the response pack each get this limit).
     UPLOAD_RETENTION_DAYS     default 7. A bucket lifecycle rule (see deploy notes) deletes objects after
                               this many days; this module does not enforce it itself.
@@ -20,10 +20,10 @@ Config:
 What GCS does and does NOT enforce for you: there is no documented header on a resumable session's
 initiating request that GCS itself uses to reject an oversized upload - that header
 (x-goog-content-length-range) exists only for signed POST Policy documents, a different, non-resumable
-upload mechanism unsuitable for a 300 MB file on an unstable connection. So the real size enforcement here
+upload mechanism unsuitable for a 100 MB file on an unstable connection. So the real size enforcement here
 happens in exactly one place that matters: finalize_upload() reads the object's REAL size from GCS metadata
 after the browser says it's done, and deletes + refuses the job if it's over the limit. The browser-side
-check and the claimed size sent at session creation are both real UX (an honest client won't upload 300 MB
+check and the claimed size sent at session creation are both real UX (an honest client won't upload 100 MB
 just to be told no), but neither is a security boundary - do not treat them as one.
 """
 from __future__ import annotations
@@ -49,7 +49,7 @@ def gcs_bucket() -> str:
 
 
 def max_upload_mb() -> int:
-    return int(os.environ.get("MAX_UPLOAD_MB", "300"))
+    return int(os.environ.get("MAX_UPLOAD_MB", "100"))
 
 
 def max_upload_bytes() -> int:
