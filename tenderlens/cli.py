@@ -10,7 +10,7 @@ from datetime import date
 from pathlib import Path
 
 from .audit import Auditor
-from .facts import (CROP_VERIFY_ENABLED, Facts, inspect_pages, load_transcript, ocr_facts, signature_match,
+from .facts import (CROP_VERIFY_ENABLED, Facts, combined_first_pass, combined_vision_enabled, inspect_pages, load_transcript, ocr_facts, signature_match,
                     verify_identifiers, verify_yesno, vision_extract, vision_precheck)
 from .ingest import classify_pages, load_pdf, load_templates, page_count_estimate, pdf_page_count
 from .llm import LlamaClient, load_env
@@ -97,10 +97,10 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
             # by side with them, not after. Each writes to its own Facts and timing, folded back below in the
             # order the steps used to run one after another - so the report comes out the same; only the wait
             # is shorter. The vision client caps calls in flight across all three (see LlamaClient._slots).
-            side: list[tuple[Facts, dict, threading.Thread]] = []
+            side: list[tuple[int, Facts, dict, threading.Thread]] = []
             errors: list[BaseException] = []
 
-            def start(step):
+            def start(order, step):
                 f, t = facts.branch(), {}
 
                 def run():
@@ -110,18 +110,27 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
                         errors.append(err)
                 th = threading.Thread(target=run, daemon=True)
                 th.start()
-                side.append((f, t, th))
+                side.append((order, f, t, th))
 
+            first_progress = (lambda d, t: progress("vision_first", d, t)) if progress else None
             if inspect != "off":
-                start(lambda f, t: inspect_pages(vision, pages, f, passes, progress=checks, timing=t))
-                start(lambda f, t: signature_match(vision, pages, f, progress=checks, timing=t))
+                start(2, lambda f, t: signature_match(vision, pages, f, progress=checks, timing=t))
+            first = None
+            if combined_vision_enabled():
+                # one call per form page for both the field reading and the inspection questions (see
+                # facts.combined_first_pass) - half the page images sent, so less queuing at the provider
+                first = combined_first_pass(vision, pages, facts, local_content=req.local_content_required,
+                                            inspect=inspect != "off", progress=first_progress, timing=timing)
+            if inspect != "off":
+                start(1, lambda f, t: inspect_pages(vision, pages, f, passes, progress=checks, timing=t,
+                                                    first_answers=first))
             vision_extract(vision, pages, facts, local_content=req.local_content_required, verify=passes >= 2,
-                           progress=(lambda d, t: progress("vision_first", d, t)) if progress else None,
-                           timing=timing)
+                           progress=None if first is not None else first_progress, timing=timing,
+                           first_answers=first)
             if passes >= 2 and CROP_VERIFY_ENABLED:
                 verify_identifiers(vision, pages, facts)
                 verify_yesno(vision, pages, facts)
-            for f, t, th in side:
+            for _, f, t, th in sorted(side, key=lambda x: x[0]):  # inspection's facts, then the signatures'
                 th.join()
                 facts.merge(f)
                 for k, v in t.items():

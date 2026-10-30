@@ -9,6 +9,7 @@ every finding so a reviewer knows what to double-check:
 from __future__ import annotations
 
 import json
+import os
 import re
 import threading
 import time
@@ -529,8 +530,113 @@ def _second_look(llm: LlamaClient, facts: Facts, page: Page, entry: F.Entry, fac
     _apply_second_look(fact, entry, data)
 
 
+def _forms_here(pages: list[Page], local_content: bool) -> list[tuple[str, list, list[Page]]]:
+    out = []
+    for dtype, raw_entries in F.FORMS.items():
+        entries = [e for e in raw_entries if local_content or not e.applies]
+        pgs = [p for p in pages if p.doc_type == dtype]
+        if pgs and entries:
+            out.append((dtype, entries, pgs))
+    return out
+
+
+_FIELDS_HOW = ("write what is handwritten, ticked or stamped on THIS page. Use \"not on this page\" if the "
+               "field is not on this page, \"blank\" if it is on this page but nothing is written in it, \"unreadable\" if you "
+               "cannot read it. For yes/no questions answer exactly Yes, No, Both (both boxes marked) or blank. "
+               "Dates: copy them as written.")
+_QUESTIONS_HOW = "answer exactly yes or no. Say yes only if you can clearly see it."
+
+
+def _fields_prompt(p: Page, dtype: str, entries) -> str:
+    fields = {e.key: f"[{e.kind}] {e.desc}" for e in entries}
+    return (f"This image is page {p.number} of a bid pack and belongs to the form '{dtype}'. For EACH field "
+            f"listed, {_FIELDS_HOW} Return JSON of the form {{\"<field>\": \"<answer>\"}}.\nFields:\n"
+            + json.dumps(fields, indent=1))
+
+
+def _questions_prompt(p: Page, qs: dict) -> str:
+    return (f"This image is page {p.number} of a bid pack (form '{p.doc_type}'). Answer each question with "
+            "exactly yes or no. Say yes only if you can clearly see it. Return JSON {\"<key>\": \"yes\" or "
+            "\"no\"}.\n" + json.dumps(qs, indent=1))
+
+
+def _signing_pages(pages: list[Page]) -> dict[int, str]:
+    signing = {}
+    for dtype, idx in F.SIGNING_PAGE.items():
+        pgs = [p for p in pages if p.doc_type == dtype]
+        if pgs:
+            signing[pgs[idx].number] = dtype
+    return signing
+
+
+def _inspection_questions(p: Page, pages: list[Page], signing: dict[int, str]):
+    """(questions for this page, the non-AI cut-off check's verdict or None)."""
+    from . import vision as V
+    qs = {k: v[0] for k, v in F.INSPECTIONS.items()}
+    cutoff = V.page_cutoff(p, pages)
+    if cutoff is not None:
+        qs.pop("cut_off", None)
+    if p.number in signing:
+        qs["signature_seen"] = ("Is there a handwritten pen signature (not a typed name, and not only a printed "
+                                "line) beside or above the word 'Signature'?")
+    return qs, cutoff
+
+
+def combined_vision_enabled() -> bool:
+    """TENDERLENS_VISION_COMBINED, on by default: '0' goes back to separate field-reading and inspection calls."""
+    return os.environ.get("TENDERLENS_VISION_COMBINED", "1").strip() != "0"
+
+
+def combined_first_pass(llm: LlamaClient, pages: list[Page], facts: Facts, local_content: bool = True,
+                        inspect: bool = True, progress=None, timing: dict | None = None) -> dict[int, dict]:
+    """ONE vision call per form page that both reads the handwritten fields (what vision_extract asks) and
+    answers the inspection questions (what inspect_pages asks), instead of sending the same page image twice.
+    Returns {page number: answer}; vision_extract and inspect_pages then take their first readings from it
+    (first_answers=...) and carry on exactly as before - merging, second looks, findings. A page with only
+    fields, or only questions, gets the same prompt it always did."""
+    t0 = time.time()
+    by_page: dict[int, dict] = {}
+    for dtype, entries, pgs in _forms_here(pages, local_content):
+        for p in pgs:
+            by_page.setdefault(p.number, {"page": p})["fields"] = (dtype, entries)
+    if inspect:
+        signing = _signing_pages(pages)
+        for p in pages:
+            if p.doc_type in F.INSPECTION_FORMS:
+                by_page.setdefault(p.number, {"page": p})["qs"] = _inspection_questions(p, pages, signing)[0]
+
+    def prompt(item):
+        p, fields, qs = item["page"], item.get("fields"), item.get("qs")
+        if fields and not qs:
+            return _fields_prompt(p, *fields)
+        if qs and not fields:
+            return _questions_prompt(p, qs)
+        dtype, entries = fields
+        return (f"This image is page {p.number} of a bid pack and belongs to the form '{dtype}'. Answer BOTH parts "
+                f"below in ONE JSON object.\nPart 1 - for EACH field listed under Fields, {_FIELDS_HOW}\n"
+                f"Part 2 - for EACH question listed under Questions, {_QUESTIONS_HOW}\n"
+                "Return JSON {\"<field or question key>\": \"<answer>\"} with every key from both lists.\nFields:\n"
+                + json.dumps({e.key: f"[{e.kind}] {e.desc}" for e in entries}, indent=1)
+                + "\nQuestions:\n" + json.dumps(qs, indent=1))
+
+    items = [by_page[n] for n in sorted(by_page)]
+    done = [0]
+
+    def tick():
+        done[0] += 1
+        if progress:
+            progress(done[0], len(items))
+
+    tasks = [(lambda it=it: _ask(llm, facts, prompt(it), [it["page"].image_path], page_no=it["page"].number))
+             for it in items]
+    results = run_concurrent(tasks, vision_concurrency(), tick)
+    if timing is not None:
+        timing["vision_first"] = timing.get("vision_first", 0.0) + (time.time() - t0)
+    return {it["page"].number: data for it, data in zip(items, results)}
+
+
 def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_content: bool = True,
-                   verify: bool = True, progress=None, timing: dict | None = None):
+                   verify: bool = True, progress=None, timing: dict | None = None, first_answers: dict | None = None):
     """Read every handwritten entry in forms.FORMS. One call per PAGE (small local models cope badly with
     several images and long answers), then merge: a value on any page beats a 'blank' on another, because
     each entry lives on one page only. Any reading that would raise an issue gets a second look, all run as
@@ -546,12 +652,7 @@ def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_cont
     every form (not reset per form) - so it tracks the "vision first readings" stage as a whole."""
     from collections import Counter
 
-    forms_here = []
-    for dtype, raw_entries in F.FORMS.items():
-        entries = [e for e in raw_entries if local_content or not e.applies]
-        pgs = [p for p in pages if p.doc_type == dtype]
-        if pgs and entries:
-            forms_here.append((dtype, entries, pgs))
+    forms_here = _forms_here(pages, local_content)
     total_pages = sum(len(pgs) for _, _, pgs in forms_here)
     done = [0]
 
@@ -562,21 +663,15 @@ def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_cont
 
     t0 = time.time()
     pending: list[tuple[F.Entry, Fact, Page]] = []
-    def make_prompt(p, dtype, entries):
-        fields = {e.key: f"[{e.kind}] {e.desc}" for e in entries}
-        return (
-            f"This image is page {p.number} of a bid pack and belongs to the form '{dtype}'. For EACH field "
-            "listed, write what is handwritten, ticked or stamped on THIS page. Use \"not on this page\" if the "
-            "field is not on this page, \"blank\" if it is on this page but nothing is written in it, \"unreadable\" if you "
-            "cannot read it. For yes/no questions answer exactly Yes, No, Both (both boxes marked) or blank. "
-            "Dates: copy them as written. Return JSON of the form {\"<field>\": \"<answer>\"}.\nFields:\n"
-            + json.dumps(fields, indent=1))
-
-    # Every form's pages in ONE concurrent wave (they used to go one form at a time - about eight short waves
-    # back to back), then each form's answers are handled in the same order as before.
-    tasks = [(lambda p=p, d=dtype, en=entries: _ask(llm, facts, make_prompt(p, d, en), [p.image_path], page_no=p.number))
-             for dtype, entries, pgs in forms_here for p in pgs]
-    answers = iter(run_concurrent(tasks, vision_concurrency(), tick))
+    if first_answers is not None:  # already read by combined_first_pass, together with the inspection questions
+        answers = iter([first_answers.get(p.number) for _, _, pgs in forms_here for p in pgs])
+    else:
+        # Every form's pages in ONE concurrent wave (they used to go one form at a time - about eight short
+        # waves back to back), then each form's answers are handled in the same order as before.
+        tasks = [(lambda p=p, d=dtype, en=entries: _ask(llm, facts, _fields_prompt(p, d, en), [p.image_path],
+                                                        page_no=p.number))
+                 for dtype, entries, pgs in forms_here for p in pgs]
+        answers = iter(run_concurrent(tasks, vision_concurrency(), tick))
     for dtype, entries, pgs in forms_here:
         reads: dict[str, list] = {}
         datas = [next(answers) for _ in pgs]
@@ -807,7 +902,7 @@ def verify_yesno(llm: LlamaClient, pages: list[Page], facts: Facts) -> None:
 
 
 def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int = 2, progress=None,
-                  timing: dict | None = None) -> None:
+                  timing: dict | None = None, first_answers: dict | None = None) -> None:
     """Ask a vision model what no rule can see: crossed-out print, correction fluid, notes in the margin, pages
     that are rotated or cut off, scans too poor to read, and whether the signing line holds a real pen signature.
     A 'yes' is a lead. With passes=2 it is repeated as a differently worded question and only a second 'yes'
@@ -817,29 +912,18 @@ def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int
     function (not just its second-look wave) counts as "vision second looks and checks" in `timing` -
     "vision first readings" is specifically vision_extract's reading of the forms' own fields."""
     t_start = time.time()
-    from . import vision as V
-    signing = {}
-    for dtype, idx in F.SIGNING_PAGE.items():
-        pgs = [p for p in pages if p.doc_type == dtype]
-        if pgs:
-            signing[pgs[idx].number] = dtype
+    signing = _signing_pages(pages)
 
     targets = []  # (page, its own question set)
     for p in pages:
         if p.doc_type not in F.INSPECTION_FORMS:
             continue
-        qs = {k: v[0] for k, v in F.INSPECTIONS.items()}
-        cutoff = V.page_cutoff(p, pages)
-        if cutoff is not None:
+        qs, cutoff = _inspection_questions(p, pages, signing)
+        if cutoff:
             # settled without a model call: a real cut-off page is reported directly, a clearly whole one
             # is simply not asked about (Step 4.5 - "use the vision model only if that check cannot decide")
-            qs.pop("cut_off", None)
-            if cutoff:
-                facts.add("inspect.cut_off", True, p.number, "image", 0.95, verified=True,
-                          note="confirmed by a non-AI check of the page size and margins, not a vision reading")
-        if p.number in signing:
-            qs["signature_seen"] = ("Is there a handwritten pen signature (not a typed name, and not only a printed "
-                                    "line) beside or above the word 'Signature'?")
+            facts.add("inspect.cut_off", True, p.number, "image", 0.95, verified=True,
+                      note="confirmed by a non-AI check of the page size and margins, not a vision reading")
         targets.append((p, qs))
 
     done = [0]
@@ -849,14 +933,12 @@ def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int
         if progress:
             progress(done[0], len(targets))
 
-    def make_prompt(p, qs):
-        return (f"This image is page {p.number} of a bid pack (form '{p.doc_type}'). Answer each question with "
-                "exactly yes or no. Say yes only if you can clearly see it. Return JSON {\"<key>\": \"yes\" or "
-                "\"no\"}.\n" + json.dumps(qs, indent=1))
-
-    tasks = [(lambda p=p, qs=qs: _ask(llm, facts, make_prompt(p, qs), [p.image_path], page_no=p.number))
-            for p, qs in targets]
-    datas = run_concurrent(tasks, vision_concurrency(), tick)
+    if first_answers is not None:  # already asked by combined_first_pass, together with the field reading
+        datas = [first_answers.get(p.number) for p, _ in targets]
+    else:
+        tasks = [(lambda p=p, qs=qs: _ask(llm, facts, _questions_prompt(p, qs), [p.image_path], page_no=p.number))
+                 for p, qs in targets]
+        datas = run_concurrent(tasks, vision_concurrency(), tick)
 
     pending: list[tuple[Fact, Page, str]] = []
     for (p, qs), data in zip(targets, datas):

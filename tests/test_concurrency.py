@@ -275,3 +275,29 @@ def test_first_readings_of_every_form_go_out_in_one_wave(tmp_path, monkeypatch):
     llm = Tracking()
     vision_extract(llm, pages, Facts(), verify=False)
     assert llm.peak == 6  # sbd4's 3 pages and sbd8's 3 pages in flight together
+
+
+def test_one_combined_call_per_page_gives_the_same_facts_with_half_the_calls(tmp_path):
+    """combined_first_pass asks the field reading and the inspection questions in one call per form page; the
+    facts that come out must match the old separate calls exactly, given the same answers."""
+    from tenderlens.facts import combined_first_pass
+    pages = _blank_pages(tmp_path, 3, doc_type="sbd4")
+    answer = {"sbd4.name_field": "Excel Supply Holdings", "sbd4.q2_7_state_employed": "Yes", "crossed_out": "yes",
+              "overwritten": "no", "annotation": "no", "rotated": "no", "cut_off": "no", "illegible": "no",
+              "signature_seen": "yes", "answer": "yes"}
+    answers = {p.image_path: answer for p in pages}
+
+    def snapshot(f):
+        return [(x.field, x.value, x.page, x.source, x.verified, x.confidence) for x in f.items]
+
+    separate, llm_a = Facts(), _Scripted(answers)
+    vision_extract(llm_a, pages, separate, verify=True)
+    inspect_pages(llm_a, pages, separate, passes=2)
+
+    combined, llm_b = Facts(), _Scripted(answers)
+    first = combined_first_pass(llm_b, pages, combined)
+    vision_extract(llm_b, pages, combined, verify=True, first_answers=first)
+    inspect_pages(llm_b, pages, combined, passes=2, first_answers=first)
+
+    assert snapshot(combined) == snapshot(separate)
+    assert llm_b.calls == llm_a.calls - len(pages)  # one first-reading call per page instead of two
