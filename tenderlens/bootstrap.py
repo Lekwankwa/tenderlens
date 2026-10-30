@@ -36,7 +36,9 @@ def is_local(base_url: str) -> bool:
 def remote_warning(vision: LlamaClient) -> str:
     host = urlparse(vision.base_url).hostname or ""
     if vision.configured and host not in ("localhost", "127.0.0.1", "::1"):
-        return (f"NOTE: page images of the bid (IDs, tax numbers, signatures, unredacted) are sent to {host}, "
+        fb = getattr(vision, "fallback", None)
+        also = f" (and to {urlparse(fb.base_url).hostname} if that fails)" if fb is not None and fb.configured else ""
+        return (f"NOTE: page images of the bid (IDs, tax numbers, signatures, unredacted) are sent to {host}{also}, "
                 "a third party (USA).")
     return ""
 

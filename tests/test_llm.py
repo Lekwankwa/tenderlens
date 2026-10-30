@@ -367,3 +367,50 @@ def test_a_504_is_never_retried(mock, monkeypatch):
         c.complete_json("sys", "u")
     assert exc.value.status_code == 504
     assert len(m.requests) == 1  # not retried - Meta's own guidance: retrying 504 as-is just times out again
+
+
+# --------------------------------------------------------------------------- Modal -> Fireworks failover
+
+def lanes(primary, fallback, **kw):
+    fb = LlamaClient(base_url=fallback.url, model="fw-model", api_key="fw-key", prefix="FALLBACK", fallback=False)
+    return LlamaClient(base_url=primary.url, model="modal-model", api_key="m-key", prefix="VISION", fallback=fb, **kw)
+
+
+@pytest.mark.parametrize("status", [429, 503, 504])
+def test_primary_failure_switches_to_the_fallback_at_once(mock, monkeypatch, status):
+    sleeps = []
+    monkeypatch.setattr("tenderlens.llm.time.sleep", sleeps.append)
+    p, f = mock([(status, {"error": "x"})]), mock([ok({"page": 1})])
+    c = lanes(p, f)
+    assert c.complete_json("sys", "u") == {"page": 1}
+    assert len(p.requests) == 1 and len(f.requests) == 1 and sleeps == []  # no back-off wait
+    assert c.fallback_calls == 1 and c.prompt_tokens == 10
+
+
+def test_a_down_primary_is_skipped_during_the_cooldown(mock):
+    p, f = mock([(503, {"error": "x"})]), mock([ok({"ok": True})])
+    c = lanes(p, f)
+    for _ in range(5):
+        c.complete_json("sys", "u")
+    assert len(p.requests) == 1 and len(f.requests) == 5
+
+
+def test_a_bad_request_does_not_fail_over(mock):
+    p, f = mock([(401, {"error": "bad key"})]), mock([ok({"ok": True})])
+    with pytest.raises(LLMError):
+        lanes(p, f).complete_json("sys", "u")
+    assert f.requests == []
+
+
+def test_no_fallback_configured_behaves_as_before(mock, monkeypatch):
+    monkeypatch.delenv("FIREWORKS_MODEL", raising=False)
+    p = mock([(503, {"error": "x"})])
+    c = LlamaClient(base_url=p.url, model="m", api_key="k", prefix="VISION")
+    assert c.fallback is None and c.retry_waits == (2.0, 5.0, 15.0)
+
+
+def test_fireworks_lane_is_built_from_env(monkeypatch):
+    monkeypatch.setenv("FIREWORKS_MODEL", "accounts/x/models/y")
+    monkeypatch.setenv("FIREWORKS_API_KEY", "k")
+    c = LlamaClient(base_url="http://a/v1", model="m", prefix="VISION")
+    assert c.fallback.base_url == "https://api.fireworks.ai/inference/v1" and c.retry_waits == ()

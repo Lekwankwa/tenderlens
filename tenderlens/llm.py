@@ -15,6 +15,13 @@ is the one case that typically needs these set separately (a small text model, a
     MUSE_VISION_MODEL  e.g. muse-spark-1.3
     META_VISION_API_KEY
 
+Optional Modal -> Fireworks lanes (page-image reading only; the text client never fails over):
+    MODAL_API_BASE, MODAL_MODEL, MODAL_API_KEY   used for the vision model when META_VISION_* is not set
+    FIREWORKS_MODEL (+ FIREWORKS_API_KEY, FIREWORKS_API_BASE default https://api.fireworks.ai/inference/v1)
+        when set, a primary-lane timeout / connection failure / 429 / 5xx is logged and the SAME request is
+        sent to Fireworks at once (no back-off wait), and the primary is skipped for TENDERLENS_LANE_COOLDOWN
+        seconds (default 30) so a down lane costs one timeout, not one per page. Unset = no failover.
+
 Other:
     TENDERLENS_LLM_TIMEOUT      seconds per call (default 300: a laptop CPU reading a page image is slow)
     TENDERLENS_LLM_JSON_MODE    1 (default) asks the server for strict JSON; 0 turns that off if it ever refuses it
@@ -27,6 +34,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import os
 import re
 import ssl
@@ -71,6 +79,9 @@ def load_env() -> None:
 
 
 load_env()
+
+
+log = logging.getLogger("tenderlens.llm")
 
 
 class LLMUnavailable(RuntimeError):
@@ -121,7 +132,7 @@ def _read_error_body(err: urllib.error.HTTPError, api_key: str) -> str:
 
 
 class LlamaClient:
-    def __init__(self, base_url=None, model=None, api_key=None, timeout=None, prefix="LLM"):
+    def __init__(self, base_url=None, model=None, api_key=None, timeout=None, prefix="LLM", fallback=None):
         e = os.environ.get
         # prefix selects META_VISION_* over META_* (vision reads page images; text reads the buyer's
         # documents) - unset vision config falls back to the text client, below, so one multimodal model
@@ -133,9 +144,13 @@ class LlamaClient:
         # `is not None`, not `or`: an explicitly passed "" (used to force an unconfigured client, e.g.
         # --no-vision or a test that must never touch a real endpoint) must NOT fall through to the
         # environment the way an omitted argument does - "" or env() would silently ignore that override.
-        self.base_url = (base_url if base_url is not None else e(env_base, "")).rstrip("/")
-        self.model = model if model is not None else e(env_model, "")
-        self.api_key = api_key if api_key is not None else e(env_key, "")
+        modal = prefix == "VISION"  # a Modal-hosted vision model is picked up when META_VISION_* is unset
+        self.base_url = (base_url if base_url is not None else (e(env_base, "") or (e("MODAL_API_BASE", "") if modal else ""))).rstrip("/")
+        self.model = model if model is not None else (e(env_model, "") or (e("MODAL_MODEL", "") if modal else ""))
+        self.api_key = api_key if api_key is not None else (e(env_key, "") or (e("MODAL_API_KEY", "") if modal else ""))
+        self.fallback = (fallback or None) if fallback is not None else (self._fireworks_lane(timeout) if modal else None)
+        self.fallback_calls = 0
+        self._lane_down_until = 0.0
         self.timeout = float(timeout or e("TENDERLENS_LLM_TIMEOUT", "300"))
         self.json_mode = e("TENDERLENS_LLM_JSON_MODE", "1") != "0"
         self.price_in = _num(e(f"TENDERLENS_{prefix}_PRICE_IN", ""))
@@ -149,6 +164,17 @@ class LlamaClient:
         # Vision reads pages one at a time across a whole pack, so a slower, longer-patience schedule costs
         # far less relative to the run than it would for the one-shot text (requirements) call.
         self.retry_waits = (2.0, 5.0, 15.0) if prefix == "VISION" else (1.0, 2.0, 4.0)
+        if self.fallback is not None:
+            self.retry_waits = ()  # fail over at once instead of waiting out back-off on the failing lane
+
+    @staticmethod
+    def _fireworks_lane(timeout=None) -> "LlamaClient | None":
+        e = os.environ.get
+        model = e("FIREWORKS_MODEL", "").strip()
+        if not model:
+            return None
+        return LlamaClient(base_url=e("FIREWORKS_API_BASE", "https://api.fireworks.ai/inference/v1"), model=model,
+                           api_key=e("FIREWORKS_API_KEY", ""), timeout=timeout, prefix="FALLBACK", fallback=False)
 
     @property
     def estimated_cost(self) -> float | None:
@@ -236,6 +262,32 @@ class LlamaClient:
         }
         with self._lock:
             self.calls += 1
+        if self.fallback is not None and self.fallback.configured:
+            if time.monotonic() < self._lane_down_until:
+                return self._via_fallback(system, user, images, None)
+            try:
+                return self._complete(body)
+            except LLMError as err:
+                if err.status_code not in (None, 429) and not (err.status_code and err.status_code >= 500):
+                    raise  # a bad key / malformed request fails the same way on the other lane
+                with self._lock:
+                    self._lane_down_until = time.monotonic() + float(os.environ.get("TENDERLENS_LANE_COOLDOWN", "30"))
+                return self._via_fallback(system, user, images, err)
+        return self._complete(body)
+
+    def _via_fallback(self, system, user, images, cause) -> dict:
+        if cause is not None:
+            log.error("ALERT primary lane failed (%s); switching to fallback %s", cause, self.fallback.base_url)
+        with self._lock:
+            self.fallback_calls += 1
+        out = self.fallback.complete_json(system, user, images)
+        with self._lock:  # fold the fallback's usage into this client's totals for the report
+            self.prompt_tokens, self.completion_tokens = (self.prompt_tokens + self.fallback.prompt_tokens,
+                                                          self.completion_tokens + self.fallback.completion_tokens)
+        self.fallback.prompt_tokens = self.fallback.completion_tokens = 0
+        return out
+
+    def _complete(self, body: dict) -> dict:
         try:
             if self.json_mode:
                 try:
