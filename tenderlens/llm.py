@@ -15,9 +15,10 @@ is the one case that typically needs these set separately (a small text model, a
     MUSE_VISION_MODEL  e.g. muse-spark-1.3
     META_VISION_API_KEY
 
-Optional Modal -> Fireworks lanes (page-image reading only; the text client never fails over):
-    MODAL_API_BASE, MODAL_MODEL, MODAL_API_KEY   used for the vision model when META_VISION_* is not set
-    FIREWORKS_MODEL (+ FIREWORKS_API_KEY, FIREWORKS_API_BASE default https://api.fireworks.ai/inference/v1)
+Optional Modal -> Fireworks lanes (both the text and the vision client):
+    MODAL_API_BASE, MODAL_MODEL, MODAL_API_KEY   used when the matching META_* / META_VISION_* variables are not set
+        e.g. MODAL_MODEL=meta-models/Muse-Spark-Open-816B-A42B (the endpoint URL is your own Modal deployment's)
+    FIREWORKS_MODEL e.g. accounts/fireworks/models/muse-spark-open (+ FIREWORKS_API_KEY, FIREWORKS_API_BASE default https://api.fireworks.ai/inference/v1)
         when set, a primary-lane timeout / connection failure / 429 / 5xx is logged and the SAME request is
         sent to Fireworks at once (no back-off wait), and the primary is skipped for TENDERLENS_LANE_COOLDOWN
         seconds (default 30) so a down lane costs one timeout, not one per page. Unset = no failover.
@@ -144,7 +145,7 @@ class LlamaClient:
         # `is not None`, not `or`: an explicitly passed "" (used to force an unconfigured client, e.g.
         # --no-vision or a test that must never touch a real endpoint) must NOT fall through to the
         # environment the way an omitted argument does - "" or env() would silently ignore that override.
-        modal = prefix == "VISION"  # a Modal-hosted vision model is picked up when META_VISION_* is unset
+        modal = prefix in ("VISION", "LLM")  # a Modal-hosted model is picked up when the META_* vars are unset
         self.base_url = (base_url if base_url is not None else (e(env_base, "") or (e("MODAL_API_BASE", "") if modal else ""))).rstrip("/")
         self.model = model if model is not None else (e(env_model, "") or (e("MODAL_MODEL", "") if modal else ""))
         self.api_key = api_key if api_key is not None else (e(env_key, "") or (e("MODAL_API_KEY", "") if modal else ""))
