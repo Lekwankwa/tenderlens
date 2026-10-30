@@ -162,10 +162,10 @@ def test_disclaimers_and_the_no_issues_line_appear_in_the_report():
 from PIL import Image
 
 from tenderlens.ingest import Word
-from tenderlens.llm import LlamaClient
+from tenderlens.llm import ModelClient
 
 
-class _Scripted(LlamaClient):
+class _Scripted(ModelClient):
     """Answers each call in order, from a fixed script - no network."""
 
     def __init__(self, answers):
@@ -303,7 +303,7 @@ def test_a_decided_cutoff_page_is_not_sent_to_the_vision_model(tmp_path):
     short_page = Page(4, str(short_img), doc_type="sbd4")
     pages = normal_pages + [short_page]
 
-    class CountingScript(LlamaClient):
+    class CountingScript(ModelClient):
         def __init__(self):
             super().__init__(base_url="http://scripted", model="scripted")
             self.seen_keys = []
@@ -398,7 +398,7 @@ def test_witness_signatures_on_a_last_page_field_ignore_a_stray_reading_elsewher
     assert next(e for e in sbd61 if e.key == "sbd6_1.witness_signatures").where == "last"
     pages = [Page(3, "p3.png", doc_type="sbd6_1"), Page(7, "p7.png", doc_type="sbd6_1")]
 
-    class WitnessScript(LlamaClient):
+    class WitnessScript(ModelClient):
         def __init__(self):
             super().__init__(base_url="http://scripted", model="scripted")
 

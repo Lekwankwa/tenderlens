@@ -21,7 +21,7 @@ import tamper as T
 from PIL import Image
 from tenderlens.cli import audit_pack
 from tenderlens.ingest import classify_pages, load_pdf
-from tenderlens.llm import LlamaClient
+from tenderlens.llm import ModelClient
 
 OUT, S = T.ROOT / "out", T.S
 
@@ -108,7 +108,7 @@ def main():
     OUT.mkdir(exist_ok=True)
     pdf = OUT / "tampered_pack_full.pdf"
     T.build(T.PACK, ops, pdf)
-    vision = LlamaClient.for_vision(LlamaClient())
+    vision = ModelClient.for_vision(ModelClient())
     req, res, facts, _ = audit_pack(S / "rfq" / "rfq_email.pdf", S / "rfq" / "spec_0310.pdf", pdf, S / "blank",
                                     None if vision.configured else T.TRANSCRIPT, T.WORK)
     issues = [f for f in res.findings if f.tier == "issue"]

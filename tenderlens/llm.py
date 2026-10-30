@@ -1,39 +1,16 @@
-"""Thin client for Meta's Model API (Muse Spark) - TenderLens's only hosted model provider. Also works
-against any other OpenAI-compatible chat endpoint (e.g. Ollama on your own laptop - see OLLAMA.md), since
-nothing here is actually Meta-specific beyond the env var names and the defaults in .env.example.
+"""Client for Fireworks AI's OpenAI-compatible chat API - TenderLens's only model provider. One multimodal model
+(Muse Spark Open) reads both the buyer's documents (text) and the scanned pages (vision).
 
-Text model (reads the buyer's documents):
-    META_API_BASE   e.g. https://api.meta.ai/v1   or  http://localhost:11434/v1 (Ollama)
-    MUSE_MODEL      e.g. muse-spark-1.3
-    META_API_KEY
-
-Vision model (reads the scanned pages: ticks, handwriting, stamps). Optional: when these are not set the
-vision model is the same as the text model, so one multimodal model (Muse Spark) can do both - that is the
-default setup in .env.example: one model, same base URL and key, for both roles. Self-hosting with Ollama
-is the one case that typically needs these set separately (a small text model, a different multimodal one):
-    META_VISION_BASE   e.g. https://api.meta.ai/v1
-    MUSE_VISION_MODEL  e.g. muse-spark-1.3
-    META_VISION_API_KEY
-
-Optional backup lane (both the text and the vision client). Fireworks AI is the primary today
-(META_API_BASE=https://api.fireworks.ai/inference/v1); a Modal-hosted model can be the primary instead:
-    MODAL_API_BASE, MODAL_MODEL, MODAL_API_KEY   used when the matching META_* / META_VISION_* variables are not set
-        e.g. MODAL_MODEL=meta-models/Muse-Spark-Open-816B-A42B (the endpoint URL is your own Modal deployment's)
-    TOGETHER_MODEL e.g. meta-models/Muse-Spark-Open-816B-A42B (+ TOGETHER_API_KEY, TOGETHER_API_BASE default
-        https://api.together.ai/v1), or FIREWORKS_MODEL e.g. accounts/fireworks/models/muse-spark-open
-        (+ FIREWORKS_API_KEY, FIREWORKS_API_BASE default https://api.fireworks.ai/inference/v1) when Fireworks
-        is NOT the primary. When set, a primary-lane timeout / connection failure / 429 / 5xx is logged and the
-        SAME request is sent to the backup at once (no back-off wait), and the primary is skipped for
-        TENDERLENS_LANE_COOLDOWN seconds (default 30) so a down lane costs one timeout, not one per page.
-        While a backup is set the primary's per-call timeout is TENDERLENS_PRIMARY_TIMEOUT (default 60s)
-        instead of TENDERLENS_LLM_TIMEOUT, so a stalled lane hands over quickly. Unset = no failover. A backup
-        on the same endpoint as the primary is ignored.
+    FIREWORKS_API_KEY    the key (required; without it the client is "not configured")
+    FIREWORKS_MODEL      default accounts/fireworks/models/muse-spark-open
+    FIREWORKS_API_BASE   default https://api.fireworks.ai/inference/v1 (point it at a local OpenAI-compatible
+                         server, e.g. Ollama's http://localhost:11434/v1, to run without the hosted model - see OLLAMA.md)
 
 Other:
-    TENDERLENS_LLM_REASONING_EFFORT / TENDERLENS_VISION_REASONING_EFFORT   low | medium | high. Unset (default) sends
-        nothing, so the model uses its own default. For reasoning models on Fireworks (Muse Spark Open cannot
-        switch reasoning off, but "low" cut a full-page read from 6.6s to 3.7s with the same answer in a test).
-        Only set it on an endpoint that accepts the parameter, and compare accuracy on a real pack first.
+    TENDERLENS_LLM_REASONING_EFFORT / TENDERLENS_VISION_REASONING_EFFORT   low | medium | high. Default "low" on
+        Fireworks, nothing on any other endpoint. Muse Spark Open cannot switch reasoning off ("none" is rejected);
+        "low" halved the buyer-requirements step (about 55 s to 27 s, identical checklist in 6 runs) and a full-page
+        read (6.6 s to 3.7 s), and found 60 of the 61 testable defects in the tampered answer-key pack.
     TENDERLENS_VISION_JPEG_QUALITY   default 85. Page images are sent as JPEG of this quality when that is clearly
         smaller than the PNG (on real scanned pages about 2.3x smaller); a page where it is not (a clean
         born-digital one) is sent as the PNG, unchanged. 0 = always send the PNG. Only what is sent changes: the
@@ -43,7 +20,7 @@ Other:
     TENDERLENS_LLM_JSON_MODE    1 (default) asks the server for strict JSON; 0 turns that off if it ever refuses it
     TENDERLENS_LLM_PRICE_IN/_OUT, TENDERLENS_VISION_PRICE_IN/_OUT
         US$ per million tokens, input/output. Unset by default - we never invent a price. Set these (see
-        .env.example for the figures as published on Meta's own pricing page, at the time they were checked)
+        .env.example for the figures as listed for the model on Fireworks, at the time they were checked)
         to see an estimated cost alongside the token totals; leave them unset to see token totals only.
 """
 from __future__ import annotations
@@ -147,32 +124,28 @@ def _read_error_body(err: urllib.error.HTTPError, api_key: str) -> str:
     return raw or err.reason or ""
 
 
-class LlamaClient:
-    def __init__(self, base_url=None, model=None, api_key=None, timeout=None, prefix="LLM", fallback=None):
+FIREWORKS_BASE = "https://api.fireworks.ai/inference/v1"
+FIREWORKS_MODEL = "accounts/fireworks/models/muse-spark-open"
+
+
+class ModelClient:
+    def __init__(self, base_url=None, model=None, api_key=None, timeout=None, prefix="LLM"):
+        """prefix is "LLM" (reads the buyer's documents) or "VISION" (reads page images): only the per-role price and
+        reasoning-effort settings differ - both use the same Fireworks endpoint, model and key."""
         e = os.environ.get
-        # prefix selects META_VISION_* over META_* (vision reads page images; text reads the buyer's
-        # documents) - unset vision config falls back to the text client, below, so one multimodal model
-        # (Muse Spark) can serve both roles without duplicating config. No in-code default for base_url/model:
-        # a bare, unconfigured checkout must come up as "not configured", not as "configured, but every call
-        # 401s" - the actual default values live in .env.example, which the user copies in explicitly.
-        env_base, env_model, env_key = (("META_VISION_BASE", "MUSE_VISION_MODEL", "META_VISION_API_KEY")
-                                        if prefix == "VISION" else ("META_API_BASE", "MUSE_MODEL", "META_API_KEY"))
         # `is not None`, not `or`: an explicitly passed "" (used to force an unconfigured client, e.g.
         # --no-vision or a test that must never touch a real endpoint) must NOT fall through to the
-        # environment the way an omitted argument does - "" or env() would silently ignore that override.
-        modal = prefix in ("VISION", "LLM")  # a Modal-hosted model is picked up when the META_* vars are unset
-        self.base_url = (base_url if base_url is not None else (e(env_base, "") or (e("MODAL_API_BASE", "") if modal else ""))).rstrip("/")
-        self.model = model if model is not None else (e(env_model, "") or (e("MODAL_MODEL", "") if modal else ""))
-        self.api_key = api_key if api_key is not None else (e(env_key, "") or (e("MODAL_API_KEY", "") if modal else ""))
-        self.fallback = (fallback or None) if fallback is not None else (self._backup_lane(timeout) if modal else None)
-        self.fallback_calls = 0
-        self._lane_down_until = 0.0
-        self.timeout = float(timeout or (e("TENDERLENS_PRIMARY_TIMEOUT", "60") if self.fallback is not None
-                                         else e("TENDERLENS_LLM_TIMEOUT", "300")))
+        # defaults the way an omitted argument does - "" or default would silently ignore that override.
+        self.base_url = (base_url if base_url is not None else e("FIREWORKS_API_BASE", "") or FIREWORKS_BASE).rstrip("/")
+        self.model = model if model is not None else e("FIREWORKS_MODEL", "") or FIREWORKS_MODEL
+        self.api_key = api_key if api_key is not None else e("FIREWORKS_API_KEY", "")
+        self.timeout = float(timeout or e("TENDERLENS_LLM_TIMEOUT", "300"))
         self.json_mode = e("TENDERLENS_LLM_JSON_MODE", "1") != "0"
         q = e("TENDERLENS_VISION_JPEG_QUALITY", "85").strip()
         self.jpeg_quality = max(0, min(95, int(q))) if q.isdigit() else 85
         effort = e(f"TENDERLENS_{prefix}_REASONING_EFFORT", "").strip().lower()
+        if not effort and "fireworks.ai" in self.base_url:
+            effort = "low"
         self.reasoning_effort = effort if effort in ("low", "medium", "high") else ""
         self.price_in = _num(e(f"TENDERLENS_{prefix}_PRICE_IN", ""))
         self.price_out = _num(e(f"TENDERLENS_{prefix}_PRICE_OUT", ""))
@@ -191,24 +164,6 @@ class LlamaClient:
         # far less relative to the run than it would for the one-shot text (requirements) call.
         self.retry_waits = (2.0, 5.0, 15.0) if prefix == "VISION" else (1.0, 2.0, 4.0)
 
-    @staticmethod
-    def _backup_lane(timeout=None) -> "LlamaClient | None":
-        e = os.environ.get
-        for name, default_base in (("TOGETHER", "https://api.together.ai/v1"),
-                                   ("FIREWORKS", "https://api.fireworks.ai/inference/v1")):
-            model = e(f"{name}_MODEL", "").strip()
-            if model:
-                return LlamaClient(base_url=e(f"{name}_API_BASE", default_base), model=model,
-                                   api_key=e(f"{name}_API_KEY", ""), timeout=timeout or e("TENDERLENS_LLM_TIMEOUT", "300"),
-                                   prefix="FALLBACK", fallback=False)
-        return None
-
-    def _failover_active(self) -> bool:
-        """A usable backup on a DIFFERENT endpoint (a backup identical to the primary would only double the bill).
-        Checked per call, not once in __init__: for_vision() copies the text client's endpoint over afterwards."""
-        fb = self.fallback
-        return fb is not None and fb.configured and fb.base_url != self.base_url
-
     @property
     def estimated_cost(self) -> float | None:
         """US$, or None if no price has been set for this endpoint - we never show a guessed number."""
@@ -217,21 +172,20 @@ class LlamaClient:
         return self.prompt_tokens / 1_000_000 * self.price_in + self.completion_tokens / 1_000_000 * self.price_out
 
     @classmethod
-    def for_vision(cls, text_client: "LlamaClient | None" = None) -> "LlamaClient":
-        """The client that reads page images: META_VISION_* if set, otherwise the text client's config (one
-        Muse Spark model, both roles, by default)."""
-        v = cls(prefix="VISION")
-        if v.configured:
-            return v
+    def for_vision(cls, text_client: "ModelClient | None" = None) -> "ModelClient":
+        """The client that reads page images: the same endpoint, model and key as the text client (one multimodal
+        model does both roles), with its own per-role price and reasoning-effort settings."""
         t = text_client or cls()
-        v.base_url, v.model, v.api_key = t.base_url, t.model, t.api_key
+        v = cls(prefix="VISION", base_url=t.base_url, model=t.model, api_key=t.api_key)
         if v.price_in is None:
             v.price_in, v.price_out = t.price_in, t.price_out
         return v
 
     @property
     def configured(self) -> bool:
-        return bool(self.base_url and self.model)
+        """An endpoint, a model, and - for the hosted Fireworks endpoint - a key. Without FIREWORKS_API_KEY the app
+        comes up as "not configured", not as "configured, but every call is refused with a 401"."""
+        return bool(self.base_url and self.model and (self.api_key or "fireworks.ai" not in self.base_url))
 
     def _post(self, body: dict) -> dict:
         req = urllib.request.Request(
@@ -245,9 +199,9 @@ class LlamaClient:
         # 429 ("model busy") and 5xx are the provider's shared capacity at that moment, not a real outage -
         # often gone within seconds, so retried with back-off before this call counts as failed. 504 is the
         # one 5xx excluded: it means THIS request ran too long, so an unchanged retry just times out again
-        # the same way (Meta's own error-handling docs: reduce input/output size or stream instead). Anything
+        # the same way (the provider's guidance: reduce input/output size or stream instead). Anything
         # else (a bad key, a malformed request, ...) fails immediately: retrying it can't help.
-        waits = () if self._failover_active() else self.retry_waits  # with a backup, hand over at once
+        waits = self.retry_waits
         for attempt in range(len(waits) + 1):
             try:
                 with self._slots, urllib.request.urlopen(req, timeout=self.timeout, context=_HTTPS_CTX) as r:
@@ -278,9 +232,7 @@ class LlamaClient:
 
     def complete_json(self, system: str, user: str, images: list[str] | None = None) -> dict:
         if not self.configured:
-            raise LLMUnavailable(
-                "No model endpoint configured. Set META_API_BASE and MUSE_MODEL."
-            )
+            raise LLMUnavailable("No model configured. Set FIREWORKS_API_KEY.")
         content: list[dict] = [{"type": "text", "text": user}]
         for img in images or []:
             mime, raw = encode_image(img, self.jpeg_quality)
@@ -298,30 +250,7 @@ class LlamaClient:
             body["reasoning_effort"] = self.reasoning_effort
         with self._lock:
             self.calls += 1
-        if self._failover_active():
-            if time.monotonic() < self._lane_down_until:
-                return self._via_fallback(system, user, images, None)
-            try:
-                return self._complete(body)
-            except LLMError as err:
-                if err.status_code not in (None, 429) and not (err.status_code and err.status_code >= 500):
-                    raise  # a bad key / malformed request fails the same way on the other lane
-                with self._lock:
-                    self._lane_down_until = time.monotonic() + float(os.environ.get("TENDERLENS_LANE_COOLDOWN", "30"))
-                return self._via_fallback(system, user, images, err)
         return self._complete(body)
-
-    def _via_fallback(self, system, user, images, cause) -> dict:
-        if cause is not None:
-            log.error("ALERT primary lane failed (%s); switching to fallback %s", cause, self.fallback.base_url)
-        with self._lock:
-            self.fallback_calls += 1
-        out = self.fallback.complete_json(system, user, images)
-        with self._lock:  # fold the fallback's usage into this client's totals for the report
-            self.prompt_tokens, self.completion_tokens = (self.prompt_tokens + self.fallback.prompt_tokens,
-                                                          self.completion_tokens + self.fallback.completion_tokens)
-        self.fallback.prompt_tokens = self.fallback.completion_tokens = 0
-        return out
 
     def call_summary(self) -> dict:
         """How long calls took and how many tokens they produced (p50 / p90 / max), for the run log: tells a few
@@ -443,7 +372,7 @@ def run_concurrent(tasks: list, max_workers: int, on_done=None) -> list:
 
 
 def parse_json_loose(text: str) -> dict:
-    """Llama sometimes wraps JSON in prose or code fences; pull the object out."""
+    """Models sometimes wrap JSON in prose or code fences; pull the object out."""
     text = text.strip()
     fence = re.search(r"```(?:json)?\s*(\{.*\})\s*```", text, re.S)
     if fence:

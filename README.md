@@ -20,12 +20,12 @@ text model, vision model, each Ready or Missing) with a button that does the sam
 app. `python -m tenderlens check-llm` does the same checks from the command line.
 
 ## Flow
-1. **Requirements** (`requirements.py`): Meta Llama reads the RFQ (the cover email/letter and, if the buyer sent them
+1. **Requirements** (`requirements.py`): the AI model reads the RFQ (the cover email/letter and, if the buyer sent them
    as separate files, its attachments - up to 10, concatenated in order) and the spec, and returns a JSON checklist.
    Every item must carry a verbatim `source_quote`; items whose quote is not in the source are dropped.
    A rules pass runs alongside as a cross-check and as the offline fallback. Disagreements are recorded, not hidden.
 2. **Response facts** (`ingest.py`, `facts.py`): scans are OCR'd (Tesseract). Handwriting and ticks are read by a
-   multimodal Llama model (`vision_extract`) or, if none is attached, from a manual transcription file.
+   multimodal AI model (`vision_extract`) or, if none is attached, from a manual transcription file.
    Every fact is tagged `ocr`, `vision` or `manual`.
 3. **Audit** (`audit.py`, `vision.py`): ordinary code, so results are repeatable. Checks: required documents and page
    counts, signatures, unresolved template blanks (bidder vs buyer), SBD 6.2 consistency, cross-document identifiers,
@@ -119,30 +119,23 @@ SBD 6.2 and Annexure C are only treated as required when the *buyer's* documents
 sector or a stated threshold). The RFQ's "where there is local content" wording alone does not trigger them, and neither
 does a percentage the bidder wrote on a form. Override with `--local-content yes|no`.
 
-## Using Muse Spark
-TenderLens's only hosted model provider is **Meta's Model API**, with **one model for both steps: Muse Spark**
-(multimodal; text and vision use the same base URL, model and key on purpose). Settings go in `.env` (copy
-`.env.example`; needs `python-dotenv`, in `requirements-dev.txt`) or the environment; real environment
-variables win over the file either way:
+## Using Fireworks AI (Muse Spark Open)
+TenderLens's only model provider is **Fireworks AI**, with **one model for both steps: Muse Spark Open**
+(`accounts/fireworks/models/muse-spark-open`; multimodal, so text and vision use the same endpoint, model and key).
+The endpoint and model are built in; the key is the only setting. Put it in `.env` (copy `.env.example`; needs
+`python-dotenv`, in `requirements-dev.txt`) or the environment; real environment variables win over the file:
 ```
-export META_API_BASE=https://api.meta.ai/v1
-export MUSE_MODEL=muse-spark-1.3
-export META_API_KEY=...
+export FIREWORKS_API_KEY=...
 ```
-With no endpoint set the tool runs rules-only and says so at the top of the report. `check-llm` tests both
-endpoints with one tiny call each; `eval-vision` scores the vision model against a manual transcript. Token
-totals (and an estimated cost, if you've set a price per million tokens) are printed by `run` and shown in
-the app's "How this was read" tab.
+With no key the tool runs rules-only and says so at the top of the report. `check-llm` tests the endpoint
+with one tiny call; `eval-vision` scores the vision model against a manual transcript. Token totals (and an
+estimated cost, if you've set a price per million tokens) are printed by `run` and shown in the app's "How this
+was read" tab.
 
 **Local alternative: Ollama.** Self-hosting keeps bid documents on your own infrastructure, at the cost of
-being much slower on ordinary laptop hardware (see "Known limits") and needing a smaller local model (a
-small text model plus a separately-configured `META_VISION_*` multimodal one - see `.env.example`, since a
-local setup typically can't run one model large enough for both roles the way Muse Spark does hosted). The
-client code is provider-agnostic (any OpenAI-compatible chat endpoint works, including Ollama's), only the
-env var names and `.env.example` defaults are Meta-specific. Step-by-step setup, `check-llm`/`eval-vision`
-with Ollama, and a known Ollama bug with `llama3.2-vision` (`unknown model architecture: 'mllama'`, not this
-project's bug - see [ollama/ollama#16490](https://github.com/ollama/ollama/issues/16490)) are all in
-`OLLAMA.md`.
+being much slower on ordinary laptop hardware (see "Known limits") and needing a smaller local model. The client
+speaks the OpenAI-compatible chat API, so pointing `FIREWORKS_API_BASE` and `FIREWORKS_MODEL` at Ollama works.
+Step-by-step setup is in `OLLAMA.md`.
 
 ## Privacy
 `samples/response` and `samples/rfq` hold real identifiers and are git-ignored. Analysis runs on the originals; images in the
@@ -150,7 +143,7 @@ report have IDs, tax numbers, bank numbers, phone numbers, PINs, handwritten ID/
 signatures blacked out. `--strict-redact` also masks registration and CSD numbers. `--no-redact` is for private use only.
 Redaction is layered but not perfect: look at the report before you share it.
 
-**With a hosted model connected (Meta's Model API), page images are NOT redacted before being sent** - the model
+**With the hosted model connected (Fireworks AI), page images are NOT redacted before being sent** - the model
 has to see the handwriting, IDs and signatures to read them. That's a third party outside South Africa. The app
 shows a short reminder of this near the upload boxes; self-hosting with Ollama (see `OLLAMA.md`) keeps everything
 on your own machine instead.
@@ -203,7 +196,7 @@ from, not a cache of it.
   against a real pack's page images.** The vision path is tested with a scripted stand-in for the model
   (`tests/test_vision.py`), which proves the prompts' answers are parsed, cleaned, merged, double-checked and
   tiered correctly, but not how well Muse Spark specifically reads these scans - that's what `eval-vision` and
-  a real pack run are for. Sample reports in this repo's history were produced with Llama 4 Scout, before the
+  a real pack run are for. Sample reports in this repo's history were produced with an earlier model, before the
   switch to Muse Spark.
 - Tesseract misreads things (it read "5/2/1" as "5/2/4"). See the rule above; the report lists what was set aside.
 - Without a vision model, a pen strike-through over printed text and scribbles in white space inside a form are not detected
@@ -227,7 +220,7 @@ from, not a cache of it.
 ## Hosting on Google Cloud Run
 The pilot runs as a container on Google Cloud Run (Johannesburg - `africa-south1`), instead of Streamlit
 Community Cloud, to get past that host's throttling. **Documents are processed on Google Cloud (Johannesburg);
-page images are still sent to Meta's Model API (USA) for the vision model to read, same as every other
+page images are still sent to Fireworks AI (USA) for the vision model to read, same as every other
 deployment of this app** - the pilot terms shown in the app say so when this is how it's hosted
 (`TENDERLENS_HOSTING_NOTE`, set by `deploy.sh`).
 
@@ -235,18 +228,16 @@ deployment of this app** - the pilot terms shown in the app say so when this is 
 ```
 docker build -t tenderlens .
 docker run -p 8080:8080 --memory=4g --cpus=2 \
-  -e META_API_BASE=https://api.meta.ai/v1 \
-  -e MUSE_MODEL=muse-spark-1.3 \
-  -e META_API_KEY=your-key-here \
+  -e FIREWORKS_API_KEY=your-key-here \
   tenderlens
 ```
-Open `http://localhost:8080`. Leave the `META_*` variables out entirely to bring it up with no model
+Open `http://localhost:8080`. Leave `FIREWORKS_API_KEY` out entirely to bring it up with no model
 configured (the System panel shows what's missing; nothing paid runs) - useful for a first smoke test.
 
 **Deploy:**
 1. Install the `gcloud` CLI and run `gcloud auth login`.
 2. Set a budget alert *before* deploying anything (see the command list below).
-3. `export GCP_PROJECT_ID=...` and `export META_API_KEY=...` (your own shell, never a committed file).
+3. `export GCP_PROJECT_ID=...` and `export FIREWORKS_API_KEY=...` (your own shell, never a committed file).
 4. `./deploy.sh` - reads `deploy.sh` first; it explains every flag and is safe to re-run.
 
 **Update:** change the code, then run `./deploy.sh` again - it rebuilds the image, pushes a new tag, and
@@ -269,7 +260,7 @@ skip that and verify on Cloud Run directly, install the `gcloud` CLI instead and
 - Tested up to about 40 pages at this scan quality within the 4 GiB / 2 vCPU instance; larger packs may be
   slow or run out of memory.
 - A few minutes per pack for a Complete check is normal, not a hang.
-- "The AI service is busy right now..." means Meta's Model API shared capacity is saturated, not that this
+- "The AI service is busy right now..." means Fireworks AI's shared capacity is saturated, not that this
   deployment is down - see the retry/incomplete-check handling earlier in this README.
 - No 300-page tenders yet. That needs direct-to-storage upload (not through the app server), batching the
   pages, and a background job instead of one request held open for the whole run - none of that exists yet.
@@ -298,7 +289,7 @@ gcloud config set project YOUR_PROJECT_ID
 
 # 3. Set the required variables in your own shell (never in a committed file)
 export GCP_PROJECT_ID=YOUR_PROJECT_ID
-export META_API_KEY=YOUR_META_API_KEY
+export FIREWORKS_API_KEY=YOUR_FIREWORKS_API_KEY
 
 # 4. Deploy
 ./deploy.sh

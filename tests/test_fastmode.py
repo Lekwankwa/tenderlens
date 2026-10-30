@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tenderlens.audit import AuditResult
 from tenderlens.cli import audit_pack
 from tenderlens.facts import Facts
-from tenderlens.llm import LlamaClient
+from tenderlens.llm import ModelClient
 from tenderlens.report import VISION_DEPENDENT_CHECKS, render_html
 from tenderlens.requirements import Requirements
 
@@ -30,9 +30,9 @@ def _make_pdf(path: Path, text: str = "") -> Path:
 def test_fast_check_makes_zero_vision_calls(tmp_path):
     rfq = _make_pdf(tmp_path / "rfq.pdf")
     pack = _make_pdf(tmp_path / "pack.pdf")
-    fast_vision = LlamaClient(base_url="", model="")  # what app.py/cli.py pass when Fast check is chosen
+    fast_vision = ModelClient(base_url="", model="")  # what app.py/cli.py pass when Fast check is chosen
     req, res, facts, pages = audit_pack(rfq, None, pack, tmp_path, None, tmp_path / "work",
-                                        llm=LlamaClient(base_url="", model=""), vision=fast_vision)
+                                        llm=ModelClient(base_url="", model=""), vision=fast_vision)
     assert fast_vision.calls == 0
     assert facts.vision_log.get("calls", 0) == 0
 
@@ -57,11 +57,11 @@ def test_render_html_shows_fast_mode_with_the_not_checked_list():
 
 def test_complete_mode_defaults_still_work_like_before(tmp_path):
     """Complete check with no vision model configured behaves exactly as the pipeline always has: it just
-    runs on rules and OCR, nothing crashes. Explicit base_url="" - never LlamaClient.for_vision() here, which
+    runs on rules and OCR, nothing crashes. Explicit base_url="" - never ModelClient.for_vision() here, which
     would fall through to this machine's real TENDERLENS_VISION_* env vars and make a real call."""
     rfq = _make_pdf(tmp_path / "rfq.pdf")
     pack = _make_pdf(tmp_path / "pack.pdf")
     req, res, facts, pages = audit_pack(rfq, None, pack, tmp_path, None, tmp_path / "work",
-                                        llm=LlamaClient(base_url="", model=""),
-                                        vision=LlamaClient(base_url="", model=""))
+                                        llm=ModelClient(base_url="", model=""),
+                                        vision=ModelClient(base_url="", model=""))
     assert facts.vision_log.get("calls", 0) == 0  # no vision configured, same as always

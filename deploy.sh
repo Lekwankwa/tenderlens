@@ -8,7 +8,7 @@
 #
 # Nothing here is a secret or a project ID. Set these in your own shell before running this script:
 #   export GCP_PROJECT_ID=your-project-id
-#   export META_API_KEY=...                 # your Fireworks AI API key - never put this in a file you commit
+#   export FIREWORKS_API_KEY=...            # your Fireworks AI API key - never put this in a file you commit
 #   ./deploy.sh
 #
 # The key is read from Secret Manager at container start, not baked into the image or set as a plain env
@@ -23,7 +23,7 @@ SERVICE_NAME="${TENDERLENS_SERVICE_NAME:-tenderlens}"
 REPO_NAME="${TENDERLENS_REPO_NAME:-tenderlens}"             # Artifact Registry repository name
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:$(date +%Y%m%d-%H%M%S)"
 
-META_API_KEY="${META_API_KEY:?Set META_API_KEY to your Fireworks AI API key first (never commit it)}"
+FIREWORKS_API_KEY="${FIREWORKS_API_KEY:?Set FIREWORKS_API_KEY to your Fireworks AI API key first (never commit it)}"
 
 echo "Project:  $PROJECT_ID"
 echo "Region:   $REGION (Johannesburg)"
@@ -64,9 +64,9 @@ create_or_update_secret() {
     printf '%s' "$value" | gcloud secrets create "$name" --data-file=- --replication-policy=automatic --quiet
   fi
 }
-create_or_update_secret "tenderlens-fireworks-key" "$META_API_KEY"
-SET_SECRETS="META_API_KEY=tenderlens-fireworks-key:latest"
-SET_ENV_VARS="META_API_BASE=https://api.fireworks.ai/inference/v1,MUSE_MODEL=accounts/fireworks/models/muse-spark-open,TENDERLENS_PILOT=1,TENDERLENS_PURGE_HOURS=2,TENDERLENS_HOSTING_NOTE=Documents are processed on Google Cloud (Johannesburg); page images are sent to Fireworks AI (USA) for reading.,GCS_BUCKET=tenderlens-uploads-${PROJECT_ID},GCS_REGION=${REGION},MAX_UPLOAD_MB=100,UPLOAD_RETENTION_DAYS=7"
+create_or_update_secret "tenderlens-fireworks-key" "$FIREWORKS_API_KEY"
+SET_SECRETS="FIREWORKS_API_KEY=tenderlens-fireworks-key:latest"
+SET_ENV_VARS="TENDERLENS_PILOT=1,TENDERLENS_PURGE_HOURS=2,TENDERLENS_HOSTING_NOTE=Documents are processed on Google Cloud (Johannesburg); page images are sent to Fireworks AI (USA) for reading.,GCS_BUCKET=tenderlens-uploads-${PROJECT_ID},GCS_REGION=${REGION},MAX_UPLOAD_MB=100,UPLOAD_RETENTION_DAYS=7"
 
 # ------------------------------------------------------------------------------------- 5. deploy to Cloud Run
 # Resource/scaling choices here are deliberate, not defaults - see README "Hosting on Google Cloud Run":

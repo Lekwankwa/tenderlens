@@ -21,11 +21,11 @@ from test_llm import Mock, ok  # the local mock OpenAI-compatible HTTP server, r
 
 from tenderlens.facts import Facts, inspect_pages, vision_extract
 from tenderlens.ingest import Page, Word
-from tenderlens.llm import LlamaClient, run_concurrent
+from tenderlens.llm import ModelClient, run_concurrent
 
 
 def client(m, **kw):
-    return LlamaClient(base_url=m.url, model="scripted", api_key="sk-test", **kw)
+    return ModelClient(base_url=m.url, model="scripted", api_key="sk-test", **kw)
 
 
 # --------------------------------------------------------------------------- run_concurrent itself
@@ -94,7 +94,7 @@ def test_a_permanently_failing_call_is_isolated_not_fatal_to_the_batch(monkeypat
 
 # --------------------------------------------------------------------------- vision_extract: parallel == sequential
 
-class _Scripted(LlamaClient):
+class _Scripted(ModelClient):
     """A deterministic 'model' keyed by the page image's own path - the same page always answers the same
     way regardless of which thread asks or in what order, so a parallel and a sequential run must produce
     identical facts."""
@@ -194,8 +194,8 @@ def test_stage_times_are_recorded(tmp_path):
     rfq = make_pdf(tmp_path / "rfq.pdf")
     pack = make_pdf(tmp_path / "pack.pdf")
     req, res, facts, pages = audit_pack(rfq, None, pack, tmp_path, None, tmp_path / "work",
-                                        llm=LlamaClient(base_url="", model=""),
-                                        vision=LlamaClient(base_url="", model=""))
+                                        llm=ModelClient(base_url="", model=""),
+                                        vision=ModelClient(base_url="", model=""))
     assert "render" in facts.stage_times and "ocr" in facts.stage_times and "text_model" in facts.stage_times
     assert all(v >= 0 for v in facts.stage_times.values())  # real measurements, never negative/guessed
 
@@ -303,7 +303,7 @@ def test_one_combined_call_per_page_gives_the_same_facts_with_half_the_calls(tmp
     assert llm_b.calls == llm_a.calls - len(pages)  # one first-reading call per page instead of two
 
 
-class _ByPrompt(LlamaClient):
+class _ByPrompt(ModelClient):
     """Answers according to what the prompt asks, so a test can tell the focused call from the question list."""
 
     def __init__(self, rules):

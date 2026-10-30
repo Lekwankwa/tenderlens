@@ -1,5 +1,5 @@
-"""The Llama client against a local mock OpenAI-compatible server: no network, no real key needed.
-Covers what Step 3 of the DeepInfra prompt asked for: a failed call keeps the server's own reason (not just
+"""The model client against a local mock OpenAI-compatible server: no network, no real key needed.
+Covers what Step 3 of the failed-vision-handling fix asked for: a failed call keeps the server's own reason (not just
 the status code, and with the key scrubbed), the vision pre-check stops a run early instead of making every
 call fail the same way, and token totals (and the cost estimate they drive) add up correctly.
 """
@@ -17,7 +17,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tenderlens.facts import Facts, vision_precheck
-from tenderlens.llm import LLMError, LlamaClient, is_rate_limited
+from tenderlens.llm import LLMError, ModelClient, is_rate_limited
 
 
 class Mock:
@@ -75,7 +75,7 @@ def mock():
 
 
 def client(m, **kw):
-    return LlamaClient(base_url=m.url, model="meta-llama/Llama-4-Scout-17B-16E-Instruct", api_key="sk-secret-abc123",
+    return ModelClient(base_url=m.url, model="accounts/fireworks/models/muse-spark-open", api_key="sk-secret-abc123",
                        **kw)
 
 
@@ -140,7 +140,7 @@ def test_vision_precheck_passes_through_when_the_model_answers(tmp_path):
 
 
 def test_vision_precheck_is_a_noop_with_no_pages():
-    c = LlamaClient(base_url="http://127.0.0.1:1", model="x")  # never contacted
+    c = ModelClient(base_url="http://127.0.0.1:1", model="x")  # never contacted
     assert vision_precheck(c, [], Facts()) is True
 
 
@@ -168,13 +168,12 @@ def test_estimated_cost_is_none_without_a_price_and_computed_once_set():
 
 def test_vision_inherits_text_price_when_vision_has_none(monkeypatch):
     for k in list(__import__("os").environ):
-        if k.startswith("TENDERLENS_") or k.startswith("META_") or k.startswith("MUSE_"):
+        if k.startswith("TENDERLENS_") or k.startswith("FIREWORKS_"):
             monkeypatch.delenv(k)
-    monkeypatch.setenv("META_API_BASE", "https://api.meta.ai/v1")
-    monkeypatch.setenv("MUSE_MODEL", "muse-spark-1.3")
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw-key")
     monkeypatch.setenv("TENDERLENS_LLM_PRICE_IN", "0.10")
     monkeypatch.setenv("TENDERLENS_LLM_PRICE_OUT", "0.32")
-    v = LlamaClient.for_vision(LlamaClient())
+    v = ModelClient.for_vision(ModelClient())
     assert v.price_in == 0.10 and v.price_out == 0.32
 
 
@@ -183,10 +182,9 @@ def test_vision_inherits_text_price_when_vision_has_none(monkeypatch):
 def test_explicit_empty_string_disables_a_client_even_with_env_vars_set(monkeypatch):
     """base_url="" (used by --no-vision and by tests that must never touch a real endpoint) must not fall
     through to a real .env/environment value the way an omitted argument correctly does."""
-    monkeypatch.setenv("META_API_BASE", "https://api.meta.ai/v1")
-    monkeypatch.setenv("MUSE_MODEL", "muse-spark-1.3")
-    assert LlamaClient().configured  # the env vars alone do configure a plain client
-    forced_off = LlamaClient(base_url="", model="")
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw-key")
+    assert ModelClient().configured  # the key alone configures a plain client (endpoint and model have defaults)
+    forced_off = ModelClient(base_url="", model="")
     assert not forced_off.configured and forced_off.base_url == "" and forced_off.model == ""
 
 
@@ -270,7 +268,7 @@ def test_a_connection_failure_with_no_http_status_is_retried_like_a_429(monkeypa
     """A timeout or a refused connection never reaches urllib.error.HTTPError (there's no response at all),
     so it needs its own except clause - this is what Step 2 of the failed-vision-handling fix asked for."""
     monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)
-    c = LlamaClient(base_url="http://127.0.0.1:1", model="x", api_key="k")  # nothing listens on port 1
+    c = ModelClient(base_url="http://127.0.0.1:1", model="x", api_key="k")  # nothing listens on port 1
     with pytest.raises(LLMError) as exc:
         c.complete_json("sys", "u")
     assert "refused" in str(exc.value).lower() or "connect" in str(exc.value).lower()
@@ -285,77 +283,77 @@ def test_ping_still_works_through_the_post_level_retry(monkeypatch):
 
 
 def test_is_rate_limited_true_for_a_429_llm_error_by_status_code():
-    assert is_rate_limited(LLMError("HTTP 429 from https://api.meta.ai/v1 (x): Rate exceeded", 429))
+    assert is_rate_limited(LLMError("HTTP 429 from https://api.fireworks.ai/inference/v1 (x): Rate exceeded", 429))
 
 
 def test_is_rate_limited_true_even_without_a_captured_status_code():
     """str(err) is what app.py's error handler actually has to go on in some paths; the "429" digits in
     the message itself are enough even if status_code wasn't threaded through."""
-    assert is_rate_limited(LLMError("HTTP 429 from https://api.meta.ai/v1 (x): Rate exceeded"))
+    assert is_rate_limited(LLMError("HTTP 429 from https://api.fireworks.ai/inference/v1 (x): Rate exceeded"))
 
 
 def test_is_rate_limited_false_for_an_unrelated_llm_error():
-    assert not is_rate_limited(LLMError("HTTP 401 from https://api.meta.ai/v1 (x): invalid API key", 401))
+    assert not is_rate_limited(LLMError("HTTP 401 from https://api.fireworks.ai/inference/v1 (x): invalid API key", 401))
 
 
 def test_is_rate_limited_false_for_a_non_llm_exception():
     assert not is_rate_limited(ValueError("429 is not a real error here, just a string"))
 
 
-# --------------------------------------------------------------------------- Meta config: text vs vision
+# --------------------------------------------------------------------------- Fireworks config
 
 def _blank_provider_env(monkeypatch):
-    for k in ("META_API_BASE", "MUSE_MODEL", "META_API_KEY",
-             "META_VISION_BASE", "MUSE_VISION_MODEL", "META_VISION_API_KEY"):
+    for k in ("FIREWORKS_API_KEY", "FIREWORKS_MODEL", "FIREWORKS_API_BASE"):
         monkeypatch.delenv(k, raising=False)
 
 
-def test_text_client_reads_the_non_vision_env_vars(monkeypatch):
+def test_the_client_defaults_to_fireworks_and_muse_spark_open_and_reads_the_key(monkeypatch):
     _blank_provider_env(monkeypatch)
-    monkeypatch.setenv("META_API_BASE", "https://api.meta.ai/v1")
-    monkeypatch.setenv("MUSE_MODEL", "muse-spark-1.3")
-    monkeypatch.setenv("META_API_KEY", "meta-secret-key")
-    c = LlamaClient()
-    assert c.base_url == "https://api.meta.ai/v1"
-    assert c.model == "muse-spark-1.3"
-    assert c.api_key == "meta-secret-key"
-    assert c.configured
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw-secret-key")
+    c = ModelClient()
+    assert c.base_url == "https://api.fireworks.ai/inference/v1"
+    assert c.model == "accounts/fireworks/models/muse-spark-open"
+    assert c.api_key == "fw-secret-key" and c.configured
 
 
-def test_a_bare_checkout_with_no_env_vars_is_not_configured(monkeypatch):
-    """The in-code client must never bake in a default base_url/model - that would make a totally
-    unconfigured checkout read as "configured" and attempt a real call that just 401s, instead of the
-    existing clean "not configured" message. See llm.py __init__."""
+def test_without_a_fireworks_key_the_hosted_endpoint_is_not_configured(monkeypatch):
+    """No key means "not configured" - not "configured, but every call is refused with a 401"."""
     _blank_provider_env(monkeypatch)
-    c = LlamaClient()
+    c = ModelClient()
     assert not c.configured
-    assert c.base_url == "" and c.model == ""
 
 
-def test_vision_client_reads_the_separate_vision_env_vars_when_set(monkeypatch):
-    """A self-hosted setup (e.g. Ollama) typically needs a different, smaller text model from the
-    multimodal vision one - see OLLAMA.md."""
+def test_endpoint_and_model_can_be_overridden_for_a_local_server(monkeypatch):
     _blank_provider_env(monkeypatch)
-    monkeypatch.setenv("META_API_BASE", "http://localhost:11434/v1")
-    monkeypatch.setenv("MUSE_MODEL", "llama3.2")
-    monkeypatch.setenv("META_VISION_BASE", "http://localhost:11434/v1")
-    monkeypatch.setenv("MUSE_VISION_MODEL", "llama3.2-vision")
-    v = LlamaClient(prefix="VISION")
-    assert v.base_url == "http://localhost:11434/v1"
-    assert v.model == "llama3.2-vision"
+    monkeypatch.setenv("FIREWORKS_API_BASE", "http://localhost:11434/v1")
+    monkeypatch.setenv("FIREWORKS_MODEL", "llama3.2-vision")
+    c = ModelClient()
+    assert c.base_url == "http://localhost:11434/v1" and c.model == "llama3.2-vision"
+    assert c.configured and c.reasoning_effort == ""  # a local server gets no Fireworks-only parameter
 
 
-def test_for_vision_reuses_the_same_meta_credentials_as_text_by_default(monkeypatch):
-    """One Muse Spark model serves both roles when META_VISION_* isn't set - the hosted default."""
+def test_for_vision_reuses_the_same_endpoint_model_and_key(monkeypatch):
     _blank_provider_env(monkeypatch)
-    monkeypatch.setenv("META_API_BASE", "https://api.meta.ai/v1")
-    monkeypatch.setenv("MUSE_MODEL", "muse-spark-1.3")
-    monkeypatch.setenv("META_API_KEY", "meta-secret-key")
-    text = LlamaClient()
-    vision = LlamaClient.for_vision(text)
-    assert vision.base_url == text.base_url == "https://api.meta.ai/v1"
-    assert vision.model == text.model == "muse-spark-1.3"
-    assert vision.api_key == text.api_key == "meta-secret-key"
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw-secret-key")
+    text = ModelClient()
+    vision = ModelClient.for_vision(text)
+    assert vision.base_url == text.base_url and vision.model == text.model and vision.api_key == "fw-secret-key"
+
+
+def test_for_vision_of_a_disabled_text_client_is_disabled_too(monkeypatch):
+    _blank_provider_env(monkeypatch)
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw-secret-key")
+    assert not ModelClient.for_vision(ModelClient(base_url="", model="")).configured
+
+
+def test_reasoning_effort_defaults_to_low_on_fireworks_for_both_roles(monkeypatch):
+    _blank_provider_env(monkeypatch)
+    monkeypatch.delenv("TENDERLENS_LLM_REASONING_EFFORT", raising=False)
+    monkeypatch.delenv("TENDERLENS_VISION_REASONING_EFFORT", raising=False)
+    monkeypatch.setenv("FIREWORKS_API_KEY", "k")
+    assert ModelClient().reasoning_effort == "low" and ModelClient(prefix="VISION").reasoning_effort == "low"
+    monkeypatch.setenv("TENDERLENS_LLM_REASONING_EFFORT", "high")
+    assert ModelClient().reasoning_effort == "high"
 
 
 def test_a_504_is_never_retried(mock, monkeypatch):
@@ -366,73 +364,7 @@ def test_a_504_is_never_retried(mock, monkeypatch):
     with pytest.raises(LLMError) as exc:
         c.complete_json("sys", "u")
     assert exc.value.status_code == 504
-    assert len(m.requests) == 1  # not retried - Meta's own guidance: retrying 504 as-is just times out again
-
-
-# --------------------------------------------------------------------------- Modal -> Fireworks failover
-
-def lanes(primary, fallback, **kw):
-    fb = LlamaClient(base_url=fallback.url, model="fw-model", api_key="fw-key", prefix="FALLBACK", fallback=False)
-    return LlamaClient(base_url=primary.url, model="modal-model", api_key="m-key", prefix="VISION", fallback=fb, **kw)
-
-
-@pytest.mark.parametrize("status", [429, 503, 504])
-def test_primary_failure_switches_to_the_fallback_at_once(mock, monkeypatch, status):
-    sleeps = []
-    monkeypatch.setattr("tenderlens.llm.time.sleep", sleeps.append)
-    p, f = mock([(status, {"error": "x"})]), mock([ok({"page": 1})])
-    c = lanes(p, f)
-    assert c.complete_json("sys", "u") == {"page": 1}
-    assert len(p.requests) == 1 and len(f.requests) == 1 and sleeps == []  # no back-off wait
-    assert c.fallback_calls == 1 and c.prompt_tokens == 10
-
-
-def test_a_down_primary_is_skipped_during_the_cooldown(mock):
-    p, f = mock([(503, {"error": "x"})]), mock([ok({"ok": True})])
-    c = lanes(p, f)
-    for _ in range(5):
-        c.complete_json("sys", "u")
-    assert len(p.requests) == 1 and len(f.requests) == 5
-
-
-def test_a_bad_request_does_not_fail_over(mock):
-    p, f = mock([(401, {"error": "bad key"})]), mock([ok({"ok": True})])
-    with pytest.raises(LLMError):
-        lanes(p, f).complete_json("sys", "u")
-    assert f.requests == []
-
-
-def test_no_fallback_configured_behaves_as_before(mock, monkeypatch):
-    monkeypatch.delenv("FIREWORKS_MODEL", raising=False)
-    p = mock([(503, {"error": "x"})])
-    c = LlamaClient(base_url=p.url, model="m", api_key="k", prefix="VISION")
-    assert c.fallback is None and c.retry_waits == (2.0, 5.0, 15.0)
-
-
-def test_together_is_preferred_as_the_backup_and_fireworks_is_the_alternative(monkeypatch):
-    monkeypatch.setenv("TOGETHER_MODEL", "meta-models/Muse-Spark-Open-816B-A42B")
-    monkeypatch.setenv("TOGETHER_API_KEY", "k")
-    monkeypatch.setenv("FIREWORKS_MODEL", "accounts/fireworks/models/muse-spark-open")
-    c = LlamaClient(base_url="https://api.fireworks.ai/inference/v1", model="m", prefix="VISION")
-    assert c.fallback.base_url == "https://api.together.ai/v1" and c._failover_active()
-    monkeypatch.delenv("TOGETHER_MODEL")
-    c = LlamaClient(base_url="http://a/v1", model="m", prefix="VISION")
-    assert c.fallback.base_url == "https://api.fireworks.ai/inference/v1" and c._failover_active()
-
-
-def test_a_backup_on_the_same_endpoint_as_the_primary_is_ignored(monkeypatch):
-    monkeypatch.setenv("FIREWORKS_MODEL", "accounts/fireworks/models/muse-spark-open")
-    c = LlamaClient(base_url="https://api.fireworks.ai/inference/v1", model="m", prefix="VISION")
-    assert not c._failover_active() and c.retry_waits == (2.0, 5.0, 15.0)
-
-
-def test_primary_gets_the_shorter_timeout_only_while_a_backup_exists(monkeypatch):
-    monkeypatch.delenv("TENDERLENS_LLM_TIMEOUT", raising=False)
-    monkeypatch.delenv("FIREWORKS_MODEL", raising=False)
-    monkeypatch.delenv("TOGETHER_MODEL", raising=False)
-    assert LlamaClient(base_url="http://a/v1", model="m", prefix="VISION").timeout == 300
-    monkeypatch.setenv("TOGETHER_MODEL", "x")
-    assert LlamaClient(base_url="http://a/v1", model="m", prefix="VISION").timeout == 60
+    assert len(m.requests) == 1  # not retried - the provider's guidance: retrying 504 as-is just times out again
 
 
 # --------------------------------------------------------------------------- opt-in reasoning effort

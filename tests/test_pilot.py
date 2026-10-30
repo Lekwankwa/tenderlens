@@ -292,10 +292,10 @@ def test_pilot_terms_is_unchanged_without_a_hosting_note(monkeypatch):
 def test_pilot_terms_appends_the_hosting_note_when_set(monkeypatch):
     monkeypatch.setenv("TENDERLENS_HOSTING_NOTE",
                        "Documents are processed on Google Cloud (Johannesburg); page images are sent to "
-                       "DeepInfra for reading.")
+                       "Fireworks AI for reading.")
     terms = pilot.pilot_terms()
     assert terms.startswith(pilot.PILOT_TERMS)
-    assert "Johannesburg" in terms and "DeepInfra" in terms
+    assert "Johannesburg" in terms and "Fireworks AI" in terms
 
 
 # --------------------------------------------------------------------------- the real Streamlit app, pilot mode
@@ -311,8 +311,7 @@ def test_app_in_pilot_mode_gates_upload_and_hides_transcript(tmp_path, monkeypat
     monkeypatch.setenv("TENDERLENS_PILOT_DB", str(tmp_path / "pilot.db"))
     # app.py's sidebar calls system_check(), which pings whatever endpoint is configured - blank it so this
     # test never makes a real network call (slow, and not free) regardless of what's in .env.
-    for k in ("META_API_BASE", "MUSE_MODEL", "META_API_KEY",
-             "META_VISION_BASE", "MUSE_VISION_MODEL", "META_VISION_API_KEY"):
+    for k in ("FIREWORKS_API_KEY", "FIREWORKS_MODEL", "FIREWORKS_API_BASE"):
         monkeypatch.delenv(k, raising=False)
     code = pilot.PilotStore(tmp_path / "pilot.db").create_code("Contractor", packs=2, days=5)
 
@@ -340,7 +339,7 @@ def test_pilot_integration_claim_audit_finalize(tmp_path):
     if not (S / "response" / "pack.pdf").is_file():
         pytest.skip("samples/response/pack.pdf not present (git-ignored, not shipped with the code)")
     from tenderlens.cli import audit_pack
-    from tenderlens.llm import LlamaClient
+    from tenderlens.llm import ModelClient
 
     store = pilot.PilotStore(tmp_path / "pilot.db")
     code = store.create_code("Contractor", packs=1, days=5)
@@ -352,8 +351,8 @@ def test_pilot_integration_claim_audit_finalize(tmp_path):
     assert store.claim_pack(h, file_sha) == "new"
     req, res, facts, pages = audit_pack(S / "rfq" / "rfq_email.pdf", S / "rfq" / "spec_0310.pdf", pack, S / "blank",
                                         transcript if transcript.is_file() else None,
-                                        llm=LlamaClient(base_url="", model=""),
-                                        vision=LlamaClient(base_url="", model=""))
+                                        llm=ModelClient(base_url="", model=""),
+                                        vision=ModelClient(base_url="", model=""))
     n_issues = sum(1 for f in res.findings if f.tier == "issue")
     store.finalize_pack(h, file_sha, req.reference, n_issues)
 

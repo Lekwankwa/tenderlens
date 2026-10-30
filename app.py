@@ -26,7 +26,7 @@ from tenderlens.audit import DOC_LABEL
 from tenderlens.bootstrap import is_local, remote_warning, system_check
 from tenderlens.cli import audit_pack, rerun_vision
 from tenderlens.ingest import page_count_estimate, pdf_page_count
-from tenderlens.llm import BUSY_MESSAGE, LlamaClient, is_rate_limited, load_env
+from tenderlens.llm import BUSY_MESSAGE, ModelClient, is_rate_limited, load_env
 from tenderlens.report import DISCLAIMER_LONG, DISCLAIMER_SHORT, NO_ISSUES_NOTE, SEV, SRC_LABEL, Renderer, render_html, to_json
 
 load_env()
@@ -214,8 +214,8 @@ def chip(label: str, color: str) -> str:
 
 # ----------------------------------------------------------------------------------- sidebar
 
-llm = LlamaClient()
-vision = LlamaClient.for_vision(llm)
+llm = ModelClient()
+vision = ModelClient.for_vision(llm)
 with st.sidebar:
     st.markdown("<p class='tl-brand'>TenderLens</p><p class='tl-sub'>Audit an RFQ response before you submit it</p>",
                 unsafe_allow_html=True)
@@ -370,8 +370,7 @@ with st.sidebar:
         if llm.configured:
             st.success(f"{PROVIDER_LABEL} (text): {llm.model}", icon=None)
         else:
-            st.info("No text model endpoint set. Set META_API_BASE, MUSE_MODEL and META_API_KEY - see "
-                    ".env.example.", icon=None)
+            st.info("No model is set up. Set FIREWORKS_API_KEY - see .env.example.", icon=None)
         if vision.configured:
             st.success(f"{PROVIDER_LABEL} (vision): {vision.model}", icon=None)
         else:
@@ -458,7 +457,7 @@ if run:
                 claim_file_sha = pilot.file_sha256(pack)
                 claim_kind = claim_store.claim_pack(claim_hash, claim_file_sha)  # raises NoPacksLeft on a race
             check_mode = "fast" if fast_mode else "complete"
-            run_vision = LlamaClient(base_url="", model="") if fast_mode else vision
+            run_vision = ModelClient(base_url="", model="") if fast_mode else vision
             st.write(f"Reading the buyer's documents and the response pack, then running the checks ({check_mode} check).")
             progress_line = st.empty()
             stage_label = {"ocr": "OCR", "vision_first": "vision first readings", "vision_checks": "vision checks"}

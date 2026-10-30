@@ -3,7 +3,7 @@
 Sources, weakest to strongest trust is NOT assumed - the audit shows the source on
 every finding so a reviewer knows what to double-check:
   ocr     Tesseract over the scan (reliable for printed text, poor for handwriting)
-  vision  multimodal Llama reading the page image (handwriting, ticks, circled answers)
+  vision  multimodal AI model reading the page image (handwriting, ticks, circled answers)
   manual  a human transcription file (used when no vision model is attached)
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ from pathlib import Path
 from . import forms as F
 from . import vision_cache
 from .ingest import Page
-from .llm import LlamaClient, LLMError, LLMUnavailable, run_concurrent, vision_concurrency
+from .llm import ModelClient, LLMError, LLMUnavailable, run_concurrent, vision_concurrency
 
 
 @dataclass
@@ -422,7 +422,7 @@ def load_transcript(path: Path, facts: Facts, pages: list[Page] | None = None) -
     return {"applied": applied, "unmatched": unmatched}
 
 
-# --- vision (multimodal Llama) ---------------------------------------------------------------------
+# --- vision (multimodal model) ---------------------------------------------------------------------
 
 # Off for this round: a real-scan check (see tests/fixtures/baseline/crops/) found that label_box() locates
 # a field's printed label by requiring an exact OCR word match on one row, which fails on a filled-in,
@@ -440,7 +440,7 @@ VISION_SYSTEM = (
 )
 
 
-def _ask(llm: LlamaClient, facts: Facts, prompt: str, images: list[str], page_no: int | None = None):
+def _ask(llm: ModelClient, facts: Facts, prompt: str, images: list[str], page_no: int | None = None):
     """Called from worker threads under concurrency (vision_extract/inspect_pages/signature_match each run
     a wave of these on a thread pool), so facts.vision_log is updated under a lock, and the catch is
     deliberately broad (not a specific allowlist): a call that fails in a way nobody anticipated must still
@@ -478,7 +478,7 @@ def _ask(llm: LlamaClient, facts: Facts, prompt: str, images: list[str], page_no
         return None
 
 
-def vision_precheck(llm: LlamaClient, pages: list[Page], facts: Facts) -> bool:
+def vision_precheck(llm: ModelClient, pages: list[Page], facts: Facts) -> bool:
     """Before committing to a full run (which can be 50+ calls), send one real page image and see whether
     the vision model answers at all. If it doesn't, the vision steps are skipped with the reason recorded
     in facts.vision_log['stopped_early'], instead of making every one of those calls fail the same way."""
@@ -521,7 +521,7 @@ def _apply_second_look(fact: Fact, entry: F.Entry, data) -> None:
         fact.note = "a second, differently worded look read this differently"
 
 
-def _second_look(llm: LlamaClient, facts: Facts, page: Page, entry: F.Entry, fact: Fact) -> None:
+def _second_look(llm: ModelClient, facts: Facts, page: Page, entry: F.Entry, fact: Fact) -> None:
     """A reading that would raise an issue (blank, Yes, both boxes, an impossible date) is asked again as a
     single, differently worded question. Kept for anything that still calls a single second look directly
     (tests, other callers); vision_extract itself runs a whole wave of these concurrently - see
@@ -569,7 +569,7 @@ def _focused_prompt(p: Page, question: str) -> str:
             "Say yes only if you can clearly see it. Return JSON {\"answer\": \"yes\" or \"no\"}.")
 
 
-def _focused_tasks(llm: LlamaClient, facts: Facts, targets: list[tuple[Page, dict]]):
+def _focused_tasks(llm: ModelClient, facts: Facts, targets: list[tuple[Page, dict]]):
     """[(page number, key, zero-arg call)] - one dedicated call per focused question per inspected page."""
     return [(p.number, key, (lambda p=p, key=key, q=qs[key]: _ask(llm, facts, _focused_prompt(p, q),
                                                                   [p.image_path], page_no=p.number)))
@@ -611,7 +611,7 @@ def combined_vision_enabled() -> bool:
     return os.environ.get("TENDERLENS_VISION_COMBINED", "1").strip() != "0"
 
 
-def combined_first_pass(llm: LlamaClient, pages: list[Page], facts: Facts, local_content: bool = True,
+def combined_first_pass(llm: ModelClient, pages: list[Page], facts: Facts, local_content: bool = True,
                         inspect: bool = True, progress=None, timing: dict | None = None) -> dict[int, dict]:
     """ONE vision call per form page that both reads the handwritten fields (what vision_extract asks) and
     answers the inspection questions (what inspect_pages asks), instead of sending the same page image twice.
@@ -662,7 +662,7 @@ def combined_first_pass(llm: LlamaClient, pages: list[Page], facts: Facts, local
     return answers
 
 
-def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_content: bool = True,
+def vision_extract(llm: ModelClient, pages: list[Page], facts: Facts, local_content: bool = True,
                    verify: bool = True, progress=None, timing: dict | None = None, first_answers: dict | None = None):
     """Read every handwritten entry in forms.FORMS. One call per PAGE (small local models cope badly with
     several images and long answers), then merge: a value on any page beats a 'blank' on another, because
@@ -775,7 +775,7 @@ def _shape_ok(kind: str, digits: str) -> bool:
     return True
 
 
-def _crop_ask_twice(llm: LlamaClient, facts: Facts, page: Page, box, label: str) -> tuple[str, str, str]:
+def _crop_ask_twice(llm: ModelClient, facts: Facts, page: Page, box, label: str) -> tuple[str, str, str]:
     """Cut `box` out of the page's own rendered scan (not a resized copy), enlarge it, and ask what it says
     twice, worded differently - the same kind of independent-enough second opinion _second_look gives a
     whole-page reading, but focused tightly enough that a misread has a real chance of being corrected."""
@@ -798,7 +798,7 @@ def _crop_ask_twice(llm: LlamaClient, facts: Facts, page: Page, box, label: str)
     return str(a1 or "").strip(), str(a2 or "").strip(), str(crop_path)
 
 
-def verify_identifiers(llm: LlamaClient, pages: list[Page], facts: Facts) -> None:
+def verify_identifiers(llm: ModelClient, pages: list[Page], facts: Facts) -> None:
     """Run after vision_extract. Mutates facts in place: a whole-page identifier reading that a focused crop
     (asked twice) clears against the printed value is corrected; one the crop confirms is kept, now with the
     crop itself as its evidence; one the crop cannot settle either way is removed and logged under 'possible
@@ -867,7 +867,7 @@ _SBD4_YESNO = {
 }
 
 
-def _crop_ask_yesno_twice(llm: LlamaClient, facts: Facts, page: Page, box) -> tuple:
+def _crop_ask_yesno_twice(llm: ModelClient, facts: Facts, page: Page, box) -> tuple:
     from PIL import Image
     x0, y0, x1, y1 = box
     im = Image.open(page.image_path).convert("RGB")
@@ -891,7 +891,7 @@ def _yn_label(v) -> str:
     return "blank (neither marked)" if v is F.BLANK else str(v)
 
 
-def verify_yesno(llm: LlamaClient, pages: list[Page], facts: Facts) -> None:
+def verify_yesno(llm: ModelClient, pages: list[Page], facts: Facts) -> None:
     """SBD 4's yes/no questions, read a second, independent way when the whole-page reading (and its own
     whole-page second look) came back as a deviation: a focused, enlarged crop of just that question's
     answer area, asked twice, differently worded, allowing Yes, No, Both or Neither. A crop that settles on
@@ -928,7 +928,7 @@ def verify_yesno(llm: LlamaClient, pages: list[Page], facts: Facts) -> None:
             facts.items.remove(fact)
 
 
-def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int = 2, progress=None,
+def inspect_pages(llm: ModelClient, pages: list[Page], facts: Facts, passes: int = 2, progress=None,
                   timing: dict | None = None, first_answers: dict | None = None) -> None:
     """Ask a vision model what no rule can see: crossed-out print, correction fluid, notes in the margin, pages
     that are rotated or cut off, scans too poor to read, and whether the signing line holds a real pen signature.
@@ -1010,7 +1010,7 @@ def inspect_pages(llm: LlamaClient, pages: list[Page], facts: Facts, passes: int
         timing["vision_second"] = timing.get("vision_second", 0.0) + (time.time() - t_start)
 
 
-def signature_match(llm: LlamaClient, pages: list[Page], facts: Facts, progress=None,
+def signature_match(llm: ModelClient, pages: list[Page], facts: Facts, progress=None,
                     timing: dict | None = None) -> None:
     """Compare each signing page's signature with the quotation's, as one picture with the two stacked (A over B).
     Handwriting similarity is a lead for a person, never proof, so the audit only ever reports it as an observation.

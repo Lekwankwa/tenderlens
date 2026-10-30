@@ -18,9 +18,9 @@ with Ollama - see `OLLAMA.md`) keeps your files on that machine instead of a sha
 
 ## The AI provider (Complete check)
 Running a **Complete check** sends page images and extracted text to **Fireworks AI** (`api.fireworks.ai`,
-model Muse Spark Open, an open-weight model from Meta) - TenderLens's only hosted model provider - so
+model Muse Spark Open) - TenderLens's only hosted model provider - so
 handwriting, ticks, stamps and signatures can be read. One model reads both the buyer's documents and the
-scanned pages. Meta does not receive your files: Fireworks AI only hosts the model.
+scanned pages.
 
 **[CONFIRM: Fireworks AI's processing location and data-retention/training policy for API traffic, from
 Fireworks' own documentation.]** Until that is confirmed, assume sending data to Fireworks AI may mean it is
@@ -51,7 +51,7 @@ leaves the host.
 ## Who can see it
 - Whoever operates the host this instance runs on (Lekwankwa Corporation (Pty) Ltd, for the Cloud Run and
   Streamlit Community Cloud deployments; you, if you self-host).
-- Meta, only when Complete check is used (not at all if you self-host with Ollama instead).
+- Fireworks AI, only when Complete check is used (not at all if you self-host with Ollama instead).
 - No one else. TenderLens does not share documents with any other third party.
 
 ## Redaction

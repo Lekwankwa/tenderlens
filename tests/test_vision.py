@@ -1,6 +1,6 @@
 """The vision path, exercised with a scripted stand-in for the model.
 
-A real Llama vision model is not available in the test environment, so `ScriptedVision` plays one: it "reads"
+A real vision model is not available in the test environment, so `ScriptedVision` plays one: it "reads"
 a page by looking up that page's image hash in the manual transcript (a perfect reader), and individual tests make
 it misread, disagree with itself, or fail. That tests everything around the model: the prompts' answers being
 parsed and cleaned, per-page merging, the second look on any suspicious reading, tiers (issue vs observation),
@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tenderlens import forms as F
 from tenderlens.cli import audit_pack
 from tenderlens.ingest import sha1_file
-from tenderlens.llm import LlamaClient
+from tenderlens.llm import ModelClient
 
 ROOT = Path(__file__).resolve().parents[1]
 S = ROOT / "samples"
@@ -30,7 +30,7 @@ if not _TRANSCRIPT_PATH.is_file():
 TRANSCRIPT = json.loads(_TRANSCRIPT_PATH.read_text())
 
 
-class ScriptedVision(LlamaClient):
+class ScriptedVision(ModelClient):
     """Reads pages from the ground-truth transcript. `override[field]` replaces the first-look answer, `second[field]`
     replaces the answer to the single-question second look, `inspect[key]` is the answer to an inspection question."""
 
@@ -78,7 +78,7 @@ class ScriptedVision(LlamaClient):
 def run(vision, **kw):
     # llm is forced to an unconfigured client: this suite must never touch a real endpoint, whatever is in
     # .env or the environment - vision is the scripted stand-in passed in; the text step stays rules-only.
-    kw.setdefault("llm", LlamaClient(base_url="", model=""))
+    kw.setdefault("llm", ModelClient(base_url="", model=""))
     return audit_pack(S / "rfq" / "rfq_email.pdf", S / "rfq" / "spec_0310.pdf", S / "response" / "pack.pdf", S / "blank",
                       None, ROOT / ".cache", vision=vision, **kw)
 
@@ -157,7 +157,7 @@ def test_transcript_outranks_a_model_reading():
     v = ScriptedVision(override={"sbd4.q2_7_state_employed": "Yes"})
     req, res, facts, _ = audit_pack(S / "rfq" / "rfq_email.pdf", S / "rfq" / "spec_0310.pdf", S / "response" / "pack.pdf",
                                     S / "blank", S / "response" / "pack.transcript.json", ROOT / ".cache", vision=v,
-                                    llm=LlamaClient(base_url="", model=""))  # never touch a real endpoint
+                                    llm=ModelClient(base_url="", model=""))  # never touch a real endpoint
     assert facts.best("sbd4.q2_7_state_employed").value == "No"
 
 

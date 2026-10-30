@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One-time setup for macOS and Linux. Installs the programs TenderLens needs, the Python packages and the
-# Llama model(s). After this: .venv/bin/python -m tenderlens ui
+# local model(s). After this: .venv/bin/python -m tenderlens ui
 set -e
 cd "$(dirname "$0")"
 if [ "$(uname)" = "Darwin" ]; then

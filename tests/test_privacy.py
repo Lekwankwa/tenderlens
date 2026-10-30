@@ -40,8 +40,7 @@ def test_in_app_notice_names_fireworks_and_points_to_the_full_notice():
 # --------------------------------------------------------------------------- the real Streamlit app
 
 def _blank_env(monkeypatch):
-    for k in ("META_API_BASE", "MUSE_MODEL", "META_API_KEY",
-             "META_VISION_BASE", "MUSE_VISION_MODEL", "META_VISION_API_KEY"):
+    for k in ("FIREWORKS_API_KEY", "FIREWORKS_MODEL", "FIREWORKS_API_BASE"):
         monkeypatch.delenv(k, raising=False)
 
 

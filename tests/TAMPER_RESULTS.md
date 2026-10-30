@@ -1,6 +1,6 @@
 # TenderLens tamper tests
 
-Each row starts from the pack that won the RFQ and changes one thing. 'Caught' means TenderLens raised an *issue* about it (observations do not count). Rows marked *(reading simulated)* change what the handwriting reader reports (a person's transcript here, Llama vision in real use): they test the rules that act on a reading, not the vision model's eyes.
+Each row starts from the pack that won the RFQ and changes one thing. 'Caught' means TenderLens raised an *issue* about it (observations do not count). Rows marked *(reading simulated)* change what the handwriting reader reports (a person's transcript here, the vision model in real use): they test the rules that act on a reading, not the vision model's eyes.
 
 | # | What was done | Caught? | What TenderLens said |
 |---|---|---|---|

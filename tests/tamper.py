@@ -249,7 +249,7 @@ def variants(pages):
 
     # ======================================================================================
     # Added: handwriting, page order, certificate contents, and what only a vision model can see.
-    # "Reading" variants change what the HANDWRITING READER reports (a person's transcript here, Llama vision in
+    # "Reading" variants change what the HANDWRITING READER reports (a person's transcript here, the vision model in
     # real use), not the image: they test the rules that act on a reading, not the model's eyes.
     # ======================================================================================
     base = keep_all()
@@ -377,8 +377,8 @@ def main():
     pages = load_pdf(PACK, WORK)
     classify_pages(pages)
     rows = []
-    from tenderlens.llm import LlamaClient
-    vision_on = LlamaClient.for_vision(LlamaClient()).configured
+    from tenderlens.llm import ModelClient
+    vision_on = ModelClient.for_vision(ModelClient()).configured
     for name, what, expect, ops, known_miss, tx, needs_vision in variants(pages):
         if a.only and a.only not in name:
             continue
@@ -417,7 +417,7 @@ def main():
     lines = ["# TenderLens tamper tests", "",
              "Each row starts from the pack that won the RFQ and changes one thing. "
              "'Caught' means TenderLens raised an *issue* about it (observations do not count). Rows marked "
-             "*(reading simulated)* change what the handwriting reader reports (a person's transcript here, Llama "
+             "*(reading simulated)* change what the handwriting reader reports (a person's transcript here, the vision model "
              "vision in real use): they test the rules that act on a reading, not the vision model's eyes.", "",
              "| # | What was done | Caught? | What TenderLens said |", "|---|---|---|---|"]
     for name, what, expect, ok, issues, nobs, known_miss, simulated in rows:

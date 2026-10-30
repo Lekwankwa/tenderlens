@@ -14,7 +14,7 @@ from .facts import (CROP_VERIFY_ENABLED, Facts, combined_first_pass, combined_vi
                     verify_identifiers, verify_yesno, vision_extract, vision_precheck)
 from .ingest import (classify_pages, find_spec_sheet, load_pdf, load_templates, page_count_estimate,
                      pdf_page_count)
-from .llm import LlamaClient, load_env
+from .llm import ModelClient, load_env
 from .report import render_html, to_json
 from .requirements import build_requirements
 
@@ -49,8 +49,8 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     the pack's own render+OCR are independent of each other and run concurrently in two threads; nothing
     past that point can start until both are done (vision needs the classified pack pages AND
     req.local_content_required), so there is no further overlap opportunity in this pipeline."""
-    llm = llm or LlamaClient()
-    vision = vision or LlamaClient.for_vision(llm)
+    llm = llm or ModelClient()
+    vision = vision or ModelClient.for_vision(llm)
     timing: dict[str, float] = {}
 
     req_box: dict = {}
@@ -106,7 +106,7 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
             # The page inspection and the signature comparison don't use the form readings, so they run side
             # by side with them, not after. Each writes to its own Facts and timing, folded back below in the
             # order the steps used to run one after another - so the report comes out the same; only the wait
-            # is shorter. The vision client caps calls in flight across all three (see LlamaClient._slots).
+            # is shorter. The vision client caps calls in flight across all three (see ModelClient._slots).
             side: list[tuple[int, Facts, dict, threading.Thread]] = []
             errors: list[BaseException] = []
 
@@ -225,8 +225,8 @@ def check_llm(a):
         print(f"  {'ok     ' if ok else 'MISSING'} {item}" + (f"  ({detail})" if detail and not ok else ""))
         bad += not ok
     print(f"\n{'Everything needed is in place.' if not bad else f'{bad} problem(s) above.'}\n")
-    text = LlamaClient()
-    vision = LlamaClient.for_vision(text)
+    text = ModelClient()
+    vision = ModelClient.for_vision(text)
     if vision.configured:
         pages = load_pdf(a.pack, a.work)
         print(f"reading page 1 of {a.pack.name} with {vision.model} (this can take a minute on a laptop)...")
@@ -272,7 +272,7 @@ def main(argv=None):
     c = sub.add_parser("check-llm", help="check tools, endpoints and models, and read one page")
     c.add_argument("--pack", type=Path, default=Path("samples/response/pack.pdf"))
     c.add_argument("--work", type=Path, default=Path(".cache"))
-    u = sub.add_parser("ui", help="start Ollama if needed, fetch the configured Llama model(s), open the web interface")
+    u = sub.add_parser("ui", help="start Ollama if needed, fetch the configured local model(s), open the web interface")
     u.add_argument("--port", type=int, default=8501)
     e = sub.add_parser("eval-vision", help="score the vision model against the winning pack's transcript")
     e.add_argument("--pack", type=Path, default=Path("samples/response/pack.pdf"))
@@ -310,21 +310,21 @@ def main(argv=None):
         return pilot_cmd(a)
     if a.cmd == "eval-vision":
         from .evalvision import eval_vision
-        vision = LlamaClient.for_vision(LlamaClient())
+        vision = ModelClient.for_vision(ModelClient())
         if not vision.configured:
-            raise SystemExit("No vision model configured. Set META_API_BASE / MUSE_MODEL (see OLLAMA.md).")
+            raise SystemExit("No model configured. Set FIREWORKS_API_KEY (see README).")
         print(eval_vision(vision, a.pack, a.blank, a.transcript, a.work, a.out, a.passes))
         return
 
-    llm = LlamaClient()
+    llm = ModelClient()
     fast = a.mode == "fast" or a.no_vision
     check_mode = "fast" if fast else "complete"
-    vision = LlamaClient(base_url="", model="") if fast else LlamaClient.for_vision(llm)
+    vision = ModelClient(base_url="", model="") if fast else ModelClient.for_vision(llm)
     if not fast and not vision.configured:
         print("No vision model is connected, so Complete check can't read handwriting, ticks or stamps. "
-              "Add --mode fast, or set META_API_BASE / MUSE_MODEL (see OLLAMA.md).")
+              "Add --mode fast, or set FIREWORKS_API_KEY (see README).")
     llm_mode = ("Muse Spark (" + llm.model + ") cross-checked with rules" if llm.configured
-               else "rules only: no model endpoint configured (set META_API_BASE / MUSE_MODEL)")
+               else "rules only: no model configured (set FIREWORKS_API_KEY)")
     print(f"{check_mode.capitalize()} check. " + page_count_estimate(pdf_page_count(a.pack), check_mode))
 
     STAGE_LABEL = {"ocr": "OCR", "vision_first": "vision first readings", "vision_checks": "vision checks"}

@@ -11,14 +11,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tenderlens.audit import AuditResult, Auditor
 from tenderlens.facts import Facts
-from tenderlens.llm import LlamaClient
+from tenderlens.llm import ModelClient
 from tenderlens.report import render_html
 from tenderlens.requirements import Requirements
 
 BLANK_DIR = Path(__file__).parent
 
 
-class _AlwaysFailsVision(LlamaClient):
+class _AlwaysFailsVision(ModelClient):
     """Configured (so audit_pack treats this as a real Complete check), but every call fails - standing in
     for a vision endpoint that's persistently busy even after _post()'s own retries are exhausted."""
 
@@ -42,7 +42,7 @@ def test_says_not_connected_when_vision_was_never_configured():
 
 def test_says_busy_not_disconnected_when_vision_was_configured_but_every_call_failed():
     f = Facts()
-    f.vision_log["model"] = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+    f.vision_log["model"] = "accounts/fireworks/models/muse-spark-open"
     f.vision_log["calls"] = 3
     f.vision_log["failed"] = 3
     a = Auditor(Requirements(), [], f, BLANK_DIR)
@@ -55,7 +55,7 @@ def test_says_busy_not_disconnected_when_vision_was_configured_but_every_call_fa
 
 def test_says_busy_with_the_precheck_s_own_reason_when_it_stopped_before_any_call():
     f = Facts()
-    f.vision_log["model"] = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+    f.vision_log["model"] = "accounts/fireworks/models/muse-spark-open"
     f.vision_log["stopped_early"] = "LLMError: HTTP 429 from https://api.deepinfra.com/v1/openai: Model busy"
     a = Auditor(Requirements(), [], f, BLANK_DIR)
     a.handwritten_entries()
@@ -80,8 +80,8 @@ def test_a_complete_check_where_every_vision_call_succeeds_is_marked_complete(tm
     rfq = _synthetic_pack(tmp_path / "rfq.pdf", 1)
     pack = _synthetic_pack(tmp_path / "pack.pdf", 1)
     req, res, facts, pages = audit_pack(rfq, None, pack, BLANK_DIR, None, tmp_path / "work",
-                                        llm=LlamaClient(base_url="", model=""),
-                                        vision=LlamaClient(base_url="", model=""))
+                                        llm=ModelClient(base_url="", model=""),
+                                        vision=ModelClient(base_url="", model=""))
     assert facts.vision_complete  # vision wasn't even configured, so nothing could fail - trivially complete
 
 
@@ -90,7 +90,7 @@ def test_a_complete_check_where_vision_never_answers_is_marked_incomplete(tmp_pa
     rfq = _synthetic_pack(tmp_path / "rfq.pdf", 1)
     pack = _synthetic_pack(tmp_path / "pack.pdf", 1)
     req, res, facts, pages = audit_pack(rfq, None, pack, BLANK_DIR, None, tmp_path / "work",
-                                        llm=LlamaClient(base_url="", model=""), vision=_AlwaysFailsVision())
+                                        llm=ModelClient(base_url="", model=""), vision=_AlwaysFailsVision())
     assert facts.vision_complete is False
     assert facts.vision_log["stopped_early"]  # the precheck call is what failed here
 
@@ -105,7 +105,7 @@ def test_report_shows_the_incomplete_banner_only_for_an_incomplete_complete_chec
     assert "4" in html and "7" in html
 
 
-class _WorksThisTime(LlamaClient):
+class _WorksThisTime(ModelClient):
     """A vision client that succeeds, for the 'Run again' half of the test: the first audit_pack call used
     _AlwaysFailsVision, this one simulates the provider being fine on the retry."""
 
@@ -122,7 +122,7 @@ def test_rerun_vision_recovers_an_incomplete_check_without_rereading_the_rfq(tmp
     rfq = _synthetic_pack(tmp_path / "rfq.pdf", 1)
     pack = _synthetic_pack(tmp_path / "pack.pdf", 1)
     req, res, facts, pages = audit_pack(rfq, None, pack, BLANK_DIR, None, tmp_path / "work",
-                                        llm=LlamaClient(base_url="", model=""), vision=_AlwaysFailsVision())
+                                        llm=ModelClient(base_url="", model=""), vision=_AlwaysFailsVision())
     assert facts.vision_complete is False  # the setup: first attempt was incomplete
 
     res2, facts2 = rerun_vision(req, pages, BLANK_DIR, vision=_WorksThisTime())

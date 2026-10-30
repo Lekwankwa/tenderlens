@@ -1,10 +1,9 @@
-# Connecting Llama vision (Ollama on your laptop)
+# Running locally with Ollama (no hosted model)
 
-**This is the local alternative.** The default setup (`.env.example`, README's "Using Muse Spark") is a hosted
-endpoint (Meta's Model API: Muse Spark for both text and vision). Use this page instead if you want everything
-to stay on your own machine - the trade-off is much slower runs on ordinary laptop hardware, and a known
-Ollama bug (see "If something goes wrong" below). Muse Spark is a hosted-only model; the local path below
-uses Llama 3.2 Vision instead.
+**This is the local alternative.** The normal setup (`.env.example`, README's "Using Fireworks AI") is the hosted
+Fireworks AI endpoint. Use this page instead if you want everything to stay on your own machine - the trade-off is
+much slower runs on ordinary laptop hardware, and a known Ollama bug (see "If something goes wrong" below). The
+hosted model is not available locally; the local path below uses a multimodal Ollama model for both jobs.
 
 TenderLens works without a vision model, but then it cannot read ticks, handwritten names, dates, amounts or the
 commissioner's stamp. With one connected it also looks for crossed-out text, overwriting, notes in the margin, rotated or
@@ -17,44 +16,38 @@ The quick way to do everything below automatically: `./install.sh` (or `install.
 README's Quick start. The manual steps are still here for when you want to understand or change what it is doing, or set
 things up by hand.
 
-## 1. Install the models
+## 1. Install the model
 
 ```
-ollama pull llama3.2-vision     # reads the page images (about 8 GB download, needs roughly 8 GB of free RAM)
-ollama pull llama3.2            # optional: reads the buyer's email and specification (about 2 GB)
-ollama list                     # confirm both are there
+ollama pull llama3.2-vision     # reads the page images and the buyer's documents (about 8 GB download, needs roughly 8 GB of free RAM)
+ollama list                     # confirm it is there
 ```
 
-Check the names against `ollama list`: Ollama's library changes, and the model name you set below must match exactly.
+Check the name against `ollama list`: Ollama's library changes, and the model name you set below must match exactly.
 
-## 2. Tell TenderLens where they are
+## 2. Tell TenderLens where it is
 
 macOS / Linux:
 ```
-export META_VISION_BASE=http://localhost:11434/v1
-export MUSE_VISION_MODEL=llama3.2-vision
-export META_API_BASE=http://localhost:11434/v1     # optional, for the buyer's documents
-export MUSE_MODEL=llama3.2
+export FIREWORKS_API_BASE=http://localhost:11434/v1
+export FIREWORKS_MODEL=llama3.2-vision
 export TENDERLENS_LLM_TIMEOUT=900                   # seconds per call; a CPU-only laptop is slow
 ```
 
-Windows PowerShell (the HP):
+Windows PowerShell:
 ```
-$env:META_VISION_BASE="http://localhost:11434/v1"
-$env:MUSE_VISION_MODEL="llama3.2-vision"
-$env:META_API_BASE="http://localhost:11434/v1"
-$env:MUSE_MODEL="llama3.2"
+$env:FIREWORKS_API_BASE="http://localhost:11434/v1"
+$env:FIREWORKS_MODEL="llama3.2-vision"
 $env:TENDERLENS_LLM_TIMEOUT="900"
 ```
 
-You can mix: for example the text model on Groq (free tier) and the vision model on Ollama (point `META_API_BASE`
-at Groq and `META_VISION_BASE` at `localhost`). The vision settings are separate (`META_VISION_*`); if you leave
-them out, the text model is used for pages as well, so it must be a vision model.
+One model does both jobs (reading the buyer's documents and the scanned pages), so it must be a vision model.
+No key is needed for a local server.
 
 ## 3. Check it works, then score it
 
 ```
-python -m tenderlens check-llm        # pings both models and has the vision model describe page 1
+python -m tenderlens check-llm        # pings the model and has it describe page 1
 python -m tenderlens eval-vision      # reads the winning pack and compares with the transcript; writes out/eval_vision.md
 ```
 

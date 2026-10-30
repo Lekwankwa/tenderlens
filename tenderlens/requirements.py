@@ -1,6 +1,6 @@
 """Step 1 - establish what the buyer is asking for.
 
-Llama reads the RFQ and the specification and returns a structured checklist.
+The AI model reads the RFQ and the specification and returns a structured checklist.
 Because a model can invent requirements, every item must carry a ``source_quote``
 that really appears in the source text; items that fail that check are dropped and
 reported. A deterministic rules pass runs alongside as a cross-check and as the
@@ -13,7 +13,7 @@ import subprocess
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
-from .llm import LlamaClient, LLMUnavailable
+from .llm import ModelClient, LLMUnavailable
 
 SYSTEM = (
     "You extract tender submission requirements from South African government RFQ documents. "
@@ -194,7 +194,7 @@ def rules_extract(email_text: str, email_name: str, spec_text: str, spec_name: s
     return r
 
 
-def llm_extract(llm: LlamaClient, email_text: str, email_name: str, spec_text: str, spec_name: str) -> Requirements:
+def llm_extract(llm: ModelClient, email_text: str, email_name: str, spec_text: str, spec_name: str) -> Requirements:
     user = (
         f"--- DOCUMENT: {email_name} ---\n{email_text}\n\n--- DOCUMENT: {spec_name} (OCR) ---\n{spec_text}\n\n{SCHEMA_HINT}"
     )
@@ -229,7 +229,7 @@ def llm_extract(llm: LlamaClient, email_text: str, email_name: str, spec_text: s
 
 
 def merge(llm_r: Requirements | None, rules_r: Requirements) -> Requirements:
-    """Rules result is the floor. Anything Llama found that rules missed is added and tagged;
+    """Rules result is the floor. Anything the AI model found that rules missed is added and tagged;
     any disagreement on scalar values is recorded for a human instead of silently picking one."""
     if llm_r is None:
         rules_r.notes.append("Requirements built by rules only (no model endpoint configured).")
@@ -252,7 +252,7 @@ def merge(llm_r: Requirements | None, rules_r: Requirements) -> Requirements:
     return out
 
 
-def build_requirements(rfq_pdfs: Path | list[Path], spec_text: str, spec_name: str, llm: LlamaClient | None,
+def build_requirements(rfq_pdfs: Path | list[Path], spec_text: str, spec_name: str, llm: ModelClient | None,
                        local_content: str = "auto", work: Path | None = None) -> Requirements:
     """rfq_pdfs: the buyer's RFQ, as one path or several (a cover email/letter plus any attachments it came
     with - annexures, a BOQ, blank SBD templates sent separately). Their text is concatenated in the order

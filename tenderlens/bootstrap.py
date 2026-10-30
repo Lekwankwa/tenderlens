@@ -1,4 +1,4 @@
-"""Make the pieces TenderLens depends on work together: check the programs, start Ollama, fetch the Llama
+"""Make the pieces TenderLens depends on work together: check the programs, start Ollama, fetch the local
 model. Nothing is installed behind your back: a missing program gets a one-line install hint."""
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import sys
 import time
 from urllib.parse import urlparse
 
-from .llm import LlamaClient, load_env
+from .llm import ModelClient, load_env
 
 HINTS = {
     "tesseract": {"Darwin": "brew install tesseract", "Linux": "sudo apt install tesseract-ocr",
@@ -33,7 +33,7 @@ def is_local(base_url: str) -> bool:
     return (urlparse(base_url).hostname or "") in ("localhost", "127.0.0.1", "::1")
 
 
-def remote_warning(vision: LlamaClient) -> str:
+def remote_warning(vision: ModelClient) -> str:
     host = urlparse(vision.base_url).hostname or ""
     if vision.configured and host not in ("localhost", "127.0.0.1", "::1"):
         fb = getattr(vision, "fallback", None)
@@ -63,8 +63,8 @@ def system_check(ping: bool = True) -> list[tuple[str, bool, str]]:
     load_env()
     rows = [(t, bool(shutil.which(t)), "" if shutil.which(t) else f"install: {hint(t)}")
             for t in ("tesseract", "pdftoppm", "pdftotext")]
-    text = LlamaClient()
-    vision = LlamaClient.for_vision(text)
+    text = ModelClient()
+    vision = ModelClient.for_vision(text)
     for name, c in (("text model", text), ("vision model", vision)):
         if not c.configured:
             rows.append((name, False, "not configured: copy .env.example to .env, or export TENDERLENS_* "
@@ -88,7 +88,7 @@ def ensure_local_models(log=print, wait: int = 40) -> bool:
     Returns True once every configured local model pings successfully."""
     load_env()
     ok, started_serve, pulled = True, False, set()
-    for name, c in (("text", LlamaClient()), ("vision", LlamaClient.for_vision(LlamaClient()))):
+    for name, c in (("text", ModelClient()), ("vision", ModelClient.for_vision(ModelClient()))):
         if not c.configured or not is_local(c.base_url):
             continue
         if not shutil.which("ollama"):

@@ -2,7 +2,7 @@
 
 One table drives three things: the questions a vision model is asked (``desc``), how its answer is cleaned up
 (``kind``), and which entries the audit expects to be filled in (``required``). Nothing here depends on which
-model reads the page, so the same rules apply to Llama vision, to a person's transcript, or to a test script.
+model reads the page, so the same rules apply to the vision model, to a person's transcript, or to a test script.
 """
 from __future__ import annotations
 
@@ -41,7 +41,11 @@ FORMS: dict[str, list[Entry]] = {
         E("quote.signatory", "Name of the person who signed the quotation (printed or handwritten next to 'Name')",
           TEXT, "name of the signatory"),
         E("quote.signed_capacity", "Capacity of the signatory, e.g. Director or Owner", TEXT, "capacity of the signatory"),
-        E("quote.date", "Date written by hand beside the signature at the bottom of the quotation", DATE, "date"),
+        # not required: a quotation is the bidder's own document, not a standard form, and this one has no date line
+        # at the bottom (its date is typed at the top) - requiring a handwritten one raised a false "date is blank"
+        # on the clean pack. A date that IS written there is still read and checked against the closing date.
+        E("quote.date", "Date written by hand beside the signature at the bottom of the quotation, if there is one",
+          DATE, "date", required=False),
     ],
     "sbd6_1": [
         E("sbd6_1.points_claimed", "Number of B-BBEE points claimed in section 7.1 (a number, 'maximum of 10 or 20 points')",

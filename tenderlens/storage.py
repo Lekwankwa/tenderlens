@@ -40,7 +40,7 @@ PDF_MAGIC = b"%PDF-"
 
 
 # Config is read fresh on every call, not frozen as a module constant at import time - same reason
-# llm.py's LlamaClient reads its env vars in __init__ rather than at import, and pilot.pilot_enabled() is a
+# llm.py's ModelClient reads its env vars in __init__ rather than at import, and pilot.pilot_enabled() is a
 # function rather than a constant: a real deployment's env vars don't change mid-process, so this makes no
 # difference there, but a test process imports this module once and runs many tests with different env
 # vars against it, which a frozen constant would never see.
