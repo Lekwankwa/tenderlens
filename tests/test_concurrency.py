@@ -351,3 +351,19 @@ def test_two_model_looks_at_a_cut_off_page_are_only_a_lead_without_a_non_ai_chec
     inspect_pages(llm, pages, facts, passes=2)
     cut = [f for f in facts.items if f.field == "inspect.cut_off"]
     assert cut and all(f.verified and f.confidence < 0.8 for f in cut)  # confirmed by the model, still only a lead
+
+
+def test_focused_checks_can_be_switched_off_to_save_calls(tmp_path, monkeypatch):
+    """TENDERLENS_FOCUSED_CHECKS=0: the overwrite question goes back into the list, so there is no extra call."""
+    import importlib
+    from tenderlens import facts as FA, forms as FM
+    monkeypatch.setenv("TENDERLENS_FOCUSED_CHECKS", "0")
+    importlib.reload(FM)
+    try:
+        assert FM.FOCUSED_INSPECTIONS == ()
+        qs = {k: v[0] for k, v in FM.INSPECTIONS.items()}
+        assert "overwritten" in FA._main_questions(qs)
+    finally:
+        monkeypatch.delenv("TENDERLENS_FOCUSED_CHECKS", raising=False)
+        importlib.reload(FM)
+    assert FM.FOCUSED_INSPECTIONS == ("overwritten",)

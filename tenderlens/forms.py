@@ -6,6 +6,7 @@ model reads the page, so the same rules apply to the vision model, to a person's
 """
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -173,7 +174,8 @@ INSPECTIONS: dict[str, tuple[str, str, str]] = {
 }
 # Questions asked in a call of their own, not in the list with the others. A model asked six things at once gave "no"
 # to this one every time on a page where it had been white-out-and-retyped, and "yes" 5 times in 6 when asked alone.
-FOCUSED_INSPECTIONS = ("overwritten",)
+# TENDERLENS_FOCUSED_CHECKS=0 puts it back in the list (about 20 fewer calls per audit, but it then misses that case).
+FOCUSED_INSPECTIONS = () if os.environ.get("TENDERLENS_FOCUSED_CHECKS", "1").strip() == "0" else ("overwritten",)
 INSPECTION_FORMS = ("quote", "sbd6_1", "sbd6_2", "local_content_decl", "sbd4", "sbd8", "sbd9", "bbbee_affidavit", "tcs")
 SIGNING_PAGE = {"quote": -1, "sbd6_1": -1, "local_content_decl": -1, "sbd4": -1, "sbd8": -1, "sbd9": -1,
                 "bbbee_affidavit": 0}
