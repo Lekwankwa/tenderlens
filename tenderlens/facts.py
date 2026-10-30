@@ -562,21 +562,24 @@ def vision_extract(llm: LlamaClient, pages: list[Page], facts: Facts, local_cont
 
     t0 = time.time()
     pending: list[tuple[F.Entry, Fact, Page]] = []
+    def make_prompt(p, dtype, entries):
+        fields = {e.key: f"[{e.kind}] {e.desc}" for e in entries}
+        return (
+            f"This image is page {p.number} of a bid pack and belongs to the form '{dtype}'. For EACH field "
+            "listed, write what is handwritten, ticked or stamped on THIS page. Use \"not on this page\" if the "
+            "field is not on this page, \"blank\" if it is on this page but nothing is written in it, \"unreadable\" if you "
+            "cannot read it. For yes/no questions answer exactly Yes, No, Both (both boxes marked) or blank. "
+            "Dates: copy them as written. Return JSON of the form {\"<field>\": \"<answer>\"}.\nFields:\n"
+            + json.dumps(fields, indent=1))
+
+    # Every form's pages in ONE concurrent wave (they used to go one form at a time - about eight short waves
+    # back to back), then each form's answers are handled in the same order as before.
+    tasks = [(lambda p=p, d=dtype, en=entries: _ask(llm, facts, make_prompt(p, d, en), [p.image_path], page_no=p.number))
+             for dtype, entries, pgs in forms_here for p in pgs]
+    answers = iter(run_concurrent(tasks, vision_concurrency(), tick))
     for dtype, entries, pgs in forms_here:
         reads: dict[str, list] = {}
-        fields = {e.key: f"[{e.kind}] {e.desc}" for e in entries}
-
-        def make_prompt(p, dtype=dtype, fields=fields):
-            return (
-                f"This image is page {p.number} of a bid pack and belongs to the form '{dtype}'. For EACH field "
-                "listed, write what is handwritten, ticked or stamped on THIS page. Use \"not on this page\" if the "
-                "field is not on this page, \"blank\" if it is on this page but nothing is written in it, \"unreadable\" if you "
-                "cannot read it. For yes/no questions answer exactly Yes, No, Both (both boxes marked) or blank. "
-                "Dates: copy them as written. Return JSON of the form {\"<field>\": \"<answer>\"}.\nFields:\n"
-                + json.dumps(fields, indent=1))
-
-        tasks = [(lambda p=p: _ask(llm, facts, make_prompt(p), [p.image_path], page_no=p.number)) for p in pgs]
-        datas = run_concurrent(tasks, vision_concurrency(), tick)
+        datas = [next(answers) for _ in pgs]
         for p, data in zip(pgs, datas):
             if not isinstance(data, dict):
                 continue

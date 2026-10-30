@@ -244,3 +244,34 @@ def test_running_inspection_beside_the_form_readings_gives_the_same_facts_in_the
 
     assert snapshot(side_by_side) == snapshot(one_after_other)
     assert any(x.field.startswith("inspect.") for x in side_by_side.items)
+
+
+def test_first_readings_of_every_form_go_out_in_one_wave(tmp_path, monkeypatch):
+    """All form pages are read at once, not one form type after another."""
+    import threading
+    import time as _time
+    monkeypatch.setenv("TENDERLENS_VISION_CONCURRENCY", "25")
+    pages = _blank_pages(tmp_path, 3, doc_type="sbd4")
+    for n in (4, 5, 6):
+        img = tmp_path / f"r{n}.png"
+        Image.new("RGB", (100, 100), "white").save(img)
+        pages.append(Page(n, str(img), doc_type="sbd8"))
+
+    class Tracking(_Scripted):
+        def __init__(self):
+            super().__init__({})
+            self.now = self.peak = 0
+            self.lk = threading.Lock()
+
+        def complete_json(self, system, user, images=None):
+            with self.lk:
+                self.now += 1
+                self.peak = max(self.peak, self.now)
+            _time.sleep(0.2)
+            with self.lk:
+                self.now -= 1
+            return {}
+
+    llm = Tracking()
+    vision_extract(llm, pages, Facts(), verify=False)
+    assert llm.peak == 6  # sbd4's 3 pages and sbd8's 3 pages in flight together

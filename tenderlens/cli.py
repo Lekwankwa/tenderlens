@@ -70,14 +70,17 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     req = req_box["req"]
 
     classify_pages(pages, load_templates(blank))
+    # the requirements step already got a real answer from this same endpoint and model a moment ago, so the
+    # one-call "is vision up at all" precheck would only add a wait before the first readings
+    proven = bool(llm.configured and llm.call_stats and llm.base_url == vision.base_url and llm.model == vision.model)
     facts, res = _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript, extra_facts,
-                                   progress, timing, job_id)
+                                   progress, timing, job_id, endpoint_proven=proven)
     facts.stage_times = timing
     return req, res, facts, pages
 
 
 def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript, extra_facts, progress,
-                      timing, job_id=None):
+                      timing, job_id=None, endpoint_proven=False):
     """The part of audit_pack() after OCR/requirements: read the pack with vision (if configured) and run the
     rule checks. Split out so a free re-run (vision was busy, nothing about the pack or the buyer's
     documents changed) can redo just this part, reusing the already-read req/pages instead of paying for
@@ -87,7 +90,7 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
     ocr_facts(pages, facts)
     if vision.configured:
         facts.vision_log["model"] = vision.model
-        if vision_precheck(vision, pages, facts):
+        if endpoint_proven or vision_precheck(vision, pages, facts):
             t_vision = time.time()
             checks = (lambda d, t: progress("vision_checks", d, t)) if progress else None
             # The page inspection and the signature comparison don't use the form readings, so they run side
