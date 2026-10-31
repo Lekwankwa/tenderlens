@@ -19,7 +19,7 @@ from pathlib import Path
 from . import forms as F
 from . import vision_cache
 from .ingest import Page
-from .llm import ModelClient, LLMError, LLMUnavailable, run_concurrent, vision_concurrency
+from .llm import ModelClient, LLMError, LLMUnavailable, run_concurrent, run_in_slices, vision_concurrency
 
 
 @dataclass
@@ -39,7 +39,8 @@ class Facts:
         self.items: list[Fact] = []
         self.unread: list[tuple[str, int, str]] = []  # (field, page, why) entries a reader could not read
         self.vision_log: dict = {"calls": 0, "failed": 0, "pages_read": 0, "pages_inspected": 0, "errors": [],
-                                 "stopped_early": "", "failed_pages": set(), "cache_hits": 0}
+                                 "stopped_early": "", "failed_pages": set(), "cache_hits": 0,
+                                 "slice_errors": []}
         # Set by cli.audit_pack when it's running against a Cloud Run upload job (see storage.py /
         # vision_cache.py) - lets _ask() skip a call already answered before an instance restart. None
         # (the default, every other caller) means "no cache" - exactly today's behaviour, unchanged.
@@ -67,6 +68,7 @@ class Facts:
         for k in ("calls", "failed", "pages_read", "pages_inspected", "cache_hits"):
             mine[k] += theirs[k]
         mine["failed_pages"] |= theirs["failed_pages"]
+        mine["slice_errors"].extend(theirs["slice_errors"])
         for msg in theirs["errors"]:
             if msg not in mine["errors"] and len(mine["errors"]) < 4:
                 mine["errors"].append(msg)
@@ -674,6 +676,22 @@ def _first_reading_leads(data, fields, qs) -> list[str]:
     return out
 
 
+def record_slice_failures(llm: ModelClient, facts: Facts, answers: dict[int, object]) -> None:
+    """After a wave of page reads: for each slice of pages (the same slices the wave was sent in) in which a page could
+    not be read even after the retries, note it on the Facts - the run carries on and every other slice is used as normal.
+    The note names the slice and the pages, and the report lists them as an unresolved exception area for a person."""
+    from .llm import slices
+    numbers = sorted(answers)
+    cause = "timed out" if getattr(llm, "timeouts", 0) else "failed"
+    for chunk in slices(numbers):
+        failed = [n for n in chunk if not isinstance(answers[n], dict)]
+        if failed:
+            lo, hi = chunk[0], chunk[-1]
+            facts.vision_log["slice_errors"].append(
+                {"slice": [lo, hi], "pages": failed,
+                 "message": f"Error: Slice [{lo}-{hi}] {cause} after maximum retries"})
+
+
 def combined_vision_enabled() -> bool:
     """TENDERLENS_VISION_COMBINED, on by default: '0' goes back to separate field-reading and inspection calls."""
     return os.environ.get("TENDERLENS_VISION_COMBINED", "1").strip() != "0"
@@ -744,8 +762,9 @@ def combined_first_pass(llm: ModelClient, pages: list[Page], facts: Facts, local
         return data
 
     tasks = [(lambda it=it: read_page(it)) for it in items] + [call for _, _, call in focused]
-    results = run_concurrent(tasks, vision_concurrency(), tick)
+    results = run_in_slices(tasks, vision_concurrency(), tick)  # a long pack goes out in slices (llm.slices)
     answers = {it["page"].number: data for it, data in zip(items, results)}
+    record_slice_failures(llm, facts, answers)
     _merge_focused(answers, [(n, k) for n, k, _ in focused], results[len(items):])
     if timing is not None:
         timing["vision_first"] = timing.get("vision_first", 0.0) + (time.time() - t0)

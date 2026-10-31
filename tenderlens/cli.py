@@ -18,6 +18,38 @@ from .llm import ModelClient, load_env
 from .report import render_html, to_json
 from .requirements import build_requirements
 
+def _tender_text(rfq, spec) -> str | None:
+    """The buyer's own text (the RFQ/Tender files and the spec, text layer only - no OCR here), or None when none of it has a
+    text layer."""
+    import subprocess
+    files = [rfq] if isinstance(rfq, (str, Path)) else list(rfq)
+    files += [spec] if spec else []
+    out = [subprocess.run(["pdftotext", "-layout", str(f), "-"], capture_output=True, text=True).stdout for f in files]
+    text = "\n".join(out)
+    return text if len(text.strip()) >= 200 else None
+
+
+def apply_sbd_gate(pages, rfq, spec) -> str:
+    """SBD forms are the South African standard bidding documents. A tender that never names them (an NEC3 civil
+    engineering contract, say) is not checked against them: every page the classifier gave an SBD type is set back to
+    "unknown", so none of the SBD rule loops (SBD 4, 6.1, 6.2, 8, 9, local content, page counts, entry checks) and no
+    vision reading of those forms runs. When the tender has no text layer to read, the pack decides: it counts as an SBD
+    pack when at least two pages carry an SBD form header of their own. Returns the note for the report, or "" when the
+    SBD checks stay on."""
+    from .ingest import SBD_TYPES, sbd_header_pages, tender_designates_sbd
+    designated = tender_designates_sbd(_tender_text(rfq, spec))
+    basis = "the tender text"
+    if designated is None:
+        designated, basis = sbd_header_pages(pages) >= 2, "the pack (the tender has no readable text)"
+    if designated:
+        return ""
+    skipped = [p for p in pages if p.doc_type in SBD_TYPES]
+    for p in skipped:
+        p.doc_type = "unknown"
+    return (f"SBD form checks were not run: {basis} does not designate the South African SBD forms, so "
+            f"{len(skipped)} page(s) that look like SBD forms were left unchecked against them.")
+
+
 def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm=None, local_content="auto",
                vision=None, inspect="forms", passes=2, extra_facts=None, progress=None, pack_stage="final",
                job_id=None, live=None):
@@ -83,6 +115,7 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     pages = load_pdf(pack, work, progress=(lambda d, t: progress("ocr", d, t)) if progress else None, timing=timing)
 
     classify_pages(pages, load_templates(blank))
+    gate_note = apply_sbd_gate(pages, rfq, spec)
     if live is not None:
         from .audit import DOC_LABEL
         live.set_pages(pages, lambda dtype: DOC_LABEL.get(dtype, dtype))
@@ -102,6 +135,8 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     facts, res, req = _vision_and_audit(get_req, pages, blank, vision, inspect, passes, pack_stage, transcript,
                                         extra_facts, progress, timing, job_id, endpoint_proven=proven, live=live)
     facts.stage_times = timing
+    if gate_note:
+        res.human_only.append(gate_note)
     return req, res, facts, pages
 
 
@@ -114,6 +149,8 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
     the form readings do not need them, so they can still be in progress while vision runs. Returns
     (facts, result, requirements)."""
     facts = Facts()
+    if vision.use_large_pack_profile(len(pages)):
+        print(f"large pack ({len(pages)} pages): page images are sent to the model at reduced size", flush=True)
     facts.job_id = job_id  # see audit_pack's own docstring and facts._ask()/vision_cache.py
     ocr_facts(pages, facts)
     if vision.configured:

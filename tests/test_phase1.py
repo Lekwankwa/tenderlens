@@ -79,15 +79,15 @@ def test_a_single_printed_reading_still_wins_even_against_more_handwritten_pages
 
 # --------------------------------------------------------------------------- Step 3A: stray notes need a witness
 
-def test_a_vision_only_stray_note_reading_stays_an_observation(monkeypatch):
+def test_a_vision_only_stray_note_reading_is_counted_not_listed(monkeypatch):
     from tenderlens import vision as V
     monkeypatch.setattr(V, "stray_marks", lambda page, vocab: [])  # the non-AI check finds nothing here
     f = Facts()
     f.add("inspect.annotation", True, 5, "vision", 0.9, verified=True)  # the model "confirmed" itself
     a = Auditor(Requirements(), [Page(5, "x", doc_type="sbd4")], f, BLANK_DIR)
     a.vision_inspection()
-    found = next(x for x in a.res.findings if "Handwritten note outside the form fields" in x.title)
-    assert found.tier == "observation"
+    assert not [x for x in a.res.findings if "Handwritten note outside the form fields" in x.title]
+    assert any("1 handwritten note(s) reported by the vision model were not listed" in h for h in a.res.human_only)
 
 
 def test_a_stray_note_backed_by_image_analysis_is_an_issue(monkeypatch):

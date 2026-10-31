@@ -8,6 +8,7 @@ offline fallback, so the pipeline still works with no endpoint configured.
 """
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from dataclasses import dataclass, field, asdict
@@ -194,37 +195,107 @@ def rules_extract(email_text: str, email_name: str, spec_text: str, spec_name: s
     return r
 
 
+# Words that mark the passages a buyer's requirements live in; used to pick what to send when a tender is too long.
+_KEY_WORDS = re.compile(
+    r"closing|clos(?:e|es) at|deadline|submit|e-?mail|validity|valid for|compulsory|mandatory|briefing|clarification|"
+    r"CIDB|grading|B-?BBEE|tax (?:compliance|clearance)|CSD|SARS|required|must be|shall be|returnable|"
+    r"evaluation|functionality|preference|disqualif|insurance|guarantee|specification|quantity|deliver", re.I)
+
+
+def prompt_excerpt(text: str, limit: int) -> tuple[str, bool]:
+    """(text to put in the prompt, whether it was cut). A tender of hundreds of pages cannot go to the model whole:
+    over `limit` characters the opening is kept, then every line that mentions a requirement word (with the line
+    after it) in document order, until the limit. The quotes the model returns are still checked against the FULL
+    text (see llm_extract), so a shortened prompt cannot let an invented requirement through."""
+    if len(text) <= limit:
+        return text, False
+    lines = text.splitlines()
+    keep = [False] * len(lines)
+    used = 0
+    for i, ln in enumerate(lines):
+        if used >= limit * 0.2:
+            break
+        keep[i] = True
+        used += len(ln) + 1
+    for i, ln in enumerate(lines):
+        if used >= limit:
+            break
+        if not keep[i] and _KEY_WORDS.search(ln):
+            for j in (i, i + 1):
+                if j < len(lines) and not keep[j]:
+                    keep[j] = True
+                    used += len(lines[j]) + 1
+    out, gap = [], False
+    for ln, k in zip(lines, keep):
+        if k:
+            if gap:
+                out.append("[... text left out ...]")
+            out.append(ln)
+        gap = not k
+    return "\n".join(out), True
+
+
+def tender_prompt_limit() -> int:
+    """TENDERLENS_TENDER_PROMPT_CHARS: characters of tender text sent to the model (default 120,000, about 30,000
+    tokens); a longer tender is shortened by prompt_excerpt()."""
+    raw = os.environ.get("TENDERLENS_TENDER_PROMPT_CHARS", "").strip()
+    return max(5000, int(raw)) if raw.isdigit() else 120_000
+
+
+def _text(v) -> str:
+    return v if isinstance(v, str) else ""
+
+
+def _obj(v) -> dict:
+    return v if isinstance(v, dict) else {}
+
+
+def _items(v) -> list[dict]:
+    return [d for d in v if isinstance(d, dict)] if isinstance(v, list) else []
+
+
 def llm_extract(llm: ModelClient, email_text: str, email_name: str, spec_text: str, spec_name: str) -> Requirements:
+    shown_email, cut_email = prompt_excerpt(email_text, tender_prompt_limit())
+    shown_spec, cut_spec = prompt_excerpt(spec_text, tender_prompt_limit() // 2)
     user = (
-        f"--- DOCUMENT: {email_name} ---\n{email_text}\n\n--- DOCUMENT: {spec_name} (OCR) ---\n{spec_text}\n\n{SCHEMA_HINT}"
+        f"--- DOCUMENT: {email_name} ---\n{shown_email}\n\n--- DOCUMENT: {spec_name} (OCR) ---\n{shown_spec}\n\n{SCHEMA_HINT}"
     )
     data = llm.complete_json(SYSTEM, user)
     source = email_text + "\n" + spec_text
     r = Requirements()
-    c = data.get("closing") or {}
-    if quote_in(source, c.get("source_quote", "")):
-        r.closing_date, r.closing_time = c.get("date", ""), c.get("time", "")
+    # The model can answer any field with null, a number or a nested object (a long CE tender made it do so). Every
+    # field below is read through _text/_obj so an odd answer drops that one field instead of stopping the audit.
+    c = _obj(data.get("closing"))
+    if quote_in(source, _text(c.get("source_quote"))):
+        r.closing_date, r.closing_time = _text(c.get("date")), _text(c.get("time"))
     else:
         r.notes.append("LLM closing date dropped: source_quote not found in documents")
-    e = data.get("submit_to_email") or {}
-    if quote_in(source, e.get("source_quote", "")) and e.get("value", "") in source:
-        r.submit_to_email = e["value"]
-    v = data.get("min_quote_validity_days") or {}
-    if quote_in(source, v.get("source_quote", "")):
-        r.min_quote_validity_days = int(v.get("value", 0))
-    for d in data.get("required_documents", []):
-        if quote_in(source, d.get("source_quote", "")):
-            r.documents.append(Requirement(d["id"], d["label"], email_name, d["source_quote"]))
+    e = _obj(data.get("submit_to_email"))
+    email = _text(e.get("value"))
+    if email and quote_in(source, _text(e.get("source_quote"))) and email in source:
+        r.submit_to_email = email
+    v = _obj(data.get("min_quote_validity_days"))
+    if quote_in(source, _text(v.get("source_quote"))):
+        try:
+            r.min_quote_validity_days = int(v.get("value") or 0)
+        except (TypeError, ValueError):
+            r.notes.append(f"LLM validity dropped (not a number): {v.get('value')!r}")
+    for d in _items(data.get("required_documents")):
+        if quote_in(source, _text(d.get("source_quote"))):
+            r.documents.append(Requirement(_text(d.get("id")), _text(d.get("label")), email_name, _text(d["source_quote"])))
         else:
             r.notes.append(f"LLM requirement dropped (quote not in source): {d.get('label')}")
-    for d in data.get("conditions", []):
-        if quote_in(source, d.get("source_quote", "")):
-            r.conditions.append(Requirement("cond", d["label"], email_name, d["source_quote"]))
+    for d in _items(data.get("conditions")):
+        if quote_in(source, _text(d.get("source_quote"))):
+            r.conditions.append(Requirement("cond", _text(d.get("label")), email_name, _text(d["source_quote"])))
         else:
             r.notes.append(f"LLM condition dropped (quote not in source): {d.get('label')}")
-    sp = data.get("specification") or {}
+    sp = _obj(data.get("specification"))
     if sp:
         r.spec = {**sp, "source_doc": spec_name}
+    if cut_email or cut_spec:
+        r.notes.append(f"The tender text was longer than the model prompt limit ({tender_prompt_limit():,} characters), "
+                       "so only its opening and the passages that mention requirements were sent to the model.")
     return r
 
 
@@ -269,6 +340,6 @@ def build_requirements(rfq_pdfs: Path | list[Path], spec_text: str, spec_name: s
     if llm is not None and llm.configured:
         try:
             llm_r = llm_extract(llm, email_text, email_name, spec_text, spec_name)
-        except (LLMUnavailable, OSError, ValueError) as ex:
+        except Exception as ex:  # noqa: BLE001 - whatever the model returned, the audit goes on with the rules alone
             rules_r.notes.append(f"AI model call failed ({type(ex).__name__}: {ex}); used rules only.")
     return merge(llm_r, rules_r)

@@ -323,20 +323,60 @@ def stray_marks(page: Page, vocab: set[str]) -> list[Region]:
 
 # --- page cut off at an edge: non-AI first, the model only if this can't decide --------
 
+_EDGE_MARGIN = 6
+_edge_cache: dict[tuple[int, int], dict[str, float]] = {}
+
+
+def _edges_touched(page: Page, w: int, h: int) -> set[str]:
+    m = _EDGE_MARGIN
+    out = set()
+    for wd in page.words:
+        if wd.conf < 60:
+            continue
+        if wd.left <= m:
+            out.add("left")
+        if wd.top <= m:
+            out.add("top")
+        if wd.left + wd.width >= w - m:
+            out.add("right")
+        if wd.top + wd.height >= h - m:
+            out.add("bottom")
+    return out
+
+
+def _running_edges(siblings: list[Page]) -> dict[str, float]:
+    """Per edge, the share of the pack's pages that have confident text touching it. A running header or footer that
+    the print puts on every page (the pack's own banner) touches the same edge on most pages; that is page furniture
+    carried by the design, not text the scanner clipped."""
+    key = (id(siblings), len(siblings))
+    if key not in _edge_cache:
+        from PIL import Image
+        live = [p for p in siblings if p.doc_type != "blank"]
+        counts: dict[str, int] = {"left": 0, "top": 0, "right": 0, "bottom": 0}
+        for p in live:
+            w, h = Image.open(p.image_path).size
+            for e in _edges_touched(p, w, h):
+                counts[e] += 1
+        _edge_cache.clear()
+        _edge_cache[key] = {e: c / max(1, len(live)) for e, c in counts.items()}
+    return _edge_cache[key]
+
+
 def page_cutoff(page: Page, siblings: list[Page]) -> bool | None:
     """True/False when this can be decided without a model: the page is noticeably shorter than the other
     pages in the same pack (a scan fed in short), or confidently-read text sits flush against an edge (the
-    scanner bed clipped it). None means neither signal fired either way - ask the vision model instead."""
+    scanner bed clipped it). None means neither signal fired either way - ask the vision model instead.
+    Two things are not clipping: a sheet scanned sideways (its long side is compared, not its height), and text
+    on an edge that the print itself uses on at least a tenth of the pack's pages (a running footer: OCR reads a small footer line on only some of the pages it is printed on)."""
     from PIL import Image
     w, h = Image.open(page.image_path).size
-    heights = sorted(Image.open(p.image_path).size[1] for p in siblings if p.doc_type != "blank")
-    if len(heights) >= 3:
-        median_h = heights[len(heights) // 2]
-        if h < median_h * 0.85:
+    longest = sorted(max(Image.open(p.image_path).size) for p in siblings if p.doc_type != "blank")
+    if len(longest) >= 3:
+        median_len = longest[len(longest) // 2]
+        if max(w, h) < median_len * 0.85:
             return True
-    margin = 6
-    if any(wd.conf >= 60 and (wd.left <= margin or wd.top <= margin or wd.left + wd.width >= w - margin
-                              or wd.top + wd.height >= h - margin) for wd in page.words):
+    running = _running_edges(siblings) if len(siblings) >= 8 else {}
+    if any(e not in running or running[e] < 0.10 for e in _edges_touched(page, w, h)):
         return True
     return None
 

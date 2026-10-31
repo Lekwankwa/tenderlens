@@ -23,3 +23,9 @@ pilot/*
 
 # downloaded public tender documents (large) - regenerate with tools/scrape_cidb_tenders.py --documents
 tools/tender_documents/
+
+# CE evaluation: run data, caches and per-run reports stay local; manifest and summary reports may be committed
+evaluation/ce_baseline/runs/
+evaluation/ce_baseline/.work/
+evaluation/ce_baseline/.ocr_cache/
+evaluation/ce_baseline/runs_failed/

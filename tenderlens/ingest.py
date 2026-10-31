@@ -15,6 +15,8 @@ from pathlib import Path
 import pytesseract
 from PIL import Image
 
+from .llm import slices
+
 DPI = 150
 
 
@@ -174,12 +176,16 @@ def render_and_ocr(pdf: Path, outdir: Path, ocr_dir: Path, workers: int, progres
 
     got: dict[int, tuple] = {}
     try:
+        # a long pack is done in sequential slices of pages (llm.slices); inside a slice every page starts at once
+        # on the worker pool. Results are keyed by page number and sorted afterwards, so the slicing cannot change
+        # what comes out.
         with ThreadPoolExecutor(max_workers=max(1, min(workers, want))) as ex:
-            for fut in as_completed([ex.submit(one, n) for n in range(1, want + 1)]):
-                n, png, sha, result = fut.result()
-                got[n] = (png, sha, result)
-                if progress:
-                    progress(len(got), want)
+            for chunk in slices(list(range(1, want + 1))):
+                for fut in as_completed([ex.submit(one, n) for n in chunk]):
+                    n, png, sha, result = fut.result()
+                    got[n] = (png, sha, result)
+                    if progress:
+                        progress(len(got), want)
         for n in sorted(got):
             shutil.move(str(got[n][0]), str(outdir / got[n][0].name))
     finally:
@@ -428,8 +434,8 @@ def classify_rfq_document(text: str) -> str | None:
 # Ordered: first match wins. Keywords are matched against upper-cased OCR text of
 # the first ~600 characters, because continuation pages repeat nothing useful.
 SIGNATURES = [
-    ("sbd6_1", [r"SBD\s*6\.1", r"PREFERENCE POINTS CLAIM"]),
-    ("sbd6_2", [r"SBD\s*6\.2", r"DECLARATION CERTIFICATE FOR LOCAL"]),
+    ("sbd6_1", [r"[SM]BD\s*6\.1", r"PREFERENCE POINTS CLAIM"]),
+    ("sbd6_2", [r"[SM]BD\s*6\.2", r"DECLARATION CERTIFICATE FOR LOCAL"]),
     ("local_content_decl", [r"REFER TO ANNEX\s*B", r"LOCAL CONTENT DECLARATION BY CHIEF"]),
     # Annex C (SATS 1286:2011): its own printed subtitle, "Local Content Declaration - Summary Schedule"
     # (a dash), which OCRs reliably even when the stylised "Annex C" banner above it does not. SBD 6.2
@@ -437,9 +443,9 @@ SIGNATURES = [
     # declaration: summary schedule) are not submitted...") - the dash is what tells them apart.
     ("annexure_c", [r"ANNEX\s*C\s*[\r\n]*\s*(?:-\s*)?(?:LOCAL CONTENT DECLARATION|SUMMARY SCHEDULE)",
                     r"LOCAL CONTENT DECLARATION\s*-\s*SUMMARY SCHEDULE"]),
-    ("sbd4", [r"SBD\s*4", r"DECLARATION OF INTEREST"]),
-    ("sbd8", [r"SBD\s*8", r"PAST SUPPLY CHAIN"]),
-    ("sbd9", [r"SBD\s*9", r"INDEPENDENT BID DETERMINATION"]),
+    ("sbd4", [r"[SM]BD\s*4", r"DECLARATION OF INTEREST"]),
+    ("sbd8", [r"[SM]BD\s*8", r"PAST SUPPLY CHAIN"]),
+    ("sbd9", [r"[SM]BD\s*9", r"INDEPENDENT BID DETERMINATION"]),
     ("tcs", [r"TAX COMPLIANCE", r"TCS\s+DETAILS"]),
     ("csd", [r"CSD REGISTRATION", r"CENTRAL SUPPLIER", r"BBBEE INFORMATION", r"SUPPLIER DIRECTOR"]),
     ("bbbee_affidavit", [r"SWORN AFFIDAVIT", r"EXEMPTED MICRO ENTERPRISE"]),
@@ -462,7 +468,7 @@ CONTINUATION_HINTS = {
 
 # --- blank-form templates: a page can be recognised, and placed within its form, by the text it shares ---
 
-TEMPLATE_KEYS = [("sbd6_2", r"6[_.\- ]?2"), ("sbd6_1", r"6[_.\- ]?1"), ("sbd4", r"SBD[_ ]?4"), ("sbd8", r"SBD[_ ]?8"),
+TEMPLATE_KEYS = [("sbd6_2", r"6[_.\- ]?2"), ("sbd6_1", r"6[_.\- ]?1"), ("sbd4", r"[SM]BD[_ ]?4"), ("sbd8", r"[SM]BD[_ ]?8"),
                  ("sbd9", r"SBD[_ ]?9")]
 
 
@@ -503,8 +509,32 @@ def load_templates(blank_dir) -> dict[str, Template]:
     return out
 
 
+# How many pages in a row one form type may cover when pages with no header of their own are given the form before them.
+# Without a limit, every page after one SBD 9 header became "SBD 9" (62 pages of a 134-page civil engineering pack). The
+# SBD forms' own page counts plus one (a duplicated page is still caught); the other forms are generous.
+INHERIT_LIMIT = {"sbd6_1": 6, "sbd6_2": 4, "local_content_decl": 3, "sbd4": 5, "sbd8": 3, "sbd9": 5,
+                 "csd": 6, "tcs": 3, "bbbee_affidavit": 3, "cipc": 3}
+SBD_TYPES = ("sbd4", "sbd6_1", "sbd6_2", "sbd8", "sbd9", "local_content_decl", "annexure_c")
+# municipalities issue the same standard forms as "MBD" (MBD 4, MBD 6.1, MBD 9), so either prefix designates them
+_SBD_MENTION = re.compile(r"\b[SM]BD\s*[1-9](?:\.\d)?\b", re.I)
+
+
+def tender_designates_sbd(tender_text: str | None) -> bool | None:
+    """Does the buyer's own text name the standard forms (SBD 4, SBD 6.1, or the municipal MBD 4, MBD 6.1, ...)? True/False when there is tender text to read,
+    None when there is none (a scan with no text layer) - the caller then has to look at the pack instead."""
+    if tender_text is None or len(tender_text.strip()) < 200:
+        return None
+    return bool(_SBD_MENTION.search(tender_text))
+
+
+def sbd_header_pages(pages: list[Page]) -> int:
+    """Pages whose own first lines carry an SBD form header (not pages that merely inherited the type)."""
+    return sum(1 for p in pages if p.doc_type in SBD_TYPES and any(
+        re.search(pt, p.text[:700].upper()) for d, pats in SIGNATURES if d in SBD_TYPES for pt in pats))
+
+
 def classify_pages(pages: list[Page], templates: dict | None = None) -> None:
-    prev = "unknown"
+    prev, run = "unknown", 0
     for p in pages:
         if len(p.text.strip()) < 20 and len(p.words) <= 3:
             p.doc_type = "blank"  # nothing printed: a blank sheet, and it must not borrow the form before it
@@ -533,5 +563,45 @@ def classify_pages(pages: list[Page], templates: dict | None = None) -> None:
                 if any(re.search(pt, body) for pt in pats[:1]):
                     found = dtype
                     break
-        p.doc_type = found or (prev if prev != "unknown" else "unknown")
+        if found:
+            run = run + 1 if found == prev else 1
+            p.doc_type = found
+        elif prev != "unknown" and run < INHERIT_LIMIT.get(prev, 2):
+            p.doc_type, run = prev, run + 1
+        else:
+            p.doc_type, run = "unknown", 0
         prev = p.doc_type
+
+
+def near_duplicate_pairs(pages: list[Page], min_corr: float = 0.97, min_overlap: float = 0.80) -> list[tuple[int, int, float, float]]:
+    """(page a, page b, image correlation, shared-word fraction) for neighbouring pages that are scans of the same sheet.
+    Planted duplicates in the CE packs are separate scans, so their files are not byte-identical and the exact-hash check
+    cannot see them. Two pages count as the same sheet only when the page images match closely (correlation of a 96x128
+    greyscale copy) AND their OCR words overlap strongly, and only for neighbours (or one page apart, a blank in between).
+    Tuned on six packs (2 of 3 planted duplicates found, no clean-pack hit): consecutive financial statements or
+    reference forms can look alike, so the result is a lead for a person, never proof."""
+    import numpy as np
+
+    def vec(page: Page):
+        im = Image.open(page.image_path).convert("L").resize((96, 128), Image.BILINEAR)
+        a = 255 - np.asarray(im, dtype=float)
+        a -= a.mean()
+        return (a / (np.linalg.norm(a) or 1)).ravel()
+
+    def words(page: Page) -> set[str]:
+        return set(re.findall(r"[a-z0-9]{3,}", page.text.lower()))
+
+    live = [p for p in pages if p.doc_type != "blank" and len(p.text.strip()) >= 150]
+    out = []
+    for i, a in enumerate(live):
+        for b in live[i + 1:i + 3]:
+            if b.number - a.number > 2:
+                continue
+            wa, wb = words(a), words(b)
+            overlap = len(wa & wb) / max(1, len(wa | wb))
+            if overlap < min_overlap:
+                continue
+            corr = float(vec(a) @ vec(b))
+            if corr >= min_corr:
+                out.append((a.number, b.number, round(corr, 3), round(overlap, 2)))
+    return out

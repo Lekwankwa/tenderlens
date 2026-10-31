@@ -210,7 +210,7 @@ def test_a_429_is_retried_and_then_succeeds(monkeypatch):
     c = client(m)
     assert c.complete_json("sys", "u") == {"ok": True}
     assert len(m.requests) == 2
-    assert sleeps == [1]  # no Retry-After header in this script, so the 2**attempt backoff (1s) is used
+    assert sleeps == [2.0]  # no Retry-After header in this script, so the first back-off step (2 s) is used
     assert c.retries == 1  # one wait-and-retry happened, for the per-check log
     m.close()
 
@@ -254,14 +254,20 @@ def test_retry_after_header_is_honoured_over_the_default_backoff(monkeypatch):
     m.close()
 
 
-def test_vision_calls_use_their_own_slower_retry_schedule(monkeypatch):
+def test_text_and_vision_calls_back_off_exponentially_2_4_8_seconds(monkeypatch):
     waits = []
     monkeypatch.setattr("tenderlens.llm.time.sleep", waits.append)
     m = Mock([(429, {"error": "busy"}), (429, {"error": "busy"}), (429, {"error": "busy"}), ok({"ok": True})])
     c = client(m, prefix="VISION")
     assert c.complete_json("sys", "u") == {"ok": True}
-    assert waits == [2.0, 5.0, 15.0]  # not the text client's 1s/2s/4s
+    assert waits == [2.0, 4.0, 8.0]
     m.close()
+    waits2 = []
+    monkeypatch.setattr("tenderlens.llm.time.sleep", waits2.append)
+    m2 = Mock([(502, {"error": "bad gateway"}), (503, {"error": "busy"}), (504, {"error": "timeout"}), ok({"ok": True})])
+    assert client(m2).complete_json("sys", "u") == {"ok": True}  # the text client uses the same schedule
+    assert waits2 == [2.0, 4.0, 8.0]
+    m2.close()
 
 
 def test_a_connection_failure_with_no_http_status_is_retried_like_a_429(monkeypatch):
@@ -356,7 +362,7 @@ def test_reasoning_effort_defaults_to_low_on_fireworks_for_both_roles(monkeypatc
     assert ModelClient().reasoning_effort == "high"
 
 
-def test_a_504_is_never_retried(mock, monkeypatch):
+def test_a_504_is_retried_three_times_and_then_fails(mock, monkeypatch):
     _blank_provider_env(monkeypatch)
     m = mock([(504, {"error": {"message": "gateway timeout"}})])
     monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)
@@ -364,7 +370,56 @@ def test_a_504_is_never_retried(mock, monkeypatch):
     with pytest.raises(LLMError) as exc:
         c.complete_json("sys", "u")
     assert exc.value.status_code == 504
-    assert len(m.requests) == 1  # not retried - the provider's guidance: retrying 504 as-is just times out again
+    assert len(m.requests) == 4  # the first attempt and three retries; each attempt is bounded by the call's timeout
+
+
+def test_vision_calls_time_out_after_45_s_and_text_calls_after_90_s(monkeypatch):
+    for k in ("TENDERLENS_LLM_TIMEOUT", "TENDERLENS_VISION_TIMEOUT"):
+        monkeypatch.delenv(k, raising=False)
+    assert ModelClient(base_url="http://x", model="m", api_key="k", prefix="VISION").timeout == 45.0
+    assert ModelClient(base_url="http://x", model="m", api_key="k").timeout == 90.0
+    monkeypatch.setenv("TENDERLENS_LLM_TIMEOUT", "300")      # the text setting does not lengthen page reads
+    assert ModelClient(base_url="http://x", model="m", api_key="k", prefix="VISION").timeout == 45.0
+    assert ModelClient(base_url="http://x", model="m", api_key="k").timeout == 300.0
+    monkeypatch.setenv("TENDERLENS_VISION_TIMEOUT", "30")
+    assert ModelClient(base_url="http://x", model="m", api_key="k", prefix="VISION").timeout == 30.0
+
+
+def _urlopen_script(monkeypatch, outcomes):
+    """Replace urlopen with a script of exceptions / one final JSON answer; returns the list of timeouts it was given."""
+    import io
+    seen = []
+
+    def fake(req, timeout=None, context=None):
+        seen.append(timeout)
+        o = outcomes.pop(0)
+        if isinstance(o, Exception):
+            raise o
+        return io.BytesIO(json.dumps(o).encode())
+
+    monkeypatch.setattr("tenderlens.llm.urllib.request.urlopen", fake)
+    return seen
+
+
+def test_a_timeout_a_reset_connection_and_a_dropped_protocol_are_each_retried(monkeypatch):
+    import http.client
+    waits = []
+    monkeypatch.setattr("tenderlens.llm.time.sleep", waits.append)
+    good = {"choices": [{"message": {"content": "{\"ok\": true}"}}], "usage": {}}
+    seen = _urlopen_script(monkeypatch, [TimeoutError("read timed out"), ConnectionResetError(54, "Connection reset by peer"),
+                                         http.client.RemoteDisconnected("no response"), good])
+    c = ModelClient(base_url="http://x", model="m", api_key="k", prefix="VISION")
+    assert c.complete_json("sys", "u") == {"ok": True}
+    assert waits == [2.0, 4.0, 8.0] and seen == [45.0] * 4 and c.timeouts == 1 and c.retries == 3
+
+
+def test_a_call_that_keeps_timing_out_fails_after_three_retries_with_a_clear_message(monkeypatch):
+    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)
+    seen = _urlopen_script(monkeypatch, [TimeoutError("t")] * 4)
+    c = ModelClient(base_url="http://x", model="m", api_key="k", prefix="VISION")
+    with pytest.raises(LLMError, match="timed out after 45 s"):
+        c.complete_json("sys", "u")
+    assert len(seen) == 4 and c.timeouts == 4
 
 
 # --------------------------------------------------------------------------- opt-in reasoning effort

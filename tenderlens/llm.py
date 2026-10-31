@@ -16,7 +16,15 @@ Other:
         born-digital one) is sent as the PNG, unchanged. 0 = always send the PNG. Only what is sent changes: the
         page files on disk, OCR and the local ink/signature checks still use the original PNG.
     TENDERLENS_VISION_CONCURRENCY    page reads in flight at once, default 25 (1-32).
-    TENDERLENS_LLM_TIMEOUT      seconds per call (default 300: a laptop CPU reading a page image is slow)
+    TENDERLENS_BATCH_OVER / TENDERLENS_BATCH_PAGES    a pack longer than BATCH_OVER pages (default 50) is rendered, read and
+        sent to the model in sequential slices of BATCH_PAGES pages (default 25); inside a slice every page starts at
+        once. Results are put back in page order, so the findings do not depend on the slicing.
+    TENDERLENS_LARGE_PACK_PROFILE    1 (default): for such a long pack the copy of each page sent to the model is
+        downscaled to 100 DPI (the render is 150) and JPEG quality 85; OCR and the local image checks keep the full
+        render. 0 turns it off. TENDERLENS_LARGE_PACK_DPI / _QUALITY change the two numbers. TENDERLENS_IMAGE_PAD (default
+        15) adds that many white pixels around the whole page image sent to the model.
+    TENDERLENS_VISION_TIMEOUT (page reads, default 45) and TENDERLENS_LLM_TIMEOUT (the requirements call, default 90):
+        seconds before one attempt is abandoned and retried (3 retries, 2 s, 4 s, 8 s apart). A slow local model needs more.
     TENDERLENS_LLM_JSON_MODE    1 (default) asks the server for strict JSON; 0 turns that off if it ever refuses it
     TENDERLENS_LLM_PRICE_IN/_OUT, TENDERLENS_VISION_PRICE_IN/_OUT
         US$ per million tokens, input/output. Unset by default - we never invent a price. Set these (see
@@ -26,6 +34,7 @@ Other:
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import logging
 import os
@@ -139,7 +148,12 @@ class ModelClient:
         self.base_url = (base_url if base_url is not None else e("FIREWORKS_API_BASE", "") or FIREWORKS_BASE).rstrip("/")
         self.model = model if model is not None else e("FIREWORKS_MODEL", "") or FIREWORKS_MODEL
         self.api_key = api_key if api_key is not None else e("FIREWORKS_API_KEY", "")
-        self.timeout = float(timeout or e("TENDERLENS_LLM_TIMEOUT", "300"))
+        # A call that has not answered by then is abandoned and retried (see _post). Vision reads: 45 s (measured median 15 s,
+        # p90 25 s). The text (requirements) call writes about 1,300 tokens and has taken 31 to 54 s, so 45 s would fail it
+        # half the time: it gets 90 s. Each has its own setting - TENDERLENS_VISION_TIMEOUT for page reads,
+        # TENDERLENS_LLM_TIMEOUT for the text call - so a long text timeout in .env cannot quietly lengthen page reads.
+        default_timeout = "45" if prefix == "VISION" else "90"
+        self.timeout = float(timeout or e(f"TENDERLENS_{prefix}_TIMEOUT", "") or default_timeout)
         self.json_mode = e("TENDERLENS_LLM_JSON_MODE", "1") != "0"
         q = e("TENDERLENS_VISION_JPEG_QUALITY", "85").strip()
         self.jpeg_quality = max(0, min(95, int(q))) if q.isdigit() else 85
@@ -147,6 +161,9 @@ class ModelClient:
         if not effort and "fireworks.ai" in self.base_url:
             effort = "low"
         self.reasoning_effort = effort if effort in ("low", "medium", "high") else ""
+        self.image_scale = 1.0  # < 1: page images are shrunk before being sent (see use_large_pack_profile)
+        self.image_pad = 0      # white border (pixels, at the size sent) added around the page image before it is sent
+        self.cached_tokens = 0  # prompt tokens the provider reports as served from its prompt cache (billed at a lower rate)
         self.price_in = _num(e(f"TENDERLENS_{prefix}_PRICE_IN", ""))
         self.price_out = _num(e(f"TENDERLENS_{prefix}_PRICE_OUT", ""))
         self.calls = 0
@@ -162,7 +179,24 @@ class ModelClient:
         self._slots = threading.BoundedSemaphore(vision_concurrency())
         # Vision reads pages one at a time across a whole pack, so a slower, longer-patience schedule costs
         # far less relative to the run than it would for the one-shot text (requirements) call.
-        self.retry_waits = (2.0, 5.0, 15.0) if prefix == "VISION" else (1.0, 2.0, 4.0)
+        # three retries, waiting 2 s, 4 s, 8 s (exponential), for vision and text alike
+        self.retry_waits = (2.0, 4.0, 8.0)
+        self.timeouts = 0  # calls abandoned because they did not answer in time (each is then retried)
+
+    def use_large_pack_profile(self, page_count: int, render_dpi: int = 150) -> bool:
+        """For a pack longer than batch_settings()'s threshold, send a smaller copy of each page to the model
+        (100 DPI, JPEG quality 85 unless set otherwise: a page's vision token count follows its pixel size, so the
+        quality keeps edges clean for handwriting without adding tokens): less to upload and to read per call across hundreds of
+        pages. Only what is sent changes - OCR and the local image checks use the full render. Returns whether it
+        was switched on."""
+        over, _ = batch_settings()
+        if page_count <= over or os.environ.get("TENDERLENS_LARGE_PACK_PROFILE", "1").strip() == "0":
+            return False
+        dpi = _env_int("TENDERLENS_LARGE_PACK_DPI", 100, 30, render_dpi)
+        self.image_scale = dpi / render_dpi
+        self.image_pad = _env_int("TENDERLENS_IMAGE_PAD", 15, 0, 200)
+        self.jpeg_quality = _env_int("TENDERLENS_LARGE_PACK_QUALITY", 85, 1, 95)
+        return True
 
     @property
     def estimated_cost(self) -> float | None:
@@ -196,11 +230,11 @@ class ModelClient:
                 **({"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}),
             },
         )
-        # 429 ("model busy") and 5xx are the provider's shared capacity at that moment, not a real outage -
-        # often gone within seconds, so retried with back-off before this call counts as failed. 504 is the
-        # one 5xx excluded: it means THIS request ran too long, so an unchanged retry just times out again
-        # the same way (the provider's guidance: reduce input/output size or stream instead). Anything
-        # else (a bad key, a malformed request, ...) fails immediately: retrying it can't help.
+        # 429 ("model busy"), every 5xx (502 and 504 included), a timeout and a dropped or reset connection are the
+        # provider's or the network's state at that moment, not a bad request: each is retried up to three times with
+        # a 2 s, 4 s, 8 s back-off before this call counts as failed. Anything else (a bad key, a malformed request,
+        # ...) fails immediately: retrying it can't help. The call's own timeout (self.timeout) bounds each attempt, so
+        # a call can take at most 4 x timeout plus 14 s of waiting and never hangs the loop that is waiting for it.
         waits = self.retry_waits
         for attempt in range(len(waits) + 1):
             try:
@@ -209,13 +243,19 @@ class ModelClient:
             except urllib.error.HTTPError as err:
                 body_text = _read_error_body(err, self.api_key)
                 last_err = LLMError(f"HTTP {err.code} from {self.base_url} ({self.model}): {body_text}", err.code)
-                retryable = err.code == 429 or (500 <= err.code < 600 and err.code != 504)
+                retryable = err.code == 429 or 500 <= err.code < 600
                 retry_after = err.headers.get("Retry-After") if err.headers else None
-            except (urllib.error.URLError, TimeoutError) as err:
-                # no HTTP status at all - a timeout or a connection problem reaching the endpoint, not a bad
-                # request, so it gets the same retry treatment as a 429.
+            except (urllib.error.URLError, OSError, http.client.HTTPException, ssl.SSLError) as err:
+                # no HTTP status at all: a timeout, a refused or reset connection, a protocol drop or a half-sent
+                # response (ConnectionResetError and RemoteDisconnected arrive while the body is being read, as plain
+                # OSError / HTTPException, not as URLError). Not a bad request, so the same retry as a 429.
                 reason = getattr(err, "reason", err)
-                last_err = LLMError(f"{type(reason).__name__}: {reason} contacting {self.base_url} ({self.model})")
+                if isinstance(reason, TimeoutError) or isinstance(err, TimeoutError):
+                    with self._lock:
+                        self.timeouts += 1
+                    last_err = LLMError(f"timed out after {self.timeout:.0f} s contacting {self.base_url} ({self.model})")
+                else:
+                    last_err = LLMError(f"{type(reason).__name__}: {reason} contacting {self.base_url} ({self.model})")
                 retryable, retry_after = True, None
             if not retryable or attempt == len(waits):
                 raise last_err from None
@@ -235,7 +275,7 @@ class ModelClient:
             raise LLMUnavailable("No model configured. Set FIREWORKS_API_KEY.")
         content: list[dict] = [{"type": "text", "text": user}]
         for img in images or []:
-            mime, raw = encode_image(img, self.jpeg_quality)
+            mime, raw = encode_image(img, self.jpeg_quality, self.image_scale, self.image_pad)
             content.append({"type": "image_url",
                             "image_url": {"url": f"data:{mime};base64,{base64.b64encode(raw).decode()}"}})
         body = {
@@ -284,6 +324,7 @@ class ModelClient:
             thinking = int((usage.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0)
             with self._lock:
                 self.prompt_tokens += int(usage.get("prompt_tokens") or 0)
+                self.cached_tokens += int((usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0)
                 self.completion_tokens += int(usage.get("completion_tokens") or 0)
                 self.call_stats.append((time.monotonic() - t_call, int(usage.get("completion_tokens") or 0), thinking))
             return parse_json_loose(payload["choices"][0]["message"]["content"])
@@ -307,7 +348,37 @@ class ModelClient:
 _JPEG_MUST_BE_THIS_FRACTION_OF_PNG = 0.75
 
 
-def encode_image(path, jpeg_quality: int) -> tuple[str, bytes]:
+def _env_int(name: str, default: int, low: int, high: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    return max(low, min(high, int(raw))) if raw.isdigit() else default
+
+
+def batch_settings() -> tuple[int, int]:
+    """(pack length above which work is done in slices, pages per slice): TENDERLENS_BATCH_OVER (50) and
+    TENDERLENS_BATCH_PAGES (25)."""
+    return _env_int("TENDERLENS_BATCH_OVER", 50, 1, 100000), _env_int("TENDERLENS_BATCH_PAGES", 25, 1, 1000)
+
+
+def slices(items: list, over: int | None = None, size: int | None = None) -> list[list]:
+    """`items` as one slice when it is no longer than `over`, else consecutive slices of `size`."""
+    d_over, d_size = batch_settings()
+    over, size = over or d_over, size or d_size
+    if len(items) <= over:
+        return [list(items)]
+    return [list(items[i:i + size]) for i in range(0, len(items), size)]
+
+
+def run_in_slices(tasks: list, max_workers: int, on_done=None) -> list:
+    """run_concurrent(), but a long task list (more than TENDERLENS_BATCH_OVER) goes out slice by slice: one slice
+    finishes before the next starts, and inside a slice every task starts at once. Results come back in the order of
+    `tasks` whatever order the calls finish in, so slicing never changes what is found."""
+    out: list = []
+    for chunk in slices(tasks):
+        out.extend(run_concurrent(chunk, max_workers, on_done))
+    return out
+
+
+def encode_image(path, jpeg_quality: int, scale: float = 1.0, pad: int = 0) -> tuple[str, bytes]:
     """(mime type, bytes) to send for the page image at `path`: a JPEG when that is at least a quarter smaller
     than the PNG, otherwise the PNG exactly as it is on disk (always the answer when jpeg_quality is 0, or if
     the image cannot be re-encoded). Lossy compression is never used where it would not save anything."""
@@ -319,11 +390,18 @@ def encode_image(path, jpeg_quality: int) -> tuple[str, bytes]:
         from PIL import Image
         with Image.open(io.BytesIO(png)) as im:
             buf = io.BytesIO()
-            im.convert("RGB").save(buf, "JPEG", quality=jpeg_quality)
+            rgb = im.convert("RGB")
+            if 0 < scale < 1:
+                rgb = rgb.resize((max(1, round(rgb.width * scale)), max(1, round(rgb.height * scale))), Image.LANCZOS)
+            if pad > 0:  # a white margin around the whole page, so ink that runs to the scan's edge is not read as a cut-off
+                framed = Image.new("RGB", (rgb.width + 2 * pad, rgb.height + 2 * pad), (255, 255, 255))
+                framed.paste(rgb, (pad, pad))
+                rgb = framed
+            rgb.save(buf, "JPEG", quality=jpeg_quality)
         jpg = buf.getvalue()
     except Exception:  # noqa: BLE001 - sending the original is always a safe fallback
         return "image/png", png
-    if len(jpg) < len(png) * _JPEG_MUST_BE_THIS_FRACTION_OF_PNG:
+    if scale < 1 or pad > 0 or len(jpg) < len(png) * _JPEG_MUST_BE_THIS_FRACTION_OF_PNG:  # a shrunk page is always the JPEG
         return "image/jpeg", jpg
     return "image/png", png
 

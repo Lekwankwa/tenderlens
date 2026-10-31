@@ -17,7 +17,7 @@ from pathlib import Path
 from . import forms as F
 from . import vision as V
 from .facts import ENTRY, Facts
-from .ingest import Page, load_templates
+from .ingest import near_duplicate_pairs, Page, load_templates
 from .requirements import Requirements
 
 log = logging.getLogger("tenderlens.audit")
@@ -186,7 +186,7 @@ class Auditor:
     def run(self) -> AuditResult:
         for fn in (self.required_documents, self.page_completeness, self.page_order, self.signatures,
                    self.handwritten_entries, self.signatories, self.vision_inspection, self.template_blanks,
-                   self.sbd62_consistency, self.local_content, self.identifiers, self.names, self.quote_checks,
+                   self.sbd62_consistency, self.local_content, self.identifiers, self.names, self.quote_checks, self.unresolved_areas,
                    self.spec_checks, self.validity_dates, self.declarations_vs_registers, self.certificates,
                    self.bbbee, self.stray_marks, self.initials, self.ocr_quality, self.not_verifiable):
             try:
@@ -201,10 +201,46 @@ class Auditor:
         return self.res
 
     # -- 1. required documents ---------------------------------------------
+    _GENERIC_WORDS = {"form", "forms", "document", "documents", "copy", "copies", "valid", "proof", "attach", "attached",
+                      "submit", "submitted", "bidder", "tender", "with", "from", "this", "that", "their", "must",
+                      "including", "completed", "signed", "original", "certified", "your"}
+
+    @staticmethod
+    def _stem(w: str) -> str:
+        return w[:-1] if len(w) > 4 and w.endswith("s") else w
+
+    def pages_showing(self, label: str, quote: str = "") -> list[int]:
+        """Pack pages whose own OCR text shows the document named by `label`, found without relying on the page
+        classifier (which only knows the SA forms). A form code in the label (SBD 4 / MBD 4) is looked for as written,
+        either prefix; otherwise the label's distinctive words must mostly appear on one page (at least 2 of them and
+        70% of them, plural or not)."""
+        codes = re.findall(r"\b[SM]BD\s*(\d(?:\.\d)?)", label, re.I)
+        # "completion certificates or reference letters": either alternative shows the requirement is met
+        alternatives = [[self._stem(w) for w in re.findall(r"[a-z]{4,}", alt.lower()) if w not in self._GENERIC_WORDS]
+                        for alt in re.split(r"\s+or\s+|/|;|,", label)]
+        alternatives = [w for w in alternatives if len(w) >= 2]
+        hits = []
+        for p in self.pages:
+            if p.doc_type == "blank" or len(p.text.strip()) < 40:
+                continue
+            text = p.text.lower()
+            if codes and any(re.search(rf"\b[sm]bd\s*{re.escape(c)}\b", text) for c in codes):
+                hits.append(p.number)
+                continue
+            stems = {self._stem(w) for w in re.findall(r"[a-z]{4,}", text)}
+            if any(sum(1 for w in words if w in stems) >= max(2, round(0.7 * len(words))) for words in alternatives):
+                hits.append(p.number)
+        return hits
+
     def required_documents(self):
         present = {p.doc_type for p in self.pages}
+        quote_pages = [p.number for p in self.pages if re.search(
+            r"QUOTATION|FORM OF OFFER|OFFER AND ACCEPTANCE|PRICING SCHEDULE|BILL OF QUANTIT|SCHEDULE OF PRICES",
+            p.text[:1500].upper())]
         if "quote" in present:
             self.ok("Quotation present", pages=self.pns("quote"))
+        elif quote_pages:
+            self.ok("Quotation / offer present (found by its wording)", pages=quote_pages[:6])
         else:
             self.find("high", "missing_document", "Missing: the quotation",
                       "No page was recognised as the supplier's quotation (item, quantity, price, validity, signature).",
@@ -215,7 +251,10 @@ class Auditor:
 
         def doc_pages(d):
             dtype = mapping.get(d.id)
-            return self.pns(dtype) if dtype else []
+            found = self.pns(dtype) if dtype else []
+            # an id the SA form mapping does not know (a reference letter, an annexure, an MBD form, a CIDB certificate):
+            # look for the document by its wording in the pack's own text before calling it missing
+            return found or (self.pages_showing(d.label, d.source_quote)[:8] if d.id not in mapping else [])
 
         for d in self.req.documents:
             pages = doc_pages(d)
@@ -302,7 +341,16 @@ class Auditor:
             self.find("medium", "incomplete_form", f"The same page appears more than once (pack pages {v})",
                       "These page images are identical, which usually means a page was copied in twice.",
                       "Remove the duplicate or confirm it is intended.", "", [self.E(n, source="image") for n in v][:2])
-        if not dups:
+        exact = {n for v in dups for n in v}
+        near = [t for t in near_duplicate_pairs(self.pages) if not ({t[0], t[1]} <= exact)]
+        for a_, b_, corr, overlap in near:
+            self.find("medium", "incomplete_form", f"Duplicate page: pages {a_} and {b_} look like the same page",
+                      f"The two page images match closely (correlation {corr}) and {overlap:.0%} of their words are "
+                      "shared. Separate scans of the same sheet are never byte-identical, so this is judged from how "
+                      "they look. It is a lead: consecutive forms of the same kind can look alike.",
+                      "Compare the two pages. If one is a copy, remove it or confirm it is intended.", "",
+                      [self.E(a_, source="image"), self.E(b_, source="image")], tier="observation")
+        if not dups and not near:
             self.ok("No page appears twice")
 
     # -- 2. signatures -------------------------------------------------------
@@ -692,7 +740,7 @@ class Auditor:
             "Email address": ["id.email"],
         }
         for label, fields in pools.items():
-            vals = [(f.value.replace(" ", ""), f) for fld in fields for f in self.f.all(fld)]
+            vals = [(f.value.replace(" ", ""), f) for fld in fields for f in self.f.all(fld) if isinstance(f.value, str)]
             if not vals:
                 continue
             if label == "Email address":
@@ -1153,6 +1201,7 @@ class Auditor:
         sev = {"crossed_out": "medium", "overwritten": "medium", "annotation": "medium", "rotated": "low",
                "cut_off": "medium", "illegible": "low"}
         found = 0
+        unbacked_notes = 0
         for key, (_q, _q2, title) in F.INSPECTIONS.items():
             for f in self.f.all(f"inspect.{key}"):
                 page = self.by_no[f.page]
@@ -1166,6 +1215,12 @@ class Auditor:
                     issue = any(r.kind in ("margin", "overwrite") for r in V.stray_marks(page, self.vocab))
                     if issue:
                         corroborated = "; a non-AI check of the page image also found ink there"
+                    elif key == "annotation":
+                        # a note the model claims but the page image does not back up: counted, not listed (an
+                        # uncorroborated "overwritten" is still listed - that lead has found a real tamper)
+                        found -= 1
+                        unbacked_notes += 1
+                        continue
                 else:
                     issue = f.confidence >= 0.8
                 checker = "A vision check" if f.source == "vision" else "A check"
@@ -1184,6 +1239,10 @@ class Auditor:
                       + (f" ({f.note})" if f.note else "") + ". Handwriting similarity is a lead, not proof: people "
                       "sign differently on different days.", "Look at the two signatures side by side.", "",
                       [self.E(f.page, "signature", source=f.source)], tier="observation")
+        if unbacked_notes:
+            self.res.human_only.append(
+                f"{unbacked_notes} handwritten note(s) reported by the vision model were not listed: the page image shows no "
+                "ink outside the printed text and the entry fields at those places.")
         log = self.f.vision_log
         if log.get("pages_inspected") and not found:
             self.ok(f"Vision check of {log['pages_inspected']} handwritten pages: nothing crossed out, overwritten, "
@@ -1213,18 +1272,66 @@ class Auditor:
                 [self.E(self.f.best("csd.bbbee_status").page, "B-BBEE section of the CSD report"),
                  self.E(self.pn("bbbee_affidavit"), "newer affidavit")], tier="observation")
 
+    def unresolved_areas(self):
+        """A slice of pages the provider would not answer for, even after the retries (timeouts, resets, gateway errors).
+        Everything else in the pack was read normally; these pages were not, so the findings there are incomplete."""
+        for e in self.f.vision_log.get("slice_errors", []):
+            lo, hi = e["slice"]
+            pages = e["pages"]
+            self.find("medium", "unresolved", f"Unresolved exception area: pages {lo}-{hi}",
+                      f"{e['message']}. {len(pages)} page(s) in this slice could not be read by the vision model "
+                      f"({', '.join(map(str, pages[:12]))}{'...' if len(pages) > 12 else ''}); the rest of the pack was "
+                      "read normally. Nothing is known about the handwriting, ticks and stamps on those pages.",
+                      "Have a person check these pages, or run the check again.", "",
+                      [self.E(n, source="image") for n in pages[:8] if n in self.by_no])
+            self.res.human_only.append(f"{e['message']} (pages {pages}): unresolved exception area, check by eye.")
+
     # -- 10. stray marks and initials -------------------------------------------
+    _AMOUNT = re.compile(r"^R?\s?\d[\d\s,.]{3,}$")
+    _PRICE_WORDS = {"TOTAL", "PRICE", "AMOUNT", "VAT", "BID", "TENDER"}
+
+    def protected_zones(self, p) -> list[tuple[int, int, int, int]]:
+        """Where a stray mark matters on a form: the signature execution zone, and the blocks around amounts and price
+        labels (bid price, totals, VAT). A mark elsewhere is only worth a finding if it is clearly an alteration."""
+        zones = []
+        try:
+            if p.doc_type in V.SIGNATURE_SPEC:
+                zone, _ = V.signature_zone(p, p.doc_type)
+                if zone:
+                    zones.append(tuple(int(v) for v in zone))
+        except Exception:  # noqa: BLE001 - a page whose signature line cannot be located just has no signature zone
+            pass
+        for wd in p.words:
+            t = wd.text.strip().upper().strip(":.")
+            if wd.conf >= 50 and (self._AMOUNT.match(wd.text.strip()) or t in self._PRICE_WORDS):
+                x0, y0, x1, y1 = wd.box
+                zones.append((x0 - 60, y0 - 25, x1 + 160, y1 + 25))   # the cell the amount sits in, and its entry space
+        return zones
+
+    @staticmethod
+    def _touches(box, zones) -> bool:
+        return any(not (box[2] < z[0] or box[0] > z[2] or box[3] < z[1] or box[1] > z[3]) for z in zones)
+
     def stray_marks(self):
         found = 0
+        ignored = 0
         for p in self.pages:
             if p.doc_type not in ("sbd4", "sbd6_1", "sbd8", "sbd9"):
                 continue
+            zones = None
             for r in V.stray_marks(p, self.vocab):
                 if r.kind not in ("margin", "overwrite"):
                     continue
-                found += 1
                 w, h = r.box[2] - r.box[0], r.box[3] - r.box[1]
                 clear = r.kind == "overwrite" or r.ink >= 300 or max(w, h) >= 90
+                if not clear:
+                    # a small isolated mark (dust, a pen touch, a scanner artefact) is only reported when it sits on a
+                    # signature line or an amount; anywhere else it is counted, not listed
+                    zones = self.protected_zones(p) if zones is None else zones
+                    if not self._touches(r.box, zones):
+                        ignored += 1
+                        continue
+                found += 1
                 where = ("in the margin, outside the printed text and every entry field" if r.kind == "margin"
                          else "over the printed text")
                 self.find(
@@ -1236,6 +1343,10 @@ class Auditor:
                     "Standard form must be returned unaltered",
                     [self.E(p.number, "highlighted region", r.box, "image")],
                     tier="issue" if clear else "observation")
+        if ignored:
+            self.res.human_only.append(
+                f"{ignored} small isolated mark(s) on SBD/MBD forms were not reported: none touched a signature line or an "
+                "amount. Marks that are large, over printed text, or in those places are still reported.")
         if not found:
             self.ok("No stray marks found outside the entry fields on SBD 4, 6.1, 8, 9")
 
@@ -1243,6 +1354,15 @@ class Auditor:
         if self.pack_stage == "draft":
             return  # a draft pack isn't initialled yet - a bare page here is normal, not a finding
         have = {p.number: V.initials_present(p) for p in self.pages if p.doc_type != "blank"}
+        # A pack is only expected to be initialled if it is initialled at all. If none of its first five printed pages
+        # carries initials, the pack was never initialled (the bidder's convention, or a scan of unsigned copies):
+        # a finding on every page would just repeat that one fact, so it is reported once as a note instead.
+        first_five = list(have.values())[:5]
+        if len(first_five) >= 5 and not any(first_five):
+            self.res.human_only.append(
+                "Initials were not checked: none of the first five pages carries any, so this pack looks to have "
+                "been submitted without page initials. If the buyer requires them, check by eye.")
+            return
         missing = [n for n, h in have.items() if not h]
         if not missing:
             self.ok(f"Initials present on all {len(self.pages)} pages")
