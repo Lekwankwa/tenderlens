@@ -1,0 +1,971 @@
+{
+ "root": "/Users/lehlogonolokgatomaabane/Downloads/CE ",
+ "scenarios": [
+  {
+   "folder": "1CE",
+   "grade": 1,
+   "tender_number": 4,
+   "files": [
+    {
+     "path": "1CE/1CE.pdf",
+     "role": "tender",
+     "size": 1606057,
+     "sha256": "01f8949853e9840c1da924e0009c6ff72b5e15c9802c05125fd976aad2314e67",
+     "pages": 110,
+     "text_layer": true,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "1CE/CE1_Tender4_requirements.csv",
+     "role": "requirements",
+     "size": 7195,
+     "sha256": "718c1c354b7d95449e57342e1e489327d8eff16607ffc2d4a1f7d3e57258917c",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "1CE/Tender4_answer_key.md",
+     "role": "answer_key",
+     "size": 28630,
+     "sha256": "9c1e7de8955cdb47f11ab47e38c8caf26d6a2853bfb80ac012d79d0490e9a064",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "1CE/Tender4_clean_pack.pdf",
+     "role": "clean_pack",
+     "size": 22911038,
+     "sha256": "15da5d3895d383be1b3aa41ad755d85eede650184b69a63313694dcdb761c7b2",
+     "pages": 134,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    },
+    {
+     "path": "1CE/Tender4_tampered_pack.pdf",
+     "role": "tampered_pack",
+     "size": 22657604,
+     "sha256": "2b3dcfdfe4bec23b652792b7c460893bf647e69347309efe6c623f4ce2b7ef5c",
+     "pages": 131,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    }
+   ],
+   "complete": true,
+   "missing_roles": [],
+   "anomalies": [
+    {
+     "anomaly": "Folder is grade 1 but its files are named Tender4",
+     "proposed_correction": "Keep as is; use the manifest's folder-to-tender map. Optionally name folders by tender number."
+    }
+   ]
+  },
+  {
+   "folder": "2CE",
+   "grade": 2,
+   "tender_number": 5,
+   "files": [
+    {
+     "path": "2CE/CE2_Tender5_requirements.csv",
+     "role": "requirements",
+     "size": 3985,
+     "sha256": "64d5957117fde0001db095fcc5ef32a0b8e553bef5422d1109b912037d0746f1",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "2CE/RFX6000003787.pdf",
+     "role": "tender",
+     "size": 252012,
+     "sha256": "60d2e79bfb2010158a3be6f877815af1cb394e8ecf706284da88204b7a01f6b9",
+     "pages": 7,
+     "text_layer": true,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "2CE/SCOPE OF WORK.pdf",
+     "role": "tender",
+     "size": 274801,
+     "sha256": "a19763fc967fda0b2b37c917effbbe9dd6a770d52ae20531d6d4f5b6e6a34c8d",
+     "pages": 6,
+     "text_layer": true,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "2CE/SENTECH SUPPLIER CONSENT FORM.pdf",
+     "role": "tender",
+     "size": 69465,
+     "sha256": "9350123596f92718c3c7f1b8ad5b21fa6dd9c09b5783cc67752ad336836199f5",
+     "pages": 1,
+     "text_layer": true,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "2CE/Standard Bidding Document (SDB) 4_Annexure A (00B) (002).pdf",
+     "role": "tender",
+     "size": 168224,
+     "sha256": "beb96de6f8589d05426687fdfbe0bd8a85eeb15798805ff99ed4f35beb4b0c9b",
+     "pages": 3,
+     "text_layer": true,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "2CE/Tender5_answer_key.md",
+     "role": "answer_key",
+     "size": 23198,
+     "sha256": "d18a064a08f18fb57f4f3e37bc84fd5088a4b562cece1f00fb6e35faf65c0be8",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "2CE/Tender5_clean_pack.pdf",
+     "role": "clean_pack",
+     "size": 4924114,
+     "sha256": "8db08d6fd9428b26130accdafa33a8a6672a181ee66ae68639d2d4e2de48cb77",
+     "pages": 35,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    },
+    {
+     "path": "2CE/Tender5_tampered_pack.pdf",
+     "role": "tampered_pack",
+     "size": 4691566,
+     "sha256": "0a157511537257b06e10c8029740cd3f8cbb8f9873b38c01e53e0202df81c86e",
+     "pages": 32,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    }
+   ],
+   "complete": true,
+   "missing_roles": [],
+   "anomalies": [
+    {
+     "anomaly": "Folder is grade 2 but its files are named Tender5",
+     "proposed_correction": "Keep as is; use the manifest's folder-to-tender map. Optionally name folders by tender number."
+    },
+    {
+     "anomaly": "The tender is split over 4 PDFs (17 pages together)",
+     "proposed_correction": "Pass all of them to the engine in the order given by the key; do not merge on disk."
+    }
+   ]
+  },
+  {
+   "folder": "3CE Tender",
+   "grade": 3,
+   "tender_number": 10,
+   "files": [
+    {
+     "path": "3CE Tender/.DS_Store",
+     "role": "ignored",
+     "size": 6148,
+     "sha256": "",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "3CE Tender/CE3_Tender10_requirements.csv",
+     "role": "requirements",
+     "size": 15155,
+     "sha256": "977fd745dd3d0ab4fe3757ddf5d1f263c3079be8c3a07ac58ad0f0eb5183f98f",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "3CE Tender/Tender10_answer_key.md",
+     "role": "answer_key",
+     "size": 34945,
+     "sha256": "dfc7c245a5178c58eef7f0455d4f1d2afcc73aea2f0d6f8a46e1d7143843a161",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "3CE Tender/Tender10_clean_pack.pdf",
+     "role": "clean_pack",
+     "size": 33817801,
+     "sha256": "c01a940f37079d88ea463289a3bb3cfda7212ae0609ac683933fe063351210c2",
+     "pages": 273,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    },
+    {
+     "path": "3CE Tender/Tender10_tampered_pack.pdf",
+     "role": "tampered_pack",
+     "size": 33390192,
+     "sha256": "665aeb1148e6dcbbf90f19b7ab5fe50669c54ff261df5442a9bb4d734995f6f4",
+     "pages": 271,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    },
+    {
+     "path": "3CE Tender/another 3ce.pdf",
+     "role": "tender",
+     "size": 2882659,
+     "sha256": "8646de1d88f9b2c8356d2269dbb6ba991f2784be9d8f8beffe1475d1f281c50d",
+     "pages": 226,
+     "text_layer": true,
+     "label": "authentic_source",
+     "problems": []
+    }
+   ],
+   "complete": true,
+   "missing_roles": [],
+   "anomalies": [
+    {
+     "anomaly": "Folder is grade 3 but its files are named Tender10",
+     "proposed_correction": "Keep as is; use the manifest's folder-to-tender map. Optionally name folders by tender number."
+    },
+    {
+     "anomaly": "Folder name '3CE Tender' does not follow one pattern (spaces, case, suffixes)",
+     "proposed_correction": "Rename to '3CE' in a copy of the dataset if scripts need a uniform name."
+    }
+   ]
+  },
+  {
+   "folder": "4ce",
+   "grade": 4,
+   "tender_number": 6,
+   "files": [
+    {
+     "path": "4ce/.DS_Store",
+     "role": "ignored",
+     "size": 6148,
+     "sha256": "",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "4ce/4ce and gb.pdf",
+     "role": "tender",
+     "size": 4912306,
+     "sha256": "8d64c10504c9b3aa5846eec1a6602468086ff354808154c965adb8511788747a",
+     "pages": 54,
+     "text_layer": true,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "4ce/CE4_Tender6_requirements.csv",
+     "role": "requirements",
+     "size": 4087,
+     "sha256": "a21ff83014363a6c602a08e3810e680454213eb7faba31fb2ffca3c114c91e8c",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "4ce/Tender6_answer_key.md",
+     "role": "answer_key",
+     "size": 20929,
+     "sha256": "860c73d3e8df143b305d28292c8828e421362e388709c10c8de2481fee526321",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "4ce/Tender6_clean_pack.pdf",
+     "role": "clean_pack",
+     "size": 12653816,
+     "sha256": "cbfac37ad2f1257e7a56f033ff02e4e90e196f22305e80220f5975cf87169d2c",
+     "pages": 83,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    },
+    {
+     "path": "4ce/Tender6_tampered_pack.pdf",
+     "role": "tampered_pack",
+     "size": 12242103,
+     "sha256": "18fd5c39fca7fb76d2e7e35181b68277cb1710506621a2a2a0b6480eef100e35",
+     "pages": 80,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    }
+   ],
+   "complete": true,
+   "missing_roles": [],
+   "anomalies": [
+    {
+     "anomaly": "Folder is grade 4 but its files are named Tender6",
+     "proposed_correction": "Keep as is; use the manifest's folder-to-tender map. Optionally name folders by tender number."
+    },
+    {
+     "anomaly": "Folder name '4ce' does not follow one pattern (spaces, case, suffixes)",
+     "proposed_correction": "Rename to '4CE' in a copy of the dataset if scripts need a uniform name."
+    },
+    {
+     "anomaly": "Tender '4ce and gb.pdf' covers GB (general building) as well as CE; GB is out of scope",
+     "proposed_correction": "Evaluate the CE parts only; the key's requirements decide what counts."
+    }
+   ]
+  },
+  {
+   "folder": "5CE",
+   "grade": 5,
+   "tender_number": 7,
+   "files": [
+    {
+     "path": "5CE/.DS_Store",
+     "role": "ignored",
+     "size": 6148,
+     "sha256": "",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "5CE/CE5_Tender7_requirements.csv",
+     "role": "requirements",
+     "size": 7669,
+     "sha256": "0a5e920191592a6f5cbc12f058529ae84a429888078918eeba9f427b141fbba5",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "5CE/Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+     "role": "tender",
+     "size": 1778154,
+     "sha256": "dcd334581bb137f58a4fc924ba5e84bb890eb622806ac5eacac1ee9400a4b8fa",
+     "pages": 162,
+     "text_layer": true,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "5CE/Tender7_answer_key.md",
+     "role": "answer_key",
+     "size": 28191,
+     "sha256": "0f599c03db532ab167ff042488dff49abc25bd5f90162ec1ad30d75b96266028",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "5CE/Tender7_clean_pack.pdf",
+     "role": "clean_pack",
+     "size": 33757030,
+     "sha256": "dd5a4d2204692e83eb9b4484e6cbea4a7a7d27c15af71430be0d99b8c78f7df9",
+     "pages": 213,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    },
+    {
+     "path": "5CE/Tender7_tampered_pack.pdf",
+     "role": "tampered_pack",
+     "size": 33245097,
+     "sha256": "11afc510a4a116f6ef6901cef9b9eff0aca20b463c97c3e657fdc758fa6f431e",
+     "pages": 209,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    }
+   ],
+   "complete": true,
+   "missing_roles": [],
+   "anomalies": [
+    {
+     "anomaly": "Folder is grade 5 but its files are named Tender7",
+     "proposed_correction": "Keep as is; use the manifest's folder-to-tender map. Optionally name folders by tender number."
+    },
+    {
+     "anomaly": "Double extension: Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+     "proposed_correction": "Rename to a single .pdf in a copy."
+    },
+    {
+     "anomaly": "Tender 'Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf' covers GB (general building) as well as CE; GB is out of scope",
+     "proposed_correction": "Evaluate the CE parts only; the key's requirements decide what counts."
+    }
+   ]
+  },
+  {
+   "folder": "6 CE Tender",
+   "grade": 6,
+   "tender_number": 3,
+   "files": [
+    {
+     "path": "6 CE Tender/6CE Tender 2.pdf",
+     "role": "tender",
+     "size": 3089493,
+     "sha256": "c636fe542f31fd7c808d228d830e4803f38e22a6d6c193c9710b637779ea55d0",
+     "pages": 293,
+     "text_layer": true,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "6 CE Tender/CE6_Tender3_requirements.csv",
+     "role": "requirements",
+     "size": 11081,
+     "sha256": "0b8b7d66e19a8e2ca2af5b393a0566c51d6c1a785cbea9c09afee0d647da11f9",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "6 CE Tender/Tender3_answer_key.md",
+     "role": "answer_key",
+     "size": 39347,
+     "sha256": "4d84cec1bbe1736a26304c348c928e909c14b14685c0fd6142471f1ed7ef5d0d",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "6 CE Tender/Tender3_clean_pack.pdf",
+     "role": "clean_pack",
+     "size": 61458497,
+     "sha256": "b05eeee9131d9f15eac00f8f2fd2018de0fa60e2e476b2b5425365beb625a296",
+     "pages": 375,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    },
+    {
+     "path": "6 CE Tender/Tender3_tampered_pack.pdf",
+     "role": "tampered_pack",
+     "size": 60966429,
+     "sha256": "dc5030601b643a8086a46ac5c138008f960b74af65fb1f8a77a29269eca5528c",
+     "pages": 370,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    }
+   ],
+   "complete": true,
+   "missing_roles": [],
+   "anomalies": [
+    {
+     "anomaly": "Folder is grade 6 but its files are named Tender3",
+     "proposed_correction": "Keep as is; use the manifest's folder-to-tender map. Optionally name folders by tender number."
+    },
+    {
+     "anomaly": "Folder name '6 CE Tender' does not follow one pattern (spaces, case, suffixes)",
+     "proposed_correction": "Rename to '6CE' in a copy of the dataset if scripts need a uniform name."
+    }
+   ]
+  },
+  {
+   "folder": "7CE Tender",
+   "grade": 7,
+   "tender_number": 2,
+   "files": [
+    {
+     "path": "7CE Tender/7CE Tender 1 .pdf",
+     "role": "tender",
+     "size": 3833727,
+     "sha256": "ae09687c7299037b6820104c24ba1e2da7d72cba3f675df237c082381a825a4d",
+     "pages": 369,
+     "text_layer": true,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "7CE Tender/CE7_Tender2_requirements.csv",
+     "role": "requirements",
+     "size": 12321,
+     "sha256": "1e474be36be099fb254fe5a2cd5501c781c49f3a89c1d38fdb751c192884e150",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "7CE Tender/Tender2_answer_key.md",
+     "role": "answer_key",
+     "size": 39269,
+     "sha256": "db8835733865fe79e15a93ea0433d057c130cd1f9e586ddc5c20a25c5a303649",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "7CE Tender/Tender2_clean_pack.pdf",
+     "role": "clean_pack",
+     "size": 79093737,
+     "sha256": "b2b5f2953e864439ebd321a40501b8354059594e5787027997f8f1d4c28f4522",
+     "pages": 454,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    },
+    {
+     "path": "7CE Tender/Tender2_tampered_pack.pdf",
+     "role": "tampered_pack",
+     "size": 78569926,
+     "sha256": "1e9506ab1484a59a02de9e95264fce56200d9ecfee21965d9a7f5fb24a58a5dd",
+     "pages": 449,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    }
+   ],
+   "complete": true,
+   "missing_roles": [],
+   "anomalies": [
+    {
+     "anomaly": "Folder is grade 7 but its files are named Tender2",
+     "proposed_correction": "Keep as is; use the manifest's folder-to-tender map. Optionally name folders by tender number."
+    },
+    {
+     "anomaly": "Folder name '7CE Tender' does not follow one pattern (spaces, case, suffixes)",
+     "proposed_correction": "Rename to '7CE' in a copy of the dataset if scripts need a uniform name."
+    }
+   ]
+  },
+  {
+   "folder": "8CE",
+   "grade": 8,
+   "tender_number": 8,
+   "files": [
+    {
+     "path": "8CE/.DS_Store",
+     "role": "ignored",
+     "size": 6148,
+     "sha256": "",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "8CE/8CE.pdf",
+     "role": "tender",
+     "size": 1163251,
+     "sha256": "f4c0b15ceeb3225b60bcc3e69344718338dc7ddb987609b7951b38f62fd038bc",
+     "pages": 105,
+     "text_layer": true,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "8CE/CE8_Tender8_requirements.csv",
+     "role": "requirements",
+     "size": 7110,
+     "sha256": "b7a40dbb48fffae11dd02749b1a0ebd5331a38922171cb02ef2b2262a93bf6ff",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "8CE/Tender8_answer_key.md",
+     "role": "answer_key",
+     "size": 23923,
+     "sha256": "a9ed3e8f004f3f3e1490c44a9133e242b9bfbeb9e177838ff068dc96d3ce7225",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "8CE/Tender8_clean_pack.pdf",
+     "role": "clean_pack",
+     "size": 22295817,
+     "sha256": "306d602661830c4665c58f0f8ac666edca8d4f4654f97cbf84d2f9355590c218",
+     "pages": 139,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    },
+    {
+     "path": "8CE/Tender8_tampered_pack.pdf",
+     "role": "tampered_pack",
+     "size": 21808806,
+     "sha256": "7d0598ff2d66c16494832f6ffec205fc6c0a2a4ebe8dc88cccce7f3af0dbe243",
+     "pages": 135,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    }
+   ],
+   "complete": true,
+   "missing_roles": [],
+   "anomalies": []
+  },
+  {
+   "folder": "9 CE",
+   "grade": 9,
+   "tender_number": 9,
+   "files": [
+    {
+     "path": "9 CE/.DS_Store",
+     "role": "ignored",
+     "size": 6148,
+     "sha256": "",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "9 CE/CE9_Tender9_requirements.csv",
+     "role": "requirements",
+     "size": 9906,
+     "sha256": "ebfda743638c220c5c16e0961b135216744aa4bb18c4f6812b7c2472282e1f18",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "9 CE/RFP FOR PE N2 FORESHORE REHABILITATION_.pdf",
+     "role": "tender",
+     "size": 7853146,
+     "sha256": "63f6398f87c091d671c517b1f5aa29f1052f84a20f741105fc6605896ee6bfce",
+     "pages": 258,
+     "text_layer": true,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex A - Tender Drawings/XPE.E.0030-001-S-DE-0001-01-0A0.pdf",
+     "role": "supporting_annex",
+     "size": 128590,
+     "sha256": "52710e75aee606f50d1194d1eae3531f1532e860fc0e9a5d606a92d879e1a3c5",
+     "pages": 1,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex A - Tender Drawings/XPE.E.0030-001-S-LA-0001-01-0A0.pdf",
+     "role": "supporting_annex",
+     "size": 24268081,
+     "sha256": "1f46c897f76df0df754ceb206797b843f3705e649e5b08adf3e46a86e35ec670",
+     "pages": 1,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex A - Tender Drawings/XPE.E.0030-001-S-SE-0001-01-0A0.pdf",
+     "role": "supporting_annex",
+     "size": 1217993,
+     "sha256": "31bd934def5a7350b801c6ce86f44280303c8c635e6223e25e5379adac6bdf63",
+     "pages": 1,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex A - Tender Drawings/XPE.E.0030-001-S-SE-0002-01-0A0.pdf",
+     "role": "supporting_annex",
+     "size": 527709,
+     "sha256": "6b0232e95579931c859b6ae9e90d22f61c0f42d238af9966c366560bf4387088",
+     "pages": 1,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex A - Tender Drawings/XPE.E.0030-001-S-SE-0002-02-0A0.pdf",
+     "role": "supporting_annex",
+     "size": 562751,
+     "sha256": "88268bb6ba2c9c06f9fd4fc12fedc0badfdb4929391c67f14470a1f95a7ff92f",
+     "pages": 1,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex A - Tender Drawings/XPE.E.0030-001-S-SE-0003-01-0A0.pdf",
+     "role": "supporting_annex",
+     "size": 1407937,
+     "sha256": "fd0625c2c4ac0f5a067a6b8019db7d0d347a2e1c053df076cff60901aef1447e",
+     "pages": 1,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex A - Tender Drawings/XPE.E.0030-001-S-SE-0003-02-0A0.pdf",
+     "role": "supporting_annex",
+     "size": 1290504,
+     "sha256": "74d2b5f2af1a0e5a0e6bc45a301d06528aedf27b2077727920b98fa7b09cb163",
+     "pages": 1,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex B - Coastal Structures Particular Technical Specifications_.pdf",
+     "role": "supporting_annex",
+     "size": 1166036,
+     "sha256": "2f900699786104d6fbb8643692cc375d29a8f677d0a2899c5bf79ab8f659c024",
+     "pages": 13,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex C - Concrete Works Particular Technical Specifications.pdf",
+     "role": "supporting_annex",
+     "size": 977366,
+     "sha256": "335b1b830e4d827cbaadac723497de70696aae1dc3599ce1806bbc08923e3b06",
+     "pages": 7,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex D - Dredging Particular Technical Specification (1).pdf",
+     "role": "supporting_annex",
+     "size": 1177793,
+     "sha256": "b3812a2c6d81e8ff54b810f401bb6f8edb75ea73064df54ce464b0c0e4d33060",
+     "pages": 7,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex D - Dredging Particular Technical Specification.pdf",
+     "role": "supporting_annex",
+     "size": 836550,
+     "sha256": "e558c76537f12a92be6ede56c09b7679d973900dc3eadf94ba8101f3a99f7b54",
+     "pages": 7,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex E - Seawall Armour Units Generic Specification.pdf",
+     "role": "supporting_annex",
+     "size": 1065647,
+     "sha256": "db3423248de54a5dc531ce16e954f855978b5053c49fe6633fdd04b715006173",
+     "pages": 12,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex F - Drone Survey Generic Technical Specification.pdf",
+     "role": "supporting_annex",
+     "size": 937111,
+     "sha256": "5e9af7d806e8134fdaa72dfa4d5120d12d62bb60ada626b8b12b1a14c7d9c24f",
+     "pages": 4,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex G - Hydrographic Surveys Generic Technical Specifications.pdf",
+     "role": "supporting_annex",
+     "size": 984422,
+     "sha256": "f163037ead95f72b198329be3ecd4cd03749d2a3957efd87a324f76512c5e7b7",
+     "pages": 6,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex H - Rock Generic Technical Specification.pdf",
+     "role": "supporting_annex",
+     "size": 1594453,
+     "sha256": "dc9466f614c11c75ee6e48f17bf8dff93f7720df62465fb12a0167f0d59dfe79",
+     "pages": 34,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex I - Geotextile Particular Technical Specification.pdf",
+     "role": "supporting_annex",
+     "size": 953942,
+     "sha256": "a3d4758c1be90318e7b61597ade44e8e40f398883b1d4dc3545acd48c18c8d64",
+     "pages": 4,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex J - DOC-STD-0001 Contractor Submittal Requirements Rev 00.pdf",
+     "role": "supporting_annex",
+     "size": 851106,
+     "sha256": "2d511e4ed5826f670f662f4a416d5ff9cd431cc920b37949d4d56b12e636d86b",
+     "pages": 26,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex K - Project Health & Safety Specifications.pdf",
+     "role": "supporting_annex",
+     "size": 936611,
+     "sha256": "e0d9117b4134c3ac65c50521420dda69c0e97832f793881d805fa4d4308ac53b",
+     "pages": 97,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex L - TNPA-QUAL-REQ-014.1 General Quality Requirements.pdf",
+     "role": "supporting_annex",
+     "size": 450813,
+     "sha256": "07b2b59cca36de5c66369db6a5c6352a60842a5fc447fe7a217ad4503c216835",
+     "pages": 15,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex M-Baseline Risk Assessment.pdf",
+     "role": "supporting_annex",
+     "size": 598028,
+     "sha256": "5334f03a6016f39015e0bd9b262b6576173bab0d39d438cc87d899cf9c268c34",
+     "pages": 19,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex N - Drawing requirements ENG-STD-00001.pdf",
+     "role": "supporting_annex",
+     "size": 2064744,
+     "sha256": "5409d4ac2abf7718dd2cc855c903ddfb05223c52aa6c12358d10e0097b9c12d1",
+     "pages": 25,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex O -New TIMS Policy Commitment Statement.pdf",
+     "role": "supporting_annex",
+     "size": 93395,
+     "sha256": "f9e888c92cad212370903fafc5b49eaa1bd6d24ca80f94eb3c0d64e25faa8516",
+     "pages": 1,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex P - TNPA IMS Policy Commitment Statement Rev 01.pdf",
+     "role": "supporting_annex",
+     "size": 173400,
+     "sha256": "54d7730d5f604bb5778b6dac59bf43b572e587ad1a2626b18428568a1aae2387",
+     "pages": 1,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex Q - SOP for Construction Environmental Management.pdf",
+     "role": "supporting_annex",
+     "size": 656888,
+     "sha256": "1084e294a3484aea7f3ec24b84fdeafd1437c70e376758488e9cc6136794649e",
+     "pages": 37,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex R - Contractor Environmental and Sustainable Spec .pdf",
+     "role": "supporting_annex",
+     "size": 623393,
+     "sha256": "5da5a7798943d898380348c5751935f4c74b6da10df57cfdf02bc0106b4388fc",
+     "pages": 46,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex S - TS10620_PE_Foreshore Bathy & Topo Survey SSS.pdf",
+     "role": "supporting_annex",
+     "size": 23735398,
+     "sha256": "7d4b09dfa3081f83a3fbf376d73fcb5bf73e44783a60be0a525b2c4cde657eb1",
+     "pages": 1,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Supporting Annexures/Annex T - Standard Generic Maintenance EMPr PoPE.pdf",
+     "role": "supporting_annex",
+     "size": 1306056,
+     "sha256": "4354352d13101da5cd4c3c6b8dad5cda1da490e84538101f0d891b9236da87c7",
+     "pages": 78,
+     "text_layer": null,
+     "label": "authentic_source",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Tender9_answer_key.md",
+     "role": "answer_key",
+     "size": 39204,
+     "sha256": "7fba98e7d26671f8f04b576bdcc44c2a928b48c267c076971cea6d1300e380d6",
+     "pages": null,
+     "text_layer": null,
+     "label": "",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Tender9_clean_pack.pdf",
+     "role": "clean_pack",
+     "size": 48977867,
+     "sha256": "3d803e3f515a3dd904fd96fade22fae3ceb0a0e66508e12b66bcad30c08331da",
+     "pages": 361,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    },
+    {
+     "path": "9 CE/Tender9_tampered_pack.pdf",
+     "role": "tampered_pack",
+     "size": 47985331,
+     "sha256": "94ba21ac0c8a9fa1876aab5d44316aa8c47c07eebd7e5f3047b5bba5b37b4cab",
+     "pages": 354,
+     "text_layer": false,
+     "label": "synthetic_test_document",
+     "problems": []
+    }
+   ],
+   "complete": true,
+   "missing_roles": [],
+   "anomalies": [
+    {
+     "anomaly": "Folder name '9 CE' does not follow one pattern (spaces, case, suffixes)",
+     "proposed_correction": "Rename to '9CE' in a copy of the dataset if scripts need a uniform name."
+    },
+    {
+     "anomaly": "27 supporting annexure files (specs and drawings, reference only)",
+     "proposed_correction": "Not passed to the engine; the key marks them as reference only."
+    }
+   ]
+  }
+ ]
+}
