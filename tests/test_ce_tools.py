@@ -82,10 +82,10 @@ def test_spend_is_priced_at_the_plan_rates_and_summed_over_every_saved_run(tmp_p
     assert round(spent_so_far(tmp_path), 4) == round(0.4 * 1.25 + 0.03 * 4.25, 4)  # failed runs still count
 
 
-def test_only_grades_4_1_and_8_are_enabled_and_a_pack_that_would_pass_the_stop_is_refused(tmp_path, monkeypatch, capsys):
+def test_the_control_grades_are_the_default_and_a_pack_that_would_pass_the_stop_is_refused(tmp_path, monkeypatch, capsys):
     import json
     import tools.ce_eval as E
-    assert E.ALLOWED_GRADES == (4, 1, 8) and E.HARD_STOP_USD == 78.0
+    assert E.DEFAULT_GRADES == (4, 1, 8) and set(E.ALLOWED_GRADES) == set(range(1, 10)) and E.HARD_STOP_USD == 78.0
     assert E.projected_usd(1000) > 5  # a big pack projects to real money, so a late stop is possible
     monkeypatch.setattr(E, "spent_so_far", lambda out: 77.8)
     mf = {"root": str(tmp_path), "scenarios": [{"grade": 4, "folder": "4ce", "files": [

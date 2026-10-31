@@ -396,3 +396,13 @@ def test_a_page_scanned_sideways_is_not_short(tmp_path):
     from tenderlens import vision as V
     pages = _footer_pack(tmp_path, n=12, footer_on=0, landscape=(5,))
     assert V.page_cutoff(pages[4], pages) is None
+
+
+def test_a_name_field_read_as_blank_does_not_crash_the_name_comparison():
+    facts = Facts()
+    facts.add("bbbee_affidavit.enterprise_name", None, 25, "vision", 0.6)       # blank
+    facts.add("sbd4.name_field", "Excel Supply Holdings", 15, "vision", 0.6)
+    facts.add("csd.legal_name", "Excel Supply Holdings (Pty) Ltd", 29, "ocr", 0.9)
+    a = Auditor(Requirements(), [Page(n, "x", doc_type="sbd4") for n in (15, 25, 29)], facts, BLANK_DIR)
+    a.names()  # must not raise, and the two real names agree
+    assert not [f for f in a.res.findings if "Company name differs" in f.title]

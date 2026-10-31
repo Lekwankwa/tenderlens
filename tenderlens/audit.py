@@ -827,7 +827,8 @@ class Auditor:
     def names(self):
         fields = ["bbbee_affidavit.enterprise_name", "cipc.enterprise_name", "sbd6_1.company_name",
                   "sbd4.name_field", "local_content_decl.bidder", "sbd9.bidder", "tcs.taxpayer_name", "csd.legal_name"]
-        items = [(f.value, f) for fld in fields for f in self.f.all(fld)]
+        # a field read as blank has value None: there is no name to compare
+        items = [(f.value, f) for fld in fields for f in self.f.all(fld) if isinstance(f.value, str) and f.value.strip()]
         if not items:
             return
         norms = {norm_name(v) for v, _ in items}

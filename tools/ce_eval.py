@@ -2,7 +2,7 @@
 
     python tools/ce_eval.py --grades 4,1,8 [--kind clean|tampered|both] [--tag dpi100] [--dry-run]
 
-Only grades 4, 1 and 8 can be run from here (ALLOWED_GRADES); there is no "all grades" switch. Every pack is sent to the
+Grades come from ALLOWED_GRADES (the control set 4, 1, 8 by default); there is no "all grades" switch. Every pack is sent to the
 model at 100 DPI, JPEG quality 85, and a run aborts if that profile is not active. Spend is tracked in US$ at the plan
 rates below, summed over EVERY run already saved under runs/ (not just this session), and the loop stops before a pack whose
 projected cost would take the total past HARD_STOP_USD; the stop is written to budget_warnings.json.
@@ -21,6 +21,7 @@ import argparse
 import json
 import os
 import resource
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -34,7 +35,10 @@ from tenderlens.llm import ModelClient, load_env  # noqa: E402
 from tenderlens.report import to_json  # noqa: E402
 
 ALLOWED_ROLES = ("tender", "clean_pack", "tampered_pack")
-ALLOWED_GRADES = (4, 1, 8)          # the smaller test set, in this order; widen deliberately, here, not by a flag
+# The control set (4, 1, 8) is the default. The other grades were enabled on request for the full local baseline; they are
+# listed smallest pack first, which is the order to run them in. Widen deliberately, here, not by a flag.
+DEFAULT_GRADES = (4, 1, 8)
+ALLOWED_GRADES = (4, 1, 8, 2, 5, 3, 9, 6, 7)
 # Fireworks serverless pricing for muse-spark-open, US$ per 1,000,000 tokens
 INPUT_TOKEN_PRICE = 1.25
 CACHED_INPUT_TOKEN_PRICE = 0.15
@@ -121,6 +125,9 @@ def flag_report(report: dict) -> dict:
 
 def run_one(tender: list[Path], pack: Path, out: Path, work: Path, blank: Path) -> dict:
     out.mkdir(parents=True, exist_ok=True)
+    # the 100 DPI profile normally applies above BATCH_OVER pages; these runs are fixed at that profile, so a short pack
+    # (grade 2 has 32 and 35 pages) must not fall under the threshold
+    os.environ["TENDERLENS_BATCH_OVER"] = str(max(1, min(50, pdf_page_count(pack) - 1)))
     llm = ModelClient()
     vision = ModelClient.for_vision(llm)
     t0 = time.time()
@@ -153,12 +160,15 @@ def run_one(tender: list[Path], pack: Path, out: Path, work: Path, blank: Path) 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--grades", default=",".join(map(str, ALLOWED_GRADES)),
-                    help=f"subset of {list(ALLOWED_GRADES)}, in the order to run (default: all three)")
+    ap.add_argument("--grades", default=",".join(map(str, DEFAULT_GRADES)),
+                    help=f"subset of {list(ALLOWED_GRADES)}, in the order to run (default: {list(DEFAULT_GRADES)})")
     ap.add_argument("--kind", choices=["clean", "tampered", "both"], default="both")
     ap.add_argument("--out", type=Path, default=Path("evaluation/ce_baseline"))
     ap.add_argument("--blank", type=Path, default=Path("samples/blank"))
     ap.add_argument("--tag", default="dpi100", help="keeps this run's results and OCR work area apart")
+    ap.add_argument("--delete-renders", action="store_true",
+                    help="delete a pack's rendered page images (this tool's own .work copy) once its run is saved; the large "
+                         "packs are hundreds of megabytes each")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--dry-run", action="store_true", help="print the plan, projections and budget; call nothing")
     a = ap.parse_args()
@@ -193,7 +203,10 @@ def main() -> int:
                 return 1
             if a.dry_run:
                 continue
-            info = run_one(inp["tender"], pack, out, a.out / ".work" / folder, a.blank)
+            work = a.out / ".work" / folder
+            info = run_one(inp["tender"], pack, out, work, a.blank)
+            if a.delete_renders:
+                shutil.rmtree(work, ignore_errors=True)
             print(f"  {info['status']} in {info['seconds']}s at {info['image_dpi']} DPI q{info['jpeg_quality']}, "
                   f"{info['vision_calls']} vision + {info['text_calls']} text calls, {info['prompt_tokens']:,}+"
                   f"{info['completion_tokens']:,} tokens = ${spend_usd(info):.2f}, peak {info['peak_rss_mb']:.0f} MB"
