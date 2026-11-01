@@ -12,11 +12,11 @@ from pathlib import Path
 from .audit import Auditor
 from .facts import (CROP_VERIFY_ENABLED, Facts, combined_first_pass, combined_vision_enabled, inspect_pages, load_transcript, ocr_facts, signature_match,
                     verify_identifiers, verify_yesno, vision_extract, vision_precheck)
-from .ingest import (classify_pages, find_spec_sheet, load_pdf, load_templates, page_count_estimate,
+from .ingest import (DPI, classify_pages, find_spec_sheet, load_pdf, load_templates, page_count_estimate,
                      pdf_page_count)
 from .llm import ModelClient, load_env
 from .report import render_html, to_json
-from .pricing import run_pricing_check
+from .pricing import PricingReader, run_pricing_check
 from .requirements import build_requirements
 
 def _tender_text(rfq, spec) -> str | None:
@@ -53,7 +53,7 @@ def apply_sbd_gate(pages, rfq, spec) -> str:
 
 def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm=None, local_content="auto",
                vision=None, inspect="forms", passes=2, extra_facts=None, progress=None, pack_stage="final",
-               job_id=None, live=None):
+               job_id=None, live=None, telemetry=None):
     """The whole pipeline, returning (requirements, audit result, facts, pages). Used by the CLI, the app and the tests.
 
     rfq      the buyer's RFQ, as one path or a list: the cover email/letter plus any attachments it came
@@ -72,6 +72,8 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     live     a live.LiveState, if the caller wants to show progress page by page while the audit runs (the pages and
              their form types once classified, each page's first reading and second looks, and the requirements the
              moment the text step has them). None (the default) changes nothing.
+    telemetry  a telemetry.RunTelemetry: live, thread-safe counters (pages processed, calls in flight, tokens, retries, stage
+             wall times) for the app, the job log and the evaluation harness. None (the default) changes nothing.
     job_id   None (the default, every caller outside the Cloud Run large-upload path) means no vision
              caching - today's exact behaviour. Given, it lets a vision call already answered before this
              same job was interrupted be skipped on resume instead of re-asked - see facts._ask() and
@@ -88,11 +90,22 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
     llm = llm or ModelClient()
     vision = vision or ModelClient.for_vision(llm)
     timing: dict[str, float] = {}
+    if telemetry is not None:
+        llm.telemetry = vision.telemetry = telemetry
+        _progress = progress
+
+        def progress(stage, done, total, _inner=_progress):  # noqa: F811 - the caller's callback, plus the counters
+            telemetry.set_progress(stage, done, total)
+            if _inner:
+                _inner(stage, done, total)
 
     req_box: dict = {}
+    text_done = threading.Event()   # set when the buyer-requirements call has finished, however it ended
 
     def build_req():
         t0 = time.time()
+        if telemetry is not None:
+            telemetry.stage_start("text_model")
         spec_text, spec_name = "", ""
         rfq_files, spec_file = ([rfq] if isinstance(rfq, (str, Path)) else list(rfq)), spec
         if spec_file is None and len(rfq_files) > 1:
@@ -108,12 +121,32 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
         req_box["req"] = build_requirements(rfq_files, spec_text, spec_name, llm if llm.configured else None,
                                             local_content, work=work)
         timing["text_model"] = timing.get("text_model", 0.0) + (time.time() - t0)
+        if telemetry is not None:
+            telemetry.stage_end("text_model")
         if live is not None:
             live.set_requirements(req_box["req"])
 
-    req_thread = threading.Thread(target=build_req)
+    def build_req_and_signal():
+        try:
+            build_req()
+        finally:
+            text_done.set()
+
+    req_thread = threading.Thread(target=build_req_and_signal)
     req_thread.start()
-    pages = load_pdf(pack, work, progress=(lambda d, t: progress("ocr", d, t)) if progress else None, timing=timing)
+    if telemetry is not None:
+        telemetry.stage_start("render_ocr")
+    # Priced pages are read by the model while the later pages are still being rendered and OCR'd. The smaller-image setting for
+    # long packs has to be known up front for that, so it is decided from the PDF's page count now, not after OCR.
+    stream = None
+    if vision.configured:
+        vision.use_large_pack_profile(pdf_page_count(pack), render_dpi=DPI)
+        stream = PricingReader(vision, Facts(), gate=text_done)
+    pages = load_pdf(pack, work, progress=(lambda d, t: progress("ocr", d, t)) if progress else None, timing=timing,
+                     on_page=stream.offer if stream else None)
+    if telemetry is not None:
+        telemetry.stage_end("render_ocr")
+        telemetry.set_total_pages(len(pages))
 
     classify_pages(pages, load_templates(blank))
     gate_note = apply_sbd_gate(pages, rfq, spec)
@@ -133,8 +166,13 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
             raise RuntimeError("The requirements step stopped before it produced a result.")
         return req_box["req"]
 
+    if telemetry is not None:
+        telemetry.stage_start("vision_and_audit")
     facts, res, req = _vision_and_audit(get_req, pages, blank, vision, inspect, passes, pack_stage, transcript,
-                                        extra_facts, progress, timing, job_id, endpoint_proven=proven, live=live)
+                                        extra_facts, progress, timing, job_id, endpoint_proven=proven, live=live,
+                                        pricing_stream=stream, text_done=text_done)
+    if telemetry is not None:
+        telemetry.stage_end("vision_and_audit")
     facts.stage_times = timing
     if gate_note:
         res.human_only.append(gate_note)
@@ -142,7 +180,7 @@ def audit_pack(rfq, spec, pack, blank, transcript=None, work=Path(".cache"), llm
 
 
 def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, transcript, extra_facts, progress,
-                      timing, job_id=None, endpoint_proven=False, live=None):
+                      timing, job_id=None, endpoint_proven=False, live=None, pricing_stream=None, text_done=None):
     """The part of audit_pack() after OCR/requirements: read the pack with vision (if configured) and run the
     rule checks. Split out so a free re-run (vision was busy, nothing about the pack or the buyer's
     documents changed) can redo just this part, reusing the already-read req/pages instead of paying for
@@ -150,7 +188,7 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
     the form readings do not need them, so they can still be in progress while vision runs. Returns
     (facts, result, requirements)."""
     facts = Facts()
-    if vision.use_large_pack_profile(len(pages)):
+    if vision.use_large_pack_profile(len(pages), render_dpi=DPI):
         print(f"large pack ({len(pages)} pages): page images are sent to the model at reduced size", flush=True)
     facts.job_id = job_id  # see audit_pack's own docstring and facts._ask()/vision_cache.py
     ocr_facts(pages, facts)
@@ -184,7 +222,16 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
             # (every field that only applies "when local content applies" is on the declaration form itself, so
             # whether the RFQ/Tender requires local content changes nothing about what vision reads)
             local = True
-            start(3, lambda f, t: run_pricing_check(vision, pages, f, passes=passes, timing=t))  # priced schedules
+            if text_done is not None:
+                # the page reads are a burst of up to 25 long model calls; fired next to the one requirements call they left it
+                # queued at the provider for minutes, so they wait for it (at most 60 s: a slow text call must not stall the audit)
+                text_done.wait(60.0)
+                if pricing_stream is not None:
+                    pricing_stream.release()
+            start(3, lambda f, t: run_pricing_check(                         # priced schedules
+                vision, pages, f, passes=passes, timing=t,
+                prefetched=pricing_stream.collect(pages) if pricing_stream else None,
+                reader_facts=pricing_stream.facts if pricing_stream else None))
             if inspect != "off":
                 start(2, lambda f, t: signature_match(vision, pages, f, progress=checks, timing=t))
             first = None

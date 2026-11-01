@@ -200,6 +200,30 @@ def test_stage_times_are_recorded(tmp_path):
     assert all(v >= 0 for v in facts.stage_times.values())  # real measurements, never negative/guessed
 
 
+def test_a_run_reports_its_pages_and_stage_wall_times_to_telemetry(tmp_path):
+    from pypdf import PdfWriter
+
+    from tenderlens.cli import audit_pack
+    from tenderlens.telemetry import RunTelemetry
+
+    def make_pdf(path, n):
+        w = PdfWriter()
+        for _ in range(n):
+            w.add_blank_page(width=400, height=500)
+        with open(path, "wb") as f:
+            w.write(f)
+        return path
+
+    tel, seen = RunTelemetry(), []
+    audit_pack(make_pdf(tmp_path / "rfq.pdf", 1), None, make_pdf(tmp_path / "pack.pdf", 3), tmp_path, None, tmp_path / "work",
+               llm=ModelClient(base_url="", model=""), vision=ModelClient(base_url="", model=""), telemetry=tel,
+               progress=lambda stage, done, total: seen.append((stage, done, total)))
+    snap = tel.snapshot()
+    assert snap["total_pages"] == 3 and snap["processed_pages"] == 3 and snap["active_workers"] == 0
+    assert {"render_ocr", "text_model", "vision_and_audit"} <= set(snap["stages"])
+    assert snap["progress"]["ocr"] == [3, 3] and ("ocr", 3, 3) in seen                  # the caller's own callback still fires
+
+
 def test_vision_concurrency_defaults_to_25_and_stays_within_1_to_32(monkeypatch):
     from tenderlens.llm import vision_concurrency
     monkeypatch.delenv("TENDERLENS_VISION_CONCURRENCY", raising=False)

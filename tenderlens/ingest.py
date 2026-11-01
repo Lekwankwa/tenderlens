@@ -17,7 +17,8 @@ from PIL import Image
 
 from .llm import slices
 
-DPI = 150
+# Resolution pages are rendered at. TENDERLENS_RENDER_DPI changes it for experiments (a PDF of 150 PPI scans gains no detail above 150).
+DPI = max(72, min(400, int(os.environ["TENDERLENS_RENDER_DPI"]))) if os.environ.get("TENDERLENS_RENDER_DPI", "").strip().isdigit() else 150
 
 
 @dataclass
@@ -134,64 +135,154 @@ def _render_cached(pdf: Path, outdir: Path) -> list[Path] | None:
     return None
 
 
-def render_and_ocr(pdf: Path, outdir: Path, ocr_dir: Path, workers: int, progress=None, dpi: int = DPI):
-    """Render and OCR a PDF with no wait in between: each worker renders ONE page (pdftoppm -f N -l N, which
-    names the file exactly as a whole-document run does and produces the same image) and OCRs it straight away,
-    so OCR starts with the first finished page instead of after the last. Same atomic placement as render_pdf:
-    pages go into a temporary sibling folder and are moved into outdir only once every page is usable.
-    Returns (page images in page order, [(text, words)] in page order, [content hash], busy seconds rendering,
-    busy seconds in OCR) - the busy times are summed across workers."""
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+def fast_render_enabled() -> bool:
+    """On by default (TENDERLENS_FAST_RENDER=0 turns it off): a page that is one JPEG scanned at the render resolution is
+    copied out of the PDF instead of being decoded, re-sampled and re-encoded by pdftoppm. About 50 times faster per page.
+    The image is not pixel-identical to pdftoppm's (mean grey difference 1.6-7, an occasional 1 px size difference) and the OCR
+    text differs, but a nine-grade run (18 packs) against the pdftoppm pipeline showed no loss: strict detection 69 vs 70 of 383,
+    clean-pack issue-tier findings 150 vs 140. Only pages that pass _fast_pages' checks are copied; every other page is rendered
+    by pdftoppm as before."""
+    return os.environ.get("TENDERLENS_FAST_RENDER", "1").strip() != "0"
+
+
+def _fast_pages(pdf: Path, dpi: int) -> set[int]:
+    """Pages that qualify for the fast path: exactly one image on the page, a JPEG, 8-bit grey or RGB, native resolution within 3%
+    of `dpi` in both directions, and a pixel size within 3 px of the page size at `dpi`."""
+    info = subprocess.run(["pdfinfo", "-f", "1", "-l", "100000", str(pdf)], capture_output=True, text=True).stdout
+    size = {int(m.group(1)): (float(m.group(2)), float(m.group(3)))
+            for m in re.finditer(r"Page\s+(\d+)\s+size:\s+([\d.]+) x ([\d.]+) pts", info)}
+    if not size:
+        m = re.search(r"Page size:\s+([\d.]+) x ([\d.]+) pts", info)
+        n = pdf_page_count(pdf)
+        size = {i: (float(m.group(1)), float(m.group(2))) for i in range(1, n + 1)} if m else {}
+    rot = {int(m.group(1)): int(m.group(2)) for m in re.finditer(r"Page\s+(\d+)\s+rot:\s+(\d+)", info)}
+    rows: dict[int, list[list[str]]] = {}
+    for line in subprocess.run(["pdfimages", "-list", str(pdf)], capture_output=True, text=True).stdout.splitlines()[2:]:
+        cols = line.split()
+        if len(cols) >= 14 and cols[0].isdigit():
+            rows.setdefault(int(cols[0]), []).append(cols)
+    ok = set()
+    for page, imgs in rows.items():
+        if len(imgs) != 1 or page not in size or rot.get(page, 0) != 0:
+            continue
+        c = imgs[0]                      # page num type width height color comp bpc enc interp object ID x-ppi y-ppi size ratio
+        try:
+            w, h, enc, xppi, yppi = int(c[3]), int(c[4]), c[8], float(c[12]), float(c[13])
+        except (ValueError, IndexError):
+            continue
+        want_w, want_h = size[page][0] / 72 * dpi, size[page][1] / 72 * dpi
+        if (c[2] == "image" and enc == "jpeg" and c[5] in ("gray", "rgb") and c[7] == "8"
+                and abs(xppi - dpi) <= 0.03 * dpi and abs(yppi - dpi) <= 0.03 * dpi
+                and abs(w - want_w) <= 3 and abs(h - want_h) <= 3):
+            ok.add(page)
+    return ok
+
+
+def _extract_page_image(pdf: Path, page: int, target: Path) -> bool:
+    """Copy page's single JPEG out of the PDF and save it as a PNG at `target`. False if anything is not as expected."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        r = subprocess.run(["pdfimages", "-j", "-f", str(page), "-l", str(page), str(pdf), str(Path(tmp) / "img")],
+                           capture_output=True)
+        found = sorted(Path(tmp).glob("img-*.jpg"))
+        if r.returncode != 0 or len(found) != 1:
+            return False
+        try:
+            with Image.open(found[0]) as im:
+                im.load()
+                im.save(target, format="PNG", compress_level=1)
+        except Exception:  # noqa: BLE001 - an image PIL cannot handle falls back to pdftoppm
+            return False
+    return True
+
+
+def _stretches(numbers: list[int]) -> list[tuple[int, int]]:
+    """[3, 4, 5, 9] -> [(3, 5), (9, 9)]: runs of consecutive page numbers, so one pdftoppm call covers each run."""
+    out: list[tuple[int, int]] = []
+    for n in numbers:
+        if out and n == out[-1][1] + 1:
+            out[-1] = (out[-1][0], n)
+        else:
+            out.append((n, n))
+    return out
+
+
+def render_chunk_size() -> int:
+    """Pages one render+OCR worker takes at a time (TENDERLENS_CHUNK_PAGES, 1 to 50). A chunk is rendered with ONE pdftoppm
+    call and then OCR'd page by page by the same worker, so a big PDF is opened once per chunk, not once per page."""
+    raw = os.environ.get("TENDERLENS_CHUNK_PAGES", "").strip()
+    return max(1, min(50, int(raw))) if raw.isdigit() else DEFAULT_CHUNK_PAGES
+
+
+DEFAULT_CHUNK_PAGES = 1
+
+
+def render_and_ocr(pdf: Path, outdir: Path, ocr_dir: Path, workers: int, progress=None, dpi: int = DPI, on_page=None,
+                   chunk: int | None = None):
+    """Render and OCR a PDF with no wait in between. The pages are split into chunks (render_chunk_size() pages); a worker
+    renders its chunk with one pdftoppm call (the same files and images a whole-document run gives) and OCRs each page of
+    it straight away, so OCR starts with the first finished chunk instead of after the last page. Pages are written straight
+    into outdir: a half-finished render is never trusted later, because _render_cached only accepts a folder holding exactly
+    as many usable images as the PDF has pages. on_page(number, png, sha, text, words), if given, is called from the worker
+    thread the moment a page's OCR is in (in no particular page order), so later stages can start on it while others render.
+    Returns (page images in page order, [(text, words)] in page order, [content hash], busy seconds rendering, busy seconds
+    in OCR) - the busy times are summed across workers."""
+    from concurrent.futures import ThreadPoolExecutor
     outdir.mkdir(parents=True, exist_ok=True)
     want = pdf_page_count(pdf)
     for p in outdir.glob("p-*.png"):
         p.unlink()
-    tmp = outdir.parent / f".{outdir.name}.tmp-{os.getpid()}"
-    if tmp.exists():
-        shutil.rmtree(tmp)
-    tmp.mkdir(parents=True)
+    size = chunk or render_chunk_size()
+    ranges = [(a, min(want, a + size - 1)) for a in range(1, want + 1, size)]
+    fast = _fast_pages(pdf, dpi) if fast_render_enabled() else set()
+    digits = len(str(want))                      # pdftoppm numbers its files p-1 .. p-N padded to the page count's width
     busy = {"render": 0.0, "ocr": 0.0}
+    got: dict[int, tuple] = {}
     lock = threading.Lock()
 
-    def one(n: int):
+    def work(first: int, last: int) -> None:
         t0 = time.time()
-        subprocess.run(["pdftoppm", "-r", str(dpi), "-png", "-f", str(n), "-l", str(n), str(pdf), str(tmp / "p")],
-                       check=True, capture_output=True)
-        found = list(tmp.glob("p-*.png"))
-        png = next((f for f in found if int(f.stem.split("-")[1]) == n), None)
-        if png is None or not _usable_png(png):
-            raise RuntimeError(f"pdftoppm did not produce a usable page {n} from {pdf.name}.")
-        sha = sha1_file(png)
-        t1 = time.time()
-        cache = ocr_dir / f"{sha}.json"
-        legacy = png.with_suffix(".ocr.json")
-        if not cache.exists() and legacy.exists():
-            cache.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(legacy, cache)
-        result = ocr_image(png, cache)
+        slow = []
+        for n in range(first, last + 1):
+            if n in fast and _extract_page_image(pdf, n, outdir / f"p-{n:0{digits}d}.png"):
+                continue
+            slow.append(n)
+        # the pages that are not eligible (or could not be copied out) are rendered by pdftoppm, one run per stretch
+        for lo, hi in _stretches(slow):
+            subprocess.run(["pdftoppm", "-r", str(dpi), "-png", "-f", str(lo), "-l", str(hi), str(pdf), str(outdir / "p")],
+                           check=True, capture_output=True)
+        rendered = time.time() - t0
+        files = {int(f.stem.split("-")[1]): f for f in outdir.glob("p-*.png") if first <= int(f.stem.split("-")[1]) <= last}
         with lock:
-            busy["render"] += t1 - t0
-            busy["ocr"] += time.time() - t1
-        return n, png, sha, result
+            busy["render"] += rendered
+        for n in range(first, last + 1):
+            png = files.get(n)
+            if png is None or not _usable_png(png):
+                raise RuntimeError(f"pdftoppm did not produce a usable page {n} from {pdf.name}.")
+            t1 = time.time()
+            sha = sha1_file(png)
+            cache = ocr_dir / f"{sha}.json"
+            legacy = png.with_suffix(".ocr.json")
+            if not cache.exists() and legacy.exists():
+                cache.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(legacy, cache)
+            text, words = ocr_image(png, cache)
+            with lock:
+                busy["ocr"] += time.time() - t1
+                got[n] = (png, sha, (text, words))
+                done = len(got)
+            if on_page:
+                on_page(n, png, sha, text, words)
+            if progress:
+                progress(done, want)
 
-    got: dict[int, tuple] = {}
-    try:
-        # a long pack is done in sequential slices of pages (llm.slices); inside a slice every page starts at once
-        # on the worker pool. Results are keyed by page number and sorted afterwards, so the slicing cannot change
-        # what comes out.
-        with ThreadPoolExecutor(max_workers=max(1, min(workers, want))) as ex:
-            for chunk in slices(list(range(1, want + 1))):
-                for fut in as_completed([ex.submit(one, n) for n in chunk]):
-                    n, png, sha, result = fut.result()
-                    got[n] = (png, sha, result)
-                    if progress:
-                        progress(len(got), want)
-        for n in sorted(got):
-            shutil.move(str(got[n][0]), str(outdir / got[n][0].name))
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+    with ThreadPoolExecutor(max_workers=max(1, min(workers, len(ranges)))) as ex:
+        for fut in [ex.submit(work, a, b) for a, b in ranges]:
+            fut.result()
+    if len(got) != want:
+        raise RuntimeError(f"{pdf.name}: rendered and read {len(got)} page(s) but the PDF has {want}.")
     order = sorted(got)
-    return ([outdir / got[n][0].name for n in order], [got[n][2] for n in order], [got[n][1] for n in order],
+    return ([got[n][0] for n in order], [got[n][2] for n in order], [got[n][1] for n in order],
             busy["render"], busy["ocr"])
 
 
@@ -286,12 +377,14 @@ def _ocr_workers() -> int:
     return max(1, min(8, int(cpus) if cpus <= 4 else int(cpus) - 1))
 
 
-def load_pdf(pdf: Path, workdir: Path, progress=None, timing: dict | None = None) -> list[Page]:
+def load_pdf(pdf: Path, workdir: Path, progress=None, timing: dict | None = None, on_page=None) -> list[Page]:
     """progress(done, total), if given, is called as each page's OCR finishes (real completion order under
     concurrency, not necessarily page order) - for a live "page N of M" indicator. The returned Page list is
     always in page order regardless. timing, if given, gets timing["render"] and timing["ocr"] (seconds, this
     call's own rendering and OCR phases) added to it - not overwritten, so a caller loading more than one PDF
-    (the RFQ/spec files, then the pack) can pass the same dict and see each phase's total across all of them."""
+    (the RFQ/spec files, then the pack) can pass the same dict and see each phase's total across all of them.
+    on_page(page), if given, is called once per page as soon as that page's OCR is in (from a worker thread while the other
+    pages are still being rendered and read, so it must be thread-safe); the page has no doc_type yet."""
     t0 = time.time()
     stem = pdf.stem.replace(" ", "_") + "-" + sha1_file(pdf)[:8]
     imgdir = workdir / stem
@@ -305,7 +398,9 @@ def load_pdf(pdf: Path, workdir: Path, progress=None, timing: dict | None = None
         # phases overlap, so their times are the workers' busy seconds spread over the workers - roughly their
         # share of the wall clock, adding up to about the real total.
         print(f"ocr pages={pdf_page_count(pdf)} workers={workers} cpus={_available_cpus():.1f} streaming", flush=True)
-        pngs, results, shas, r_busy, o_busy = render_and_ocr(pdf, imgdir, ocr_dir, workers, progress=progress)
+        pngs, results, shas, r_busy, o_busy = render_and_ocr(
+            pdf, imgdir, ocr_dir, workers, progress=progress,
+            on_page=(lambda n, png, sha, text, words: on_page(Page(n, str(png), text, words, sha=sha))) if on_page else None)
         if timing is not None:
             timing["render"] = timing.get("render", 0.0) + r_busy / workers
             timing["ocr"] = timing.get("ocr", 0.0) + o_busy / workers
@@ -357,8 +452,11 @@ def load_pdf(pdf: Path, workdir: Path, progress=None, timing: dict | None = None
 
     if timing is not None:
         timing["ocr"] = timing.get("ocr", 0.0) + (time.time() - t1)
-    return [Page(i, str(png), text, words, sha=sha)
-           for (i, png, sha, _), (text, words) in zip(jobs, results)]
+    out = [Page(i, str(png), text, words, sha=sha) for (i, png, sha, _), (text, words) in zip(jobs, results)]
+    if on_page:
+        for page in out:
+            on_page(page)
+    return out
 
 
 def first_page_text(pdf: Path, workdir: Path) -> str:
@@ -533,7 +631,60 @@ def sbd_header_pages(pages: list[Page]) -> int:
         re.search(pt, p.text[:700].upper()) for d, pats in SIGNATURES if d in SBD_TYPES for pt in pats))
 
 
+# A page with no header of its own takes the form before it only if it still looks like that form: for the forms that have a
+# blank template (SBD 4, 6.1, 8, 9) it must share enough wording with the blank (continuation pages of a real SBD 6.1 score
+# 50-190; unrelated tender pages that merely followed it scored 0-21); for the others it must carry one of the form's topic
+# words. Without this a Supplier Code of Conduct page after SBD 9 became "SBD 9" and was checked for an SBD 9 signature.
+INHERIT_MIN_TEMPLATE_SCORE = 30
+INHERIT_TOPIC_WORDS = {
+    "bbbee_affidavit": r"AFFIDAVIT|DEPONENT|COMMISSIONER|SWORN|OATH|ENTERPRISE|TURNOVER|BLACK OWN",
+    "csd": r"SUPPLIER|CSD|REGISTRATION|DIRECTOR|TAX|B-?BBEE",
+    "tcs": r"TAX|SARS|COMPLIANCE|TCS|PIN",
+    "cipc": r"COMPAN|DIRECTOR|REGISTRATION|SHARE|CIPC|COR\s?14",
+}
+
+
+def _looks_like(dtype: str, page: Page, templates: dict | None) -> bool:
+    tmpl = (templates or {}).get(dtype)
+    if tmpl is not None:
+        return tmpl.locate(page.text)[1] >= INHERIT_MIN_TEMPLATE_SCORE
+    topic = INHERIT_TOPIC_WORDS.get(dtype)
+    return True if topic is None else bool(re.search(topic, page.text.upper()))
+
+
+FORM_TYPES = SBD_TYPES + ("bbbee_affidavit",)
+
+
+def is_struck_through(page: Page, min_fraction: float = 0.45) -> bool:
+    """A long diagonal line across the page: a bidder cancelling a form that does not apply ("not applicable", an unused
+    affidavit). Measured as the longest line between 15 and 75 degrees (either way) over the page's short side: 0 on
+    ordinary pages (the SA sample, 83 and 139 CE pages), 0.55-1.12 on the three voided forms seen."""
+    import cv2
+    import numpy as np
+    gray = cv2.imread(str(page.image_path), cv2.IMREAD_GRAYSCALE)
+    if gray is None:
+        return False
+    h, w = gray.shape
+    _, ink = cv2.threshold(cv2.GaussianBlur(gray, (3, 3), 0), 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    ink = cv2.dilate(ink, np.ones((3, 3), np.uint8))
+    lines = cv2.HoughLinesP(ink, 1, np.pi / 180, 150, minLineLength=int(min_fraction * min(w, h)), maxLineGap=25)
+    for ln in (lines if lines is not None else []):
+        x1, y1, x2, y2 = (int(v) for v in np.ravel(ln))
+        ang = abs(np.degrees(np.arctan2(y2 - y1, x2 - x1))) % 180
+        if 15 <= ang <= 165 and not 75 <= ang <= 105 and np.hypot(x2 - x1, y2 - y1) >= min_fraction * min(w, h):
+            return True
+    return False
+
+
 def classify_pages(pages: list[Page], templates: dict | None = None) -> None:
+    _classify_by_text(pages, templates)
+    for p in pages:
+        # a form that has been struck through is not a completed form: no signature, stamp or entry rule should judge it
+        if p.doc_type in FORM_TYPES and p.image_path and Path(str(p.image_path)).exists() and is_struck_through(p):
+            p.doc_type = "voided"
+
+
+def _classify_by_text(pages: list[Page], templates: dict | None = None) -> None:
     prev, run = "unknown", 0
     for p in pages:
         if len(p.text.strip()) < 20 and len(p.words) <= 3:
@@ -558,15 +709,17 @@ def classify_pages(pages: list[Page], templates: dict | None = None) -> None:
                     break
         if not found:
             # whole-page search for the distinctive headers (OCR may garble the first lines)
+            # (the form's distinctive header AND one more of its cues: a tender page that merely mentions "sworn affidavit" in a
+            # table is not an affidavit)
             body = p.text.upper()
             for dtype, pats in SIGNATURES:
-                if any(re.search(pt, body) for pt in pats[:1]):
+                if re.search(pats[0], body) and (len(pats) < 2 or any(re.search(pt, body) for pt in pats[1:])):
                     found = dtype
                     break
         if found:
             run = run + 1 if found == prev else 1
             p.doc_type = found
-        elif prev != "unknown" and run < INHERIT_LIMIT.get(prev, 2):
+        elif prev != "unknown" and run < INHERIT_LIMIT.get(prev, 2) and _looks_like(prev, p, templates):
             p.doc_type, run = prev, run + 1
         else:
             p.doc_type, run = "unknown", 0

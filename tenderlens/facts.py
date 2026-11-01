@@ -232,13 +232,17 @@ def plausible_sa_id(v: str) -> bool:
 
 def ocr_facts(pages: list[Page], facts: Facts) -> None:
     for p in pages:
-        for field, pat in ID_PATTERNS.items():
+        # Identity numbers and addresses are taken from pages the classifier recognised as the bidder's own documents. An
+        # unrecognised page is more often the buyer's tender text or a referee's letter than the bidder's own, and comparing
+        # the bidder's registration number or email with the buyer's is what made "differs between documents" fire on clean packs.
+        own_page = p.doc_type not in ("unknown", "blank")
+        for field, pat in (ID_PATTERNS.items() if own_page else ()):
             for m in re.finditer(pat, p.text, re.I):
                 v = re.sub(r"\s", "", m.group(0)).replace("\\", "/")
                 if field == "id.email" and v.lower().endswith("gov.za"):
                     continue  # buyer addresses
                 facts.add(field, v, p.number, "ocr", p.mean_conf / 100, locate_value(p, v) or locate(p, v[:8]))
-        for m in re.finditer(TAX_CONTEXT, p.text, re.I):
+        for m in (re.finditer(TAX_CONTEXT, p.text, re.I) if own_page else ()):
             facts.add("id.tax_no", m.group(1), p.number, "ocr", p.mean_conf / 100, locate(p, m.group(1)[:6]))
         if p.doc_type in ID_CONTEXT_PAGES:
             for m in re.finditer(r"(?<!\d)\d{13}(?!\d)", p.text):

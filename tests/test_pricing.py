@@ -170,3 +170,52 @@ def test_two_readings_that_disagree_on_a_figure_do_not_confirm_each_other():
     c = check_page(5, {"rows": [row("B1", "42", "285.00", "11 000.00")], "lines": []})   # still wrong, but another figure
     assert confirm(a, b)[0].confirmed is True
     assert confirm(check_page(5, {"rows": [row("B1", "42", "285.00", "11 790.00")], "lines": []}), c)[0].confirmed is False
+
+
+def _sched(n):
+    return Page(n, f"p{n}", text="BILL OF QUANTITIES quantity rate amount carried forward\n" + "x 1 000.00 2 000.00\n" * 3)
+
+
+def test_the_streaming_reader_starts_reads_on_priced_pages_only_and_collects_the_batch_set():
+    from tenderlens.pricing import PricingReader
+    good = {"rows": [row("B1", "42", "285.00", "11 970.00")], "lines": []}
+    llm = _Reader({f"p{n}": good for n in range(1, 8)})
+    prose = Page(9, "p9", text="The contractor shall complete the works in accordance with the conditions. " * 5)
+    reader = PricingReader(llm, _facts())
+    pages = [_sched(1), prose, _sched(2), _sched(3)]
+    for p in pages:                     # announced one by one, as the OCR workers would
+        reader.offer(p)
+    got = reader.collect(pages)
+    assert sorted(got) == [1, 2, 3] and all(v == good for v in got.values())
+    assert llm.calls == 3               # the prose page was never read, the others once each (collect did not read again)
+
+
+def test_a_streamed_check_gives_the_same_discrepancies_as_the_batch_check():
+    from tenderlens.pricing import PricingReader
+    bad = {"rows": [row("B1", "42", "285.00", "11 790.00")], "lines": []}
+    good = {"rows": [row("B1", "42", "285.00", "11 970.00")], "lines": []}
+    pages = [_sched(1), _sched(2)]
+    script = {"p1": bad, "p2": good}
+
+    batch_facts = _facts()
+    run_pricing_check(_Reader(script), pages, batch_facts)
+
+    reader_llm = _Reader(script)
+    reader = PricingReader(reader_llm, _facts())
+    for p in pages:
+        reader.offer(p)
+    streamed_facts = _facts()
+    run_pricing_check(reader_llm, pages, streamed_facts, prefetched=reader.collect(pages), reader_facts=reader.facts)
+    key = lambda f: [(d.kind, d.page, d.ref, d.confirmed) for d in f.pricing]       # noqa: E731
+    assert key(streamed_facts) == key(batch_facts) == [("item", 1, "B1", True)]
+    assert streamed_facts.pricing_pages == batch_facts.pricing_pages == [1, 2]
+
+
+def test_the_streaming_reader_starts_at_most_the_page_cap_ahead_of_time():
+    from tenderlens.pricing import MAX_PAGES, PricingReader
+    llm = _Reader({f"p{n}": {"rows": [], "lines": []} for n in range(1, 120)})
+    reader = PricingReader(llm, _facts())
+    for n in range(1, 120):
+        reader.offer(_sched(n))
+    assert len(reader._futures) == MAX_PAGES
+    reader.collect([_sched(n) for n in range(1, 120)])

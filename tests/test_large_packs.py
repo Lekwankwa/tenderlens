@@ -30,24 +30,151 @@ def test_slice_sizes_come_from_the_environment(monkeypatch):
     assert [len(c) for c in L.slices(list(range(11)))] == [4, 4, 3]
 
 
-def test_run_in_slices_keeps_task_order_and_finishes_a_slice_before_starting_the_next(monkeypatch):
-    monkeypatch.setenv("TENDERLENS_BATCH_OVER", "6")
-    monkeypatch.setenv("TENDERLENS_BATCH_PAGES", "4")
-    started, lock = [], threading.Lock()
-    rng = random.Random(1)
+def test_the_rolling_window_keeps_task_order_and_never_has_more_than_the_cap_in_flight():
+    in_flight, peak, lock = [0], [0], threading.Lock()
+    rng = random.Random(2)
 
     def task(i):
         def run():
             with lock:
-                started.append(i)
-            time.sleep(rng.random() * 0.03)  # finish in a different order than they were started
+                in_flight[0] += 1
+                peak[0] = max(peak[0], in_flight[0])
+            time.sleep(rng.random() * 0.03)
+            with lock:
+                in_flight[0] -= 1
             return i
         return run
 
-    results = L.run_in_slices([task(i) for i in range(10)], max_workers=10)
-    assert results == list(range(10))
-    # tasks 4..7 may not begin before every task 0..3 has begun AND finished: the first 4 started are 0-3
-    assert set(started[:4]) == {0, 1, 2, 3} and set(started[4:8]) == {4, 5, 6, 7}
+    assert L.run_rolling([task(i) for i in range(40)], max_workers=5) == list(range(40))
+    assert peak[0] <= 5 and peak[0] >= 2
+
+
+def test_one_slow_task_delays_only_itself_not_the_tasks_after_it():
+    """The old batches made every task wait for the slowest one in its batch of 4; in a rolling window the later tasks start
+    as soon as a worker is free, so they all finish long before the slow first task does."""
+    done_at, t0, lock = {}, time.monotonic(), threading.Lock()
+
+    def task(i):
+        def run():
+            time.sleep(0.6 if i == 0 else 0.02)
+            with lock:
+                done_at[i] = time.monotonic() - t0
+            return i
+        return run
+
+    L.run_rolling([task(i) for i in range(12)], max_workers=3)
+    assert max(done_at[i] for i in range(1, 12)) < done_at[0]
+
+
+def test_a_task_that_raises_does_not_stop_the_others_and_its_error_is_raised_afterwards():
+    ran = []
+
+    def good(i):
+        return lambda: ran.append(i) or i
+
+    def bad():
+        raise ValueError("boom")
+
+    with pytest.raises(ValueError, match="boom"):
+        L.run_rolling([good(0), bad, good(2), good(3)], max_workers=2)
+    assert sorted(ran) == [0, 2, 3]                                   # everything else still ran
+    got = L.run_rolling([good(0), bad, good(2)], max_workers=2, return_exceptions=True)
+    assert got[0] == 0 and isinstance(got[1], ValueError) and got[2] == 2
+
+
+def test_the_slice_helper_is_the_same_rolling_run():
+    assert L.run_in_slices([lambda i=i: i for i in range(7)], 3) == list(range(7))
+
+
+def test_max_concurrent_requests_is_accepted_as_the_concurrency_setting(monkeypatch):
+    monkeypatch.delenv("TENDERLENS_VISION_CONCURRENCY", raising=False)
+    monkeypatch.setenv("MAX_CONCURRENT_REQUESTS", "12")
+    assert L.vision_concurrency() == 12
+    monkeypatch.setenv("MAX_CONCURRENT_REQUESTS", "500")
+    assert L.vision_concurrency() == 32
+
+
+def test_the_token_guard_is_off_without_a_limit_and_waits_when_the_minute_is_spent():
+    assert L.TokenBudget(None).acquire() == 0.0
+    clock = [0.0]
+    sleeps = []
+
+    def sleep(s):
+        sleeps.append(s)
+        clock[0] += s
+
+    b = L.TokenBudget(6000, clock=lambda: clock[0], sleep=sleep)
+    assert b.acquire() == 0.0 and b.acquire() == 0.0                     # two estimated 3,000-token calls fit the minute
+    waited = b.acquire()                                                  # the third has to wait for the first to age out
+    assert waited > 0 and clock[0] >= 59.0 and sum(sleeps) == waited
+
+
+def test_the_token_guard_replaces_its_estimate_with_the_real_usage_and_learns_the_average():
+    clock = [0.0]
+    b = L.TokenBudget(100_000, clock=lambda: clock[0], sleep=lambda s: None)
+    est = b.estimate()
+    b.acquire()
+    b.record(1200, reserved=est)
+    assert b.estimate() == 1200                                                          # the average of finished calls
+    assert b._used[0][1] == 1200
+
+
+def test_run_telemetry_totals_are_exact_under_many_threads():
+    from tenderlens.telemetry import RunTelemetry
+    tel = RunTelemetry()
+    tel.set_total_pages(100)
+
+    def work(n):
+        for _ in range(200):
+            tel.worker_started()
+            tel.add_tokens(10, 2, 1)
+            tel.worker_finished()
+        tel.set_progress("ocr", n, 100)
+
+    threads = [threading.Thread(target=work, args=(i,)) for i in range(32)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    s = tel.snapshot()
+    assert s["calls"] == 6400 and s["prompt_tokens"] == 64000 and s["completion_tokens"] == 12800 and s["active_workers"] == 0
+    assert 1 <= s["peak_workers"] <= 32 and s["total_pages"] == 100
+
+
+def test_telemetry_records_stage_wall_times_and_cost_at_the_plan_rates():
+    from tenderlens.telemetry import RunTelemetry
+    now = [100.0]
+    tel = RunTelemetry(clock=lambda: now[0])
+    tel.stage_start("vision")
+    now[0] += 12.5
+    tel.stage_end("vision")
+    tel.add_tokens(1_000_000, 100_000, 400_000)
+    s = tel.snapshot()
+    assert s["stages"] == {"vision": 12.5}
+    assert round(s["cost_usd"], 4) == round(0.6 * 1.25 + 0.4 * 0.15 + 0.1 * 4.25, 4)
+
+
+def test_the_client_reports_calls_tokens_and_retries_to_telemetry(monkeypatch):
+    import json as _json
+    import io
+    from tenderlens.telemetry import RunTelemetry
+    monkeypatch.setattr("tenderlens.llm.time.sleep", lambda s: None)
+    answers = [TimeoutError("t"), {"choices": [{"message": {"content": "{}"}}],
+                                   "usage": {"prompt_tokens": 700, "completion_tokens": 50,
+                                             "prompt_tokens_details": {"cached_tokens": 100}}}]
+
+    def fake(req, timeout=None, context=None):
+        a = answers.pop(0)
+        if isinstance(a, Exception):
+            raise a
+        return io.BytesIO(_json.dumps(a).encode())
+
+    monkeypatch.setattr("tenderlens.llm.urllib.request.urlopen", fake)
+    tel = RunTelemetry()
+    c = L.ModelClient(base_url="http://x", model="m", api_key="k", prefix="VISION")
+    c.telemetry = tel
+    c.complete_json("s", "u")
+    s = tel.snapshot()
+    assert (s["calls"], s["retries"], s["timeouts"]) == (2, 1, 1) and s["active_workers"] == 0
+    assert (s["prompt_tokens"], s["completion_tokens"], s["cached_tokens"]) == (700, 50, 100)
 
 
 def _png(tmp_path, w=600, h=800) -> Path:

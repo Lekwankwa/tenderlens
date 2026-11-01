@@ -86,6 +86,12 @@ def _rulings(ink: np.ndarray) -> np.ndarray:
     return cv2.morphologyEx(dil, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (120, 1)))
 
 
+# Dark pixels needed in the signing zone for a signature to count as present. It was 350; thin signatures on the CE scans
+# measure 210-320 (and 0 where the OCR read a stylised signature as a word and it was blanked), while the one planted
+# unsigned SBD 9 in the SA sample measures exactly 0, so 150 keeps that and stops "may be unsigned" on faint real signatures.
+SIGNATURE_MIN_INK = 150
+
+
 def signature_evidence(page: Page, label_pattern: str = SIGN_LABEL, layout: str = "auto") -> list[dict]:
     """For each 'Signature' label, measure pen strokes where a signature would be.
 
@@ -134,7 +140,7 @@ def signature_evidence(page: Page, label_pattern: str = SIGN_LABEL, layout: str 
             "zone": full,
             "layout": layout if layout in ("around",) else ("beside" if beside_layout else "above"),
             "ink_px": int(total),
-            "present": total >= 350,
+            "present": total >= SIGNATURE_MIN_INK,
             "confidence": "high" if total >= 900 or total < 100 else "medium",
         })
     return out

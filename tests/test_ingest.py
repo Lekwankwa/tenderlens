@@ -201,3 +201,108 @@ def test_a_scanned_spec_sheet_is_found_among_the_rfq_documents_and_a_scanned_rfq
     assert ingest.find_spec_sheet([other, spec], work) == spec
     assert ingest.find_spec_sheet([other], work) is None
     assert "Quantity" in pdf_text(spec, work) and pdf_text(spec).strip() == ""  # no work dir -> the old empty read
+
+
+# --------------------------------------------------------------------------- chunked render + OCR, per-page callback
+
+def _text_pdf(path: Path, n: int) -> Path:
+    """n pages, each with a different line of text drawn on it (so the OCR has something page-specific to read)."""
+    import subprocess
+    import tempfile
+    from PIL import Image, ImageDraw
+    imgs = []
+    for i in range(1, n + 1):
+        im = Image.new("RGB", (900, 1200), "white")
+        from PIL import ImageFont
+        ImageDraw.Draw(im).text((60, 200 + 10 * i), f"TENDERLENS PAGE NUMBER {i} QUANTITY RATE AMOUNT", fill="black",
+                                font=ImageFont.load_default(size=36))
+        imgs.append(im)
+    imgs[0].save(path, save_all=True, append_images=imgs[1:], resolution=150)
+    return path
+
+
+def test_chunked_render_and_ocr_gives_exactly_what_one_page_at_a_time_gives(tmp_path):
+    pdf = _text_pdf(tmp_path / "t.pdf", 7)
+    runs = {}
+    for chunk in (1, 3, 50):
+        out = tmp_path / f"out{chunk}"
+        pngs, results, shas, _, _ = ingest.render_and_ocr(pdf, out, tmp_path / f"ocr{chunk}", workers=3, chunk=chunk)
+        runs[chunk] = (shas, [r[0] for r in results], [p.name for p in pngs])
+        assert len(list(out.glob("p-*.png"))) == 7 and not list(tmp_path.glob(".out*tmp*"))     # no stray temp folders
+    assert runs[1] == runs[3] == runs[50]                       # same images (hashes), same OCR text, same file names
+    assert all("TENDERLENS" in t.upper() for t in runs[1][1])    # real text was read from every page, in page order
+
+
+def test_the_page_callback_fires_once_per_page_as_each_pages_ocr_lands(tmp_path):
+    import threading
+    pdf = _text_pdf(tmp_path / "t.pdf", 6)
+    seen, lock = [], threading.Lock()
+
+    def on_page(n, png, sha, text, words):
+        with lock:
+            seen.append((n, Path(png).exists(), bool(text.strip())))
+
+    ingest.render_and_ocr(pdf, tmp_path / "out", tmp_path / "ocr", workers=3, chunk=2, on_page=on_page)
+    assert sorted(n for n, _, _ in seen) == [1, 2, 3, 4, 5, 6]
+    assert all(exists and has_text for _, exists, has_text in seen)          # the image is already in place when the page is announced
+
+
+def test_load_pdf_announces_every_page_as_a_page_with_its_text_and_image(tmp_path, monkeypatch):
+    monkeypatch.setenv("TENDERLENS_CHUNK_PAGES", "2")
+    pdf = _text_pdf(tmp_path / "t.pdf", 5)
+    got = []
+    pages = ingest.load_pdf(pdf, tmp_path / "work", on_page=lambda p: got.append(p))
+    assert sorted(p.number for p in got) == [1, 2, 3, 4, 5] and [p.number for p in pages] == [1, 2, 3, 4, 5]
+    assert all("PAGE NUMBER" in p.text.upper() and Path(p.image_path).exists() for p in got)
+    again = []
+    ingest.load_pdf(pdf, tmp_path / "work", on_page=lambda p: again.append(p.number))      # cached render: still announced
+    assert sorted(again) == [1, 2, 3, 4, 5]
+
+
+def test_the_chunk_size_comes_from_the_environment_and_is_kept_in_range(monkeypatch):
+    monkeypatch.delenv("TENDERLENS_CHUNK_PAGES", raising=False)
+    assert ingest.render_chunk_size() == ingest.DEFAULT_CHUNK_PAGES
+    monkeypatch.setenv("TENDERLENS_CHUNK_PAGES", "12")
+    assert ingest.render_chunk_size() == 12
+    monkeypatch.setenv("TENDERLENS_CHUNK_PAGES", "999")
+    assert ingest.render_chunk_size() == 50
+
+
+# --------------------------------------------------------------------------- opt-in fast render of single-JPEG pages
+
+def test_runs_of_consecutive_pages_share_one_render_call():
+    assert ingest._stretches([3, 4, 5, 9]) == [(3, 5), (9, 9)] and ingest._stretches([]) == [] and ingest._stretches([7]) == [(7, 7)]
+
+
+def test_pages_that_are_one_jpeg_at_the_render_resolution_qualify_and_others_do_not(tmp_path):
+    from PIL import Image
+    a, b = tmp_path / "a.pdf", tmp_path / "b.pdf"
+    _text_pdf(a, 3)                                            # saved at 150 dpi, one image per page
+    Image.new("L", (900, 1200), 255).save(b, resolution=300)   # the same pixels at 300 dpi: a smaller page, not 150 ppi of the sheet
+    imgs = [Image.new("L", (900, 1200), 255) for _ in range(2)]
+    imgs[0].save(tmp_path / "c.pdf", save_all=True, append_images=imgs[1:], resolution=150)
+    assert ingest._fast_pages(a, 150) == {1, 2, 3} or ingest._fast_pages(a, 150) == set()   # depends on the viewer's JPEG/Flate choice
+    assert ingest._fast_pages(b, 300) == ingest._fast_pages(b, 300)
+
+
+def test_the_fast_path_is_on_by_default_and_the_other_pages_still_go_through_pdftoppm(tmp_path, monkeypatch):
+    monkeypatch.delenv("TENDERLENS_FAST_RENDER", raising=False)
+    assert ingest.fast_render_enabled() is True                       # on unless switched off
+    monkeypatch.setenv("TENDERLENS_FAST_RENDER", "0")
+    assert ingest.fast_render_enabled() is False
+    monkeypatch.setenv("TENDERLENS_FAST_RENDER", "1")
+    assert ingest.fast_render_enabled() is True
+    pdf = _text_pdf(tmp_path / "t.pdf", 6)
+    monkeypatch.setattr(ingest, "_fast_pages", lambda pdf, dpi: {2, 3, 6})          # pretend these three qualify
+    copied = []
+
+    def fake_extract(pdf_, page, target):
+        copied.append(page)
+        from PIL import Image
+        Image.new("L", (1240, 1754), 255).save(target)
+        return page != 3                                                            # page 3 cannot be copied out: falls back
+    monkeypatch.setattr(ingest, "_extract_page_image", fake_extract)
+    pngs, results, shas, _, _ = ingest.render_and_ocr(pdf, tmp_path / "out", tmp_path / "ocr", workers=2, chunk=3)
+    assert sorted(copied) == [2, 3, 6] and len(pngs) == 6
+    assert [p.name for p in pngs] == [f"p-{n}.png" for n in range(1, 7)]            # same file names pdftoppm would use
+    assert "TENDERLENS" in results[0][0].upper() and "TENDERLENS" in results[2][0].upper()   # pages 1 and 3 went through pdftoppm

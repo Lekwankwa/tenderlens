@@ -406,3 +406,110 @@ def test_a_name_field_read_as_blank_does_not_crash_the_name_comparison():
     a = Auditor(Requirements(), [Page(n, "x", doc_type="sbd4") for n in (15, 25, 29)], facts, BLANK_DIR)
     a.names()  # must not raise, and the two real names agree
     assert not [f for f in a.res.findings if "Company name differs" in f.title]
+
+
+# --------------------------------------------------------------------------- false-positive reduction: classification and identity
+
+def test_a_tender_page_that_merely_mentions_a_sworn_affidavit_is_not_an_affidavit():
+    from tenderlens.ingest import classify_pages
+    table = Page(1, "x", text="Tender data. " + "Points are awarded to tenderers who complete the preferencing schedule. " * 12
+                 + "\nB-BBEE Certificate / Sworn Affidavit (in case of JV)\n")
+    real = Page(2, "x", text="SWORN AFFIDAVIT - B-BBEE EXEMPTED MICRO ENTERPRISE\nI, the undersigned, hereby declare under oath " * 3)
+    classify_pages([table, real])
+    assert table.doc_type == "unknown" and real.doc_type == "bbbee_affidavit"
+
+
+def test_pages_after_an_sbd_form_keep_its_type_only_if_they_look_like_that_form():
+    from tenderlens.ingest import classify_pages, load_templates
+    templates = load_templates(Path("samples/blank"))
+    blank9 = next(Path("samples/blank").glob("*SBD_9*.txt")).read_text()
+    head = Page(1, "x", text="SBD 9 CERTIFICATE OF INDEPENDENT BID DETERMINATION " + blank9[:600])
+    continuation = Page(2, "x", text=blank9[600:2200])           # the next part of the blank form
+    unrelated = Page(3, "x", text="Supplier Code of Conduct. I hereby acknowledge having read and understood the terms " * 4)
+    classify_pages([head, continuation, unrelated], templates)
+    assert [p.doc_type for p in (head, continuation, unrelated)] == ["sbd9", "sbd9", "unknown"]
+
+
+def test_identity_numbers_are_taken_from_the_bidders_own_pages_not_unrecognised_ones():
+    from tenderlens.facts import Facts, ocr_facts
+    own = Page(1, "x", text="Contact: tenders@bokamosocivils.co.za", doc_type="sbd4")
+    buyer = Page(2, "x", text="Report fraud: transnet@tip-offs.com", doc_type="unknown")
+    facts = Facts()
+    ocr_facts([own, buyer], facts)
+    assert [f.value for f in facts.all("id.email")] == ["tenders@bokamosocivils.co.za"]
+
+
+def test_two_different_id_numbers_on_one_page_do_not_make_a_mismatch():
+    facts = Facts()
+    for page, v in ((63, "9501015009083"), (63, "9301015009085"), (64, "9501015009083"), (64, "9301015009085")):
+        facts.add("id.sa_id", v, page, "ocr", 0.9)
+    a = Auditor(Requirements(), [Page(n, "x", doc_type="cipc") for n in (63, 64)], facts, BLANK_DIR)
+    a.identifiers()
+    assert not [f for f in a.res.findings if "SA ID number differs" in f.title]
+
+
+def test_a_qse_affidavit_is_not_asked_for_the_eme_income_statement():
+    qse = Page(9, "x", text="SWORN AFFIDAVIT QUALIFYING SMALL ENTERPRISE annual turnover between R10 million and R50 million", doc_type="bbbee_affidavit")
+    eme = Page(9, "x", text="SWORN AFFIDAVIT EXEMPTED MICRO ENTERPRISE", doc_type="bbbee_affidavit")
+    for page, expect in ((qse, False), (eme, True)):
+        a = Auditor(Requirements(), [page], Facts(), BLANK_DIR)
+        a.certificates()
+        assert bool([f for f in a.res.findings if "income was under R10 million" in f.title]) is expect
+
+
+def test_not_finding_a_signature_label_is_an_observation_not_an_issue(monkeypatch):
+    from tenderlens import vision as V
+    monkeypatch.setattr(V, "signature_evidence", lambda page, label, lay: [])
+    a = Auditor(Requirements(), [Page(1, "x", doc_type="sbd6_1")], Facts(), BLANK_DIR)
+    a.signatures()
+    found = [f for f in a.res.findings if f.title.startswith("Could not locate the signature line")]
+    assert found and all(f.tier == "observation" for f in found)
+
+
+def test_a_form_prompt_is_not_a_company_name_and_a_vision_read_name_mismatch_is_only_a_lead():
+    facts = Facts()
+    facts.add("sbd6_1.company_name", "Trading Name (If NOT APPLICABLE", 7, "vision", 0.6)
+    facts.add("csd.legal_name", "KOWIE RIVER CIVILS (PTY) LTD", 35, "ocr", 0.9)
+    a = Auditor(Requirements(), [Page(7, "x"), Page(35, "x")], facts, BLANK_DIR)
+    a.names()
+    assert not [f for f in a.res.findings if "Company name differs" in f.title]       # the prompt was ignored
+    facts.add("sbd4.name_field", "ZOLISWA PATIENCE MBANA", 45, "vision", 0.6)
+    b = Auditor(Requirements(), [Page(35, "x"), Page(45, "x")], facts, BLANK_DIR)
+    b.names()
+    found = [f for f in b.res.findings if "Company name differs" in f.title]
+    assert found and found[0].tier == "observation"
+
+
+def _page_image(tmp_path, name, diagonal=False, rules=True):
+    import numpy as np
+    import cv2
+    img = np.full((1000, 700, 3), 255, np.uint8)
+    if rules:                                           # ordinary form furniture: horizontal and vertical rulings and a box
+        for y in range(120, 900, 90):
+            cv2.line(img, (60, y), (640, y), (0, 0, 0), 2)
+        cv2.rectangle(img, (60, 120), (640, 480), (0, 0, 0), 2)
+        cv2.line(img, (350, 120), (350, 480), (0, 0, 0), 2)
+    if diagonal:
+        cv2.line(img, (40, 60), (660, 940), (0, 0, 0), 4)
+    path = tmp_path / name
+    cv2.imwrite(str(path), img)
+    return str(path)
+
+
+def test_a_long_diagonal_across_a_page_is_a_struck_through_form_and_ordinary_rulings_are_not(tmp_path):
+    from tenderlens.ingest import is_struck_through
+    assert is_struck_through(Page(1, _page_image(tmp_path, "a.png", diagonal=True))) is True
+    assert is_struck_through(Page(2, _page_image(tmp_path, "b.png", diagonal=False))) is False
+
+
+def test_a_form_page_with_a_diagonal_through_it_becomes_voided_and_is_reported_once(tmp_path):
+    from tenderlens.ingest import classify_pages
+    struck = Page(1, _page_image(tmp_path, "s.png", diagonal=True),
+                  text="SWORN AFFIDAVIT B-BBEE EXEMPTED MICRO ENTERPRISE deponent commissioner " * 3)
+    normal = Page(2, _page_image(tmp_path, "n.png", diagonal=False),
+                  text="SWORN AFFIDAVIT B-BBEE EXEMPTED MICRO ENTERPRISE deponent commissioner " * 3)
+    classify_pages([struck, normal])
+    assert [p.doc_type for p in (struck, normal)] == ["voided", "bbbee_affidavit"]
+    a = Auditor(Requirements(), [struck, normal], Facts(), BLANK_DIR)
+    a.voided_forms()
+    assert [f.title for f in a.res.findings] == ["Form struck through (page 1)"] and a.res.findings[0].tier == "observation"

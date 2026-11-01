@@ -28,18 +28,23 @@ _MONEY_IN_TEXT = re.compile(r"\d[\d ]*[.,]\d{2}\b")
 MAX_PAGES = 60  # most pricing pages read per pack (a cost guard; the highest-scoring pages come first)
 
 
+def page_score(p: Page) -> float | None:
+    """How strongly one page looks like a priced schedule, or None if it does not. Depends on the page's own text only, so a
+    page can be judged the moment its OCR is in (see PricingReader)."""
+    if p.doc_type == "blank" or len(p.text.strip()) < 60:
+        return None
+    nums = len(_MONEY_IN_TEXT.findall(p.text))
+    strong = bool(_STRONG.search(p.text))
+    weak = sum(bool(re.search(w, p.text, re.I)) for w in _WEAK)
+    if (strong and nums >= 2) or (weak >= 3 and nums >= 6):
+        return nums + 5 * strong + weak
+    return None
+
+
 def pricing_pages(pages: list[Page]) -> list[Page]:
     """Pages that look like priced schedules, favouring recall: a page missed is a defect missed, and a page read
     needlessly costs one cheap call. Strong cue plus a couple of amounts, or the column words plus many amounts."""
-    scored = []
-    for p in pages:
-        if p.doc_type == "blank" or len(p.text.strip()) < 60:
-            continue
-        nums = len(_MONEY_IN_TEXT.findall(p.text))
-        strong = bool(_STRONG.search(p.text))
-        weak = sum(bool(re.search(w, p.text, re.I)) for w in _WEAK)
-        if (strong and nums >= 2) or (weak >= 3 and nums >= 6):
-            scored.append((nums + 5 * strong + weak, p))
+    scored = [(sc, p) for p in pages if (sc := page_score(p)) is not None]
     top = sorted(scored, key=lambda t: -t[0])[:MAX_PAGES]
     return sorted((p for _, p in top), key=lambda p: p.number)
 
@@ -222,7 +227,73 @@ def _reread_pages(found: list[Discrepancy]) -> set[int]:
     return pages
 
 
-def run_pricing_check(llm, pages: list[Page], facts, passes: int = 2, timing: dict | None = None) -> None:
+class PricingReader:
+    """Reads priced pages while the pack is still being rendered and OCR'd. offer(page) is called from the OCR workers as each
+    page's text arrives; a page that looks like a priced schedule is submitted for its first reading at once, so the long table
+    reads (the longest model lane) overlap the local OCR phase instead of following it. collect(pages) then returns the first
+    readings for exactly the pages pricing_pages() would pick, reading any it has not already read. At most MAX_PAGES reads
+    are started ahead of time (a cost guard), so a pack with more candidates than that is finished off in collect()."""
+
+    def __init__(self, llm, facts, gate=None, gate_wait: float = 60.0) -> None:
+        """gate: a threading.Event that is set when the buyer-requirements (text) call has finished. Until then pages are
+        remembered, not read: up to 25 long table reads fired at once next to that one call left it waiting at the provider for
+        minutes (928 s in one pack, against 15 s normally). collect() waits for the gate at most `gate_wait` seconds."""
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+        from .llm import vision_concurrency
+        self.llm, self.facts = llm, facts
+        self._gate, self._gate_wait = gate, gate_wait
+        self._held: list[Page] = []
+        self._pool = ThreadPoolExecutor(max_workers=vision_concurrency())
+        self._futures: dict[int, object] = {}
+        self._lock = threading.Lock()
+
+    def _submit(self, page: Page) -> None:
+        from .facts import _ask
+        self._futures[page.number] = self._pool.submit(
+            _ask, self.llm, self.facts, first_prompt(page), [page.image_path], page.number, READ_TIMEOUT)
+
+    def _open(self) -> bool:
+        return self._gate is None or self._gate.is_set()
+
+    def offer(self, page: Page) -> None:
+        if page_score(page) is None:
+            return
+        with self._lock:
+            if not self._open():
+                self._held.append(page)
+            elif page.number not in self._futures and len(self._futures) < MAX_PAGES:
+                self._submit(page)
+
+    def release(self) -> None:
+        """Start the reads that were held back (call when the gate has opened)."""
+        with self._lock:
+            held, self._held = self._held, []
+            for page in held:
+                if page.number not in self._futures and len(self._futures) < MAX_PAGES:
+                    self._submit(page)
+
+    def collect(self, pages: list[Page]) -> dict[int, dict | None]:
+        """First readings, by page number, for the pages the batch check would read."""
+        if self._gate is not None:
+            self._gate.wait(self._gate_wait)
+        wanted = pricing_pages(pages)
+        with self._lock:
+            held, self._held = self._held, []        # whatever is still held is read now, gate or no gate
+            for p in held:
+                if p.number not in self._futures and len(self._futures) < MAX_PAGES:
+                    self._submit(p)
+            for p in wanted:
+                if p.number not in self._futures:
+                    self._submit(p)
+            futures = {p.number: self._futures[p.number] for p in wanted}
+        out = {n: f.result() for n, f in futures.items()}
+        self._pool.shutdown(wait=False)
+        return out
+
+
+def run_pricing_check(llm, pages: list[Page], facts, passes: int = 2, timing: dict | None = None,
+                      prefetched: dict | None = None, reader_facts=None) -> None:
     """Read every pricing page (in slices for a long pack), check the arithmetic, and read again every page that shows a
     discrepancy. Results go to facts.pricing (a list of Discrepancy) and facts.pricing_pages (the pages read)."""
     import time
@@ -231,9 +302,11 @@ def run_pricing_check(llm, pages: list[Page], facts, passes: int = 2, timing: di
     t0 = time.time()
     cands = pricing_pages(pages)
     facts.pricing_pages = [p.number for p in cands]
+    if reader_facts is not None:
+        facts.merge(reader_facts)          # the call counts and failures of the reads a PricingReader already made
     if not cands:
         return
-    results = run_in_slices([(lambda p=p: _ask(llm, facts, first_prompt(p), [p.image_path], page_no=p.number,
+    results = [prefetched.get(p.number) for p in cands] if prefetched is not None else run_in_slices([(lambda p=p: _ask(llm, facts, first_prompt(p), [p.image_path], page_no=p.number,
                                          timeout=READ_TIMEOUT)) for p in cands],
                             vision_concurrency())
     readings = {p.number: d for p, d in zip(cands, results) if isinstance(d, dict)}

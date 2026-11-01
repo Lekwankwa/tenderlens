@@ -15,7 +15,8 @@ Other:
         smaller than the PNG (on real scanned pages about 2.3x smaller); a page where it is not (a clean
         born-digital one) is sent as the PNG, unchanged. 0 = always send the PNG. Only what is sent changes: the
         page files on disk, OCR and the local ink/signature checks still use the original PNG.
-    TENDERLENS_VISION_CONCURRENCY    page reads in flight at once, default 25 (1-32).
+    TENDERLENS_VISION_CONCURRENCY (alias MAX_CONCURRENT_REQUESTS)    model calls in flight at once, default 25 (1-32), enforced
+        across every lane of one run. TENDERLENS_TPM_LIMIT: tokens per minute the run may use (default unset: no limit).
     TENDERLENS_BATCH_OVER / TENDERLENS_BATCH_PAGES    a pack longer than BATCH_OVER pages (default 50) is rendered, read and
         sent to the model in sequential slices of BATCH_PAGES pages (default 25); inside a slice every page starts at
         once. Results are put back in page order, so the findings do not depend on the slicing.
@@ -163,6 +164,8 @@ class ModelClient:
         self.reasoning_effort = effort if effort in ("low", "medium", "high") else ""
         self.image_scale = 1.0  # < 1: page images are shrunk before being sent (see use_large_pack_profile)
         self.image_pad = 0      # white border (pixels, at the size sent) added around the page image before it is sent
+        self.budget = TokenBudget.from_env()  # tokens-per-minute guard (off unless TENDERLENS_TPM_LIMIT is set)
+        self.telemetry = None                  # a telemetry.RunTelemetry, set by the pipeline when it wants live counters
         self.cached_tokens = 0  # prompt tokens the provider reports as served from its prompt cache (billed at a lower rate)
         self.price_in = _num(e(f"TENDERLENS_{prefix}_PRICE_IN", ""))
         self.price_out = _num(e(f"TENDERLENS_{prefix}_PRICE_OUT", ""))
@@ -238,8 +241,16 @@ class ModelClient:
         waits = self.retry_waits
         for attempt in range(len(waits) + 1):
             try:
-                with self._slots, urllib.request.urlopen(req, timeout=timeout or self.timeout, context=_HTTPS_CTX) as r:
-                    return json.load(r)
+                with self._slots:
+                    tel = self.telemetry
+                    if tel is not None:
+                        tel.worker_started()          # "active workers" = calls holding one of the run's request slots
+                    try:
+                        with urllib.request.urlopen(req, timeout=timeout or self.timeout, context=_HTTPS_CTX) as r:
+                            return json.load(r)
+                    finally:
+                        if tel is not None:
+                            tel.worker_finished()
             except urllib.error.HTTPError as err:
                 body_text = _read_error_body(err, self.api_key)
                 last_err = LLMError(f"HTTP {err.code} from {self.base_url} ({self.model}): {body_text}", err.code)
@@ -253,6 +264,8 @@ class ModelClient:
                 if isinstance(reason, TimeoutError) or isinstance(err, TimeoutError):
                     with self._lock:
                         self.timeouts += 1
+                    if self.telemetry is not None:
+                        self.telemetry.add_timeout()
                     last_err = LLMError(f"timed out after {(timeout or self.timeout):.0f} s contacting {self.base_url} ({self.model})")
                 else:
                     last_err = LLMError(f"{type(reason).__name__}: {reason} contacting {self.base_url} ({self.model})")
@@ -267,6 +280,8 @@ class ModelClient:
                     wait = None
             with self._lock:
                 self.retries += 1
+            if self.telemetry is not None:
+                self.telemetry.add_retry()
             time.sleep(wait if wait is not None else waits[attempt])
         raise last_err  # unreachable - the loop above always returns or raises
 
@@ -312,6 +327,8 @@ class ModelClient:
 
     def _complete(self, body: dict, timeout: float | None = None) -> dict:
         t_call = time.monotonic()
+        reserved = self.budget.estimate() if self.budget.limit else None
+        self.budget.acquire()               # waits (bounded) if this minute's token budget is spent; instant when no limit is set
         try:
             if self.json_mode:
                 try:
@@ -324,6 +341,11 @@ class ModelClient:
                 payload = self._post(body, timeout)
             usage = payload.get("usage") or {}
             thinking = int((usage.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0)
+            tokens_used = int(usage.get("prompt_tokens") or 0) + int(usage.get("completion_tokens") or 0)
+            self.budget.record(tokens_used, reserved)
+            if self.telemetry is not None:
+                self.telemetry.add_tokens(int(usage.get("prompt_tokens") or 0), int(usage.get("completion_tokens") or 0),
+                                          int((usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0))
             with self._lock:
                 self.prompt_tokens += int(usage.get("prompt_tokens") or 0)
                 self.cached_tokens += int((usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0)
@@ -370,14 +392,102 @@ def slices(items: list, over: int | None = None, size: int | None = None) -> lis
     return [list(items[i:i + size]) for i in range(0, len(items), size)]
 
 
+def run_rolling(tasks: list, max_workers: int, on_done=None, return_exceptions: bool = False) -> list:
+    """Run zero-arg callables with at most `max_workers` in flight at any moment, starting the next the instant one
+    finishes (a rolling window, not batches: one slow call, such as a 200 s retry chain, delays only itself). Results
+    come back in the order of `tasks` whatever order they finish in. A task that raises never stops the others: the
+    first error is re-raised once everything has finished (or, with return_exceptions, left in its result slot).
+    on_done(), if given, is called once per finished task under a lock."""
+    if not tasks:
+        return []
+    results: list = [None] * len(tasks)
+    errors: list[tuple[int, BaseException]] = []
+    lock = threading.Lock()
+
+    def run(i: int) -> None:
+        try:
+            results[i] = tasks[i]()
+        except BaseException as err:  # noqa: BLE001 - isolated: reported after the other tasks have finished
+            if return_exceptions:
+                results[i] = err
+            else:
+                with lock:
+                    errors.append((i, err))
+        finally:
+            if on_done:
+                with lock:
+                    on_done()
+
+    if max_workers <= 1 or len(tasks) <= 1:
+        for i in range(len(tasks)):
+            run(i)
+    else:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            list(ex.map(run, range(len(tasks))))
+    if errors:
+        raise sorted(errors, key=lambda t: t[0])[0][1]
+    return results
+
+
 def run_in_slices(tasks: list, max_workers: int, on_done=None) -> list:
-    """run_concurrent(), but a long task list (more than TENDERLENS_BATCH_OVER) goes out slice by slice: one slice
-    finishes before the next starts, and inside a slice every task starts at once. Results come back in the order of
-    `tasks` whatever order the calls finish in, so slicing never changes what is found."""
-    out: list = []
-    for chunk in slices(tasks):
-        out.extend(run_concurrent(chunk, max_workers, on_done))
-    return out
+    """Kept for callers that predate the rolling window: the same as run_rolling(). Long packs used to go out in barrier
+    batches of 25, where each batch waited for its slowest call; slices() now only groups pages for the "slice failed"
+    record (facts.record_slice_failures) and for render/OCR chunks."""
+    return run_rolling(tasks, max_workers, on_done)
+
+
+class TokenBudget:
+    """A tokens-per-minute guard for the provider's quota: before a call, wait (a bounded time) until the tokens used in the
+    last 60 s plus an estimate for this call fit the limit; after it, record what it really used. Off (no waiting, no
+    bookkeeping beyond the average) when the limit is not set. TENDERLENS_TPM_LIMIT sets it."""
+
+    def __init__(self, tokens_per_minute: int | None = None, clock=time.monotonic, sleep=time.sleep, max_wait: float = 60.0):
+        self.limit = tokens_per_minute if tokens_per_minute and tokens_per_minute > 0 else None
+        self._clock, self._sleep, self.max_wait = clock, sleep, max_wait
+        self._used: list[tuple[float, int]] = []      # (time, tokens) within the last minute
+        self._lock = threading.Lock()
+        self._calls = self._total = 0
+
+    @classmethod
+    def from_env(cls) -> "TokenBudget":
+        raw = os.environ.get("TENDERLENS_TPM_LIMIT", "").strip()
+        return cls(int(raw) if raw.isdigit() else None)
+
+    def estimate(self) -> int:
+        """Tokens one call will probably use: the running average of finished calls (3,000 until there is one)."""
+        with self._lock:
+            return max(500, self._total // self._calls) if self._calls else 3000
+
+    def acquire(self) -> float:
+        """Wait until a call of the estimated size fits the limit. Returns the seconds waited (0 when off or already fits)."""
+        if self.limit is None:
+            return 0.0
+        need, waited = self.estimate(), 0.0
+        while waited < self.max_wait:
+            with self._lock:
+                now = self._clock()
+                self._used = [(t, n) for t, n in self._used if now - t < 60.0]
+                if sum(n for _, n in self._used) + need <= self.limit or not self._used:
+                    self._used.append((now, need))     # reserve the estimate; record() corrects it with the real figure
+                    return waited
+                wait = max(0.05, 60.0 - (now - self._used[0][0]))
+            wait = min(wait, self.max_wait - waited)
+            self._sleep(wait)
+            waited += wait
+        with self._lock:
+            self._used.append((self._clock(), need))
+        return waited
+
+    def record(self, tokens: int, reserved: int | None = None) -> None:
+        with self._lock:
+            self._calls += 1
+            self._total += max(0, tokens)
+            if self.limit is not None and reserved is not None:
+                for i in range(len(self._used) - 1, -1, -1):          # replace the reservation with the real figure
+                    if self._used[i][1] == reserved:
+                        self._used[i] = (self._used[i][0], max(0, tokens))
+                        break
 
 
 def encode_image(path, jpeg_quality: int, scale: float = 1.0, pad: int = 0) -> tuple[str, bytes]:
@@ -411,7 +521,7 @@ def encode_image(path, jpeg_quality: int, scale: float = 1.0, pad: int = 0) -> t
 def vision_concurrency() -> int:
     """TENDERLENS_VISION_CONCURRENCY, default 25, clamped to [1, 32]. Measured against Fireworks with 25 identical
     full-page reads: 25 at a time finished in 18 s, 8 at a time in 53 s, with no rate-limit errors either way."""
-    raw = os.environ.get("TENDERLENS_VISION_CONCURRENCY", "25").strip()
+    raw = (os.environ.get("MAX_CONCURRENT_REQUESTS") or os.environ.get("TENDERLENS_VISION_CONCURRENCY") or "25").strip()
     try:
         n = int(raw)
     except ValueError:

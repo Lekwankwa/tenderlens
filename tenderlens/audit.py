@@ -23,6 +23,7 @@ from .requirements import Requirements
 log = logging.getLogger("tenderlens.audit")
 
 DOC_LABEL = {
+    "voided": "Voided form",
     "quote": "Quotation", "spec": "Specification sheet", "sbd6_1": "SBD 6.1", "sbd6_2": "SBD 6.2",
     "local_content_decl": "Local content declaration", "sbd4": "SBD 4", "sbd8": "SBD 8", "sbd9": "SBD 9",
     "tcs": "SARS tax compliance status", "bbbee_affidavit": "B-BBEE sworn affidavit",
@@ -186,7 +187,7 @@ class Auditor:
     def run(self) -> AuditResult:
         for fn in (self.required_documents, self.page_completeness, self.page_order, self.signatures,
                    self.handwritten_entries, self.signatories, self.vision_inspection, self.template_blanks,
-                   self.sbd62_consistency, self.local_content, self.identifiers, self.names, self.quote_checks, self.pricing_checks, self.unresolved_areas,
+                   self.sbd62_consistency, self.local_content, self.identifiers, self.names, self.quote_checks, self.pricing_checks, self.voided_forms, self.unresolved_areas,
                    self.spec_checks, self.validity_dates, self.declarations_vs_registers, self.certificates,
                    self.bbbee, self.stray_marks, self.initials, self.ocr_quality, self.not_verifiable):
             try:
@@ -368,7 +369,7 @@ class Auditor:
                           "The page expected to carry the signature (the last page of the form) has no 'Signature' label. "
                           "The signing page may be missing.",
                           "Look at the form to confirm the signing page is there and signed.", "",
-                          [self.E(p.number, source="image")])
+                          [self.E(p.number, source="image")], tier="observation")   # our failure to find a label, not a finding
             elif ev[0]["present"]:
                 self.ok(f"{DOC_LABEL[dtype]} signed (pen strokes found on the signature line)", pages=[p.number])
                 vm = next((f for f in self.f.all("inspect.signature_missing") if f.page == p.number), None)
@@ -741,6 +742,13 @@ class Auditor:
         }
         for label, fields in pools.items():
             vals = [(f.value.replace(" ", ""), f) for fld in fields for f in self.f.all(fld) if isinstance(f.value, str)]
+            if label == "SA ID number":
+                # a page carrying two different ID numbers (a list of directors, an ID copy next to a witness's) is a page about
+                # several people: neither number says the others are wrong
+                per_page: dict[int, set] = {}
+                for v, f in vals:
+                    per_page.setdefault(f.page, set()).add(v)
+                vals = [(v, f) for v, f in vals if len(per_page[f.page]) == 1]
             if not vals:
                 continue
             if label == "Email address":
@@ -828,7 +836,9 @@ class Auditor:
         fields = ["bbbee_affidavit.enterprise_name", "cipc.enterprise_name", "sbd6_1.company_name",
                   "sbd4.name_field", "local_content_decl.bidder", "sbd9.bidder", "tcs.taxpayer_name", "csd.legal_name"]
         # a field read as blank has value None: there is no name to compare
-        items = [(f.value, f) for fld in fields for f in self.f.all(fld) if isinstance(f.value, str) and f.value.strip()]
+        placeholder = re.compile(r"applicable|\bn/?a\b|trading name|if not|^\W*$", re.I)   # a form's own prompt, not a company name
+        items = [(f.value, f) for fld in fields for f in self.f.all(fld)
+                 if isinstance(f.value, str) and f.value.strip() and not placeholder.search(f.value)]
         if not items:
             return
         norms = {norm_name(v) for v, _ in items}
@@ -845,9 +855,12 @@ class Auditor:
                 groups.setdefault(norm_name(v), []).append((v, f))
             usual = max(groups.values(), key=len)
             differing = [it for g in groups.values() if g is not usual for it in g]
+            # a name read by the vision model can be misread (or be a person's name taken from the wrong box), so a mismatch
+            # it is part of is a lead; only printed (OCR) names on both sides make it an issue
             self.find("medium", "inconsistency", "Company name differs between documents", "; ".join(raw),
                       "Compare with the CIPC certificate.", "",
-                      [self.E(f.page, f"'{v}'", source=f.source) for v, f in (differing + usual[:2])][:10])
+                      [self.E(f.page, f"'{v}'", source=f.source) for v, f in (differing + usual[:2])][:10],
+                      tier="issue" if all(f.source == "ocr" for _, f in items) else "observation")
 
     # -- 7. quote ----------------------------------------------------------------
     def quote_checks(self):
@@ -1150,10 +1163,12 @@ class Auditor:
             own, lvl = self.f.value("bbbee_affidavit.black_ownership_pct"), self.f.value("bbbee_affidavit.level")
             rec, eme = self.f.value("bbbee_affidavit.recognition_pct"), self.f.best("bbbee_affidavit.eme")
             ap = pgs[0].number
+            is_eme = any("EXEMPTED MICRO" in p.text.upper() for p in pgs)   # a QSE affidavit has a different turnover band
             if eme is None:
-                self.find("medium", "incomplete_form", "The affidavit does not say the income was under R10 million",
-                          "The turnover statement that makes the business an Exempted Micro Enterprise was not found.",
-                          "Check the affidavit text.", "B-BBEE EME affidavit", [self.E(ap, source="image")])
+                if is_eme:
+                    self.find("medium", "incomplete_form", "The affidavit does not say the income was under R10 million",
+                              "The turnover statement that makes the business an Exempted Micro Enterprise was not found.",
+                              "Check the affidavit text.", "B-BBEE EME affidavit", [self.E(ap, source="image")])
             elif eme.value is False:
                 self.find("high", "validity", "The affidavit says the income exceeded R10 million",
                           "An EME affidavit is only valid below that threshold.", "Check the affidavit.",
@@ -1272,6 +1287,16 @@ class Auditor:
                 "SBD 6.1 clause 1.5 (proof of B-BBEE must be submitted with the bid); CSD report",
                 [self.E(self.f.best("csd.bbbee_status").page, "B-BBEE section of the CSD report"),
                  self.E(self.pn("bbbee_affidavit"), "newer affidavit")], tier="observation")
+
+    def voided_forms(self):
+        """Pages of a standard form that carry a diagonal strike-through: a form the bidder cancelled as not applicable. They
+        are not checked for signatures, stamps or entries; this is the one note about them."""
+        for p in self.pg("voided"):
+            self.find("low", "voided", f"Form struck through (page {p.number})",
+                      "A long diagonal line crosses this page, as a bidder does to cancel a form that does not apply. It "
+                      "was not checked for signatures, stamps or entries.",
+                      "Confirm the form really is not applicable to this bid.", "", [self.E(p.number, source="image")],
+                      tier="observation")
 
     def pricing_checks(self):
         """Arithmetic discrepancies in the priced schedules (see pricing.py). Only a discrepancy that a second reading of the
