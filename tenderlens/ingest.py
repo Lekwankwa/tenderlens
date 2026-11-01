@@ -716,6 +716,10 @@ def _classify_by_text(pages: list[Page], templates: dict | None = None) -> None:
                 if re.search(pats[0], body) and (len(pats) < 2 or any(re.search(pt, body) for pt in pats[1:])):
                     found = dtype
                     break
+        if found == "bbbee_affidavit" and not re.search(r"AFFIDAVIT|DEPONENT|COMMISSIONER|OATH", p.text.upper()):
+            # "Exempted Micro Enterprise" is also the heading of the issued B-BBEE certificate, which has no deponent, stamp or
+            # signature line; only a page that talks about an affidavit, a deponent or a commissioner is the sworn form
+            found = "bbbee_certificate"
         if found:
             run = run + 1 if found == prev else 1
             p.doc_type = found

@@ -219,7 +219,7 @@ ID_PATTERNS = {
 # Context-bound patterns: a bare 10- or 13-digit number is too ambiguous (bank account numbers,
 # SARS request references and vendor numbers look exactly like tax and ID numbers).
 TAX_CONTEXT = r"(?:Tax(?:payer)?\s*(?:Reference)?\s*Number(?:\(s\))?[:\s]*(?:IT\s*-\s*)?)(\d{10})(?!\d)"
-ID_CONTEXT_PAGES = {"cipc", "bbbee_affidavit"}
+ID_CONTEXT_PAGES = {"cipc", "bbbee_affidavit", "bbbee_certificate"}
 
 
 def plausible_sa_id(v: str) -> bool:
@@ -333,7 +333,7 @@ def ocr_facts(pages: list[Page], facts: Facts) -> None:
             facts.add("csd.report_date", m.group(1), p.number, "ocr", 0.9)
 
     LEVELS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8}
-    for p in by("bbbee_affidavit"):
+    for p in by("bbbee_affidavit") + by("bbbee_certificate"):   # level, ownership and name are on either document
         t = p.text
         m = re.search(r"enterprise is (\d{1,3})\s?%\s*black\s*(?:male\s*)?owned", t, re.I)
         if m:

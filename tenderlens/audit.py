@@ -26,7 +26,7 @@ DOC_LABEL = {
     "voided": "Voided form",
     "quote": "Quotation", "spec": "Specification sheet", "sbd6_1": "SBD 6.1", "sbd6_2": "SBD 6.2",
     "local_content_decl": "Local content declaration", "sbd4": "SBD 4", "sbd8": "SBD 8", "sbd9": "SBD 9",
-    "tcs": "SARS tax compliance status", "bbbee_affidavit": "B-BBEE sworn affidavit",
+    "tcs": "SARS tax compliance status", "bbbee_affidavit": "B-BBEE sworn affidavit", "bbbee_certificate": "B-BBEE certificate",
     "csd": "CSD summary report", "cipc": "CIPC registration certificate",
 }
 # pages in the standard forms as issued (from the blank templates / page footers)
@@ -253,6 +253,8 @@ class Auditor:
         def doc_pages(d):
             dtype = mapping.get(d.id)
             found = self.pns(dtype) if dtype else []
+            if dtype == "bbbee_affidavit":          # the requirement is "certificate or affidavit": either document meets it
+                found = sorted(set(found) | set(self.pns("bbbee_certificate")))
             # an id the SA form mapping does not know (a reference letter, an annexure, an MBD form, a CIDB certificate):
             # look for the document by its wording in the pack's own text before calling it missing
             return found or (self.pages_showing(d.label, d.source_quote)[:8] if d.id not in mapping else [])
@@ -298,15 +300,19 @@ class Auditor:
             if got == expect:
                 self.ok(f"{DOC_LABEL[dtype]}: all {expect} pages present", pages=[p.number for p in pgs])
             elif got > expect:
+                # a lead, not a finding: a pack often holds the buyer's blank copy of a form as well as the bidder's, or the municipal
+                # version with a different page count, and neither is a defect
                 self.find("medium", "incomplete_form", f"{DOC_LABEL[dtype]}: {got} pages found, the standard form has {expect}",
-                          "More pages than the form as issued. A page may be duplicated or something may have been inserted.",
+                          "More pages than the form as issued. A page may be duplicated or something may have been inserted "
+                          "(or the pack holds the buyer's copy of the form as well as the bidder's).",
                           "Check the pages listed.", "Standard form page count",
-                          [self.E(p.number) for p in pgs][:4])
+                          [self.E(p.number) for p in pgs][:4], tier="observation")
             elif got:
                 self.find("medium", "incomplete_form", f"{DOC_LABEL[dtype]}: {got} of {expect} pages found",
-                          "Fewer pages than the standard form. A page of this form may be missing.",
+                          "Fewer pages than the standard form. A page of this form may be missing (or this version of the form "
+                          "has fewer pages than the standard one).",
                           "Check the form for the missing page.", "Standard form page count",
-                          [self.E(p.number) for p in pgs][:4])
+                          [self.E(p.number) for p in pgs][:4], tier="observation")
         for p in self.pg("blank"):
             self.find("medium", "incomplete_form", f"Pack page {p.number} is blank",
                       "No printed text was found on this page. A blank sheet inside a bid pack is unusual: it can replace "
@@ -409,11 +415,13 @@ class Auditor:
             if len(rs) > 1:
                 problems += 1
                 nums = [[p.number for p in r] for r in rs]
+                # a lead: a pack often holds the buyer's copy of a form and the bidder's in different places
                 self.find("medium", "page_order", f"{label}: its pages are not together",
                           f"The pages of this form appear in separate places in the pack (pack pages {nums}). A page may "
-                          "have been moved, or another document may sit in the middle of it.",
+                          "have been moved, or another document may sit in the middle of it (or the form appears twice, "
+                          "once as the buyer's copy).",
                           "Check the order of the pages listed.", "",
-                          [self.E(r[0].number, source="image") for r in rs][:4])
+                          [self.E(r[0].number, source="image") for r in rs][:4], tier="observation")
                 continue
             pgs = rs[0]
             if len(pgs) < 2:
@@ -1158,12 +1166,13 @@ class Auditor:
                       f"Issued {ti}; closing {closing}.", "Check the PIN.", "RFQ: TCC required",
                       [self.E(self.f.best("tcs.issue_date").page, "issue date")])
         # the sworn affidavit's own contents
-        pgs = self.pg("bbbee_affidavit")
+        pgs = self.pg("bbbee_affidavit") + self.pg("bbbee_certificate")
         if pgs:
             own, lvl = self.f.value("bbbee_affidavit.black_ownership_pct"), self.f.value("bbbee_affidavit.level")
             rec, eme = self.f.value("bbbee_affidavit.recognition_pct"), self.f.best("bbbee_affidavit.eme")
             ap = pgs[0].number
-            is_eme = any("EXEMPTED MICRO" in p.text.upper() for p in pgs)   # a QSE affidavit has a different turnover band
+            # only the sworn EME affidavit states the income band; a QSE affidavit has a different one, a certificate none
+            is_eme = any(p.doc_type == "bbbee_affidavit" and "EXEMPTED MICRO" in p.text.upper() for p in pgs)
             if eme is None:
                 if is_eme:
                     self.find("medium", "incomplete_form", "The affidavit does not say the income was under R10 million",

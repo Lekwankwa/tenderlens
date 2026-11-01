@@ -513,3 +513,47 @@ def test_a_form_page_with_a_diagonal_through_it_becomes_voided_and_is_reported_o
     a = Auditor(Requirements(), [struck, normal], Facts(), BLANK_DIR)
     a.voided_forms()
     assert [f.title for f in a.res.findings] == ["Form struck through (page 1)"] and a.res.findings[0].tier == "observation"
+
+
+# --------------------------------------------------------------------------- B-BBEE certificate is not a sworn affidavit; structure leads
+
+def test_an_issued_bbbee_certificate_is_not_classified_as_a_sworn_affidavit():
+    from tenderlens.ingest import classify_pages
+    cert = Page(1, "x", text="COMPANIES AND INTELLECTUAL PROPERTY COMMISSION\nB-BBEE certificate - Exempted Micro Enterprise (specimen layout)\n"
+                              "Enterprise RETHABILE ROAD SURFACING (PTY) LTD\nB-BBEE status level Level 1\nBlack ownership 100%\n" * 2)
+    sworn = Page(2, "x", text="SWORN AFFIDAVIT - B-BBEE EXEMPTED MICRO ENTERPRISE\nI, the deponent, declare under oath that the enterprise is "
+                              "an Exempted Micro Enterprise\n" * 2)
+    classify_pages([cert, sworn])
+    assert [p.doc_type for p in (cert, sworn)] == ["bbbee_certificate", "bbbee_affidavit"]
+
+
+def test_a_certificate_page_gets_no_signature_stamp_or_income_statement_findings():
+    from tenderlens import vision as V
+    facts = Facts()
+    cert = Page(18, "x", text="B-BBEE certificate - Exempted Micro Enterprise", doc_type="bbbee_certificate")
+    a = Auditor(Requirements(), [cert], facts, BLANK_DIR)
+    a.signatures()
+    a.certificates()
+    titles = [f.title for f in a.res.findings]
+    assert not any("unsigned" in t or "stamp" in t or "income was under" in t or "signature line" in t for t in titles)
+
+
+def test_a_bbbee_certificate_still_satisfies_a_required_certificate_or_affidavit():
+    from tenderlens.requirements import Requirement
+    cert = Page(18, "x", text="B-BBEE certificate - Exempted Micro Enterprise " * 3, doc_type="bbbee_certificate")
+    a = Auditor(Requirements(documents=[Requirement("bbbee_certificate", "Valid B-BBEE Certificate", "t.pdf", "B-BBEE")]),
+                [cert], Facts(), BLANK_DIR)
+    a.required_documents()
+    assert not [f for f in a.res.findings if f.title.startswith("Missing: Valid B-BBEE")]
+
+
+def test_page_count_and_not_together_findings_are_leads_not_issues():
+    forms = [Page(n, "x", doc_type="sbd6_1") for n in range(1, 11)]          # ten pages of a five-page form
+    a = Auditor(Requirements(), forms, Facts(), BLANK_DIR)
+    a.page_completeness()
+    found = [f for f in a.res.findings if "pages found" in f.title]
+    assert found and all(f.tier == "observation" for f in found)
+    short = [Page(n, "x", doc_type="sbd4") for n in (1, 2, 3)]               # three of four
+    b = Auditor(Requirements(), short, Facts(), BLANK_DIR)
+    b.page_completeness()
+    assert all(f.tier == "observation" for f in b.res.findings if "of 4 pages found" in f.title)
