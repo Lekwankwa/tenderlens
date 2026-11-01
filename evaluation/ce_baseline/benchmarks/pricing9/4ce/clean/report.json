@@ -1,0 +1,1337 @@
+{
+ "requirements": {
+  "closing_date": "2026-11-16",
+  "closing_time": "12:00",
+  "submit_to_email": "",
+  "reference": "",
+  "local_content_required": true,
+  "local_content_basis": "the buyer's documents mention: 'minimum threshold'",
+  "local_content_negated": false,
+  "local_content_negated_quote": "",
+  "min_quote_validity_days": 90,
+  "documents": [
+   {
+    "id": "csd_report",
+    "label": "Central Supplier Database (CSD) Registration Summary Report",
+    "source_doc": "4ce and gb.pdf",
+    "source_quote": "Evidence of registration of the company on the Central Supplier Database (CSD) must be provided (Supplier Number).",
+    "conditional": ""
+   },
+   {
+    "id": "tcc",
+    "label": "Tax Clearance Certificate / Tax Compliance Status Document (TCS) / SARS Tax PIN",
+    "source_doc": "4ce and gb.pdf",
+    "source_quote": "A tax reference number and PIN or TCC must be provided.",
+    "conditional": ""
+   },
+   {
+    "id": "sbd4",
+    "label": "Declaration of Interest form (MBD4)",
+    "source_doc": "4ce and gb.pdf",
+    "source_quote": "Bidders must complete the Council\u2019s Declaration of Interest form (MBD4).",
+    "conditional": ""
+   },
+   {
+    "id": "sbd8",
+    "label": "Declaration of Bidder\u2019s Past Supply Chain Management Practices (MBD8)",
+    "source_doc": "4ce and gb.pdf",
+    "source_quote": "Bidders must complete the Declaration of Bidder\u2019s Past Supply Chain Management Practices form (MBD8).",
+    "conditional": ""
+   },
+   {
+    "id": "sbd9",
+    "label": "Certificate of Independent Bid Determination (MBD9)",
+    "source_doc": "4ce and gb.pdf",
+    "source_quote": "Bidders must complete a Certificate of Independent Bid Determination (MBD9).",
+    "conditional": ""
+   },
+   {
+    "id": "sbd6_1",
+    "label": "Preferential Points Claim Form MBD 6.1",
+    "source_doc": "4ce and gb.pdf",
+    "source_quote": "Bidders who wish to claim for preferential points for Specific Goals in terms of the Preferential Procurement Policy of Council and the Preferential Procurement Regulations, 2022, must submit a completed form MBD 6.1",
+    "conditional": ""
+   },
+   {
+    "id": "bbbee_certificate",
+    "label": "Original certified copy of B-BBEE certificate or original B-BBEE sworn affidavit",
+    "source_doc": "4ce and gb.pdf",
+    "source_quote": "Original certified copy of the proof of B-BBEE certificate or original B-BBEE sworn affidavit.",
+    "conditional": ""
+   },
+   {
+    "id": "annexure_c",
+    "label": "Municipal Billing Clearance Certificate (company and directors)",
+    "source_doc": "4ce and gb.pdf",
+    "source_quote": "A Municipal Billing Clearance Certificate (in respect of both the company and, if applicable, directors/owners) must accompany all bids.",
+    "conditional": ""
+   }
+  ],
+  "conditions": [],
+  "spec": {},
+  "notes": [
+   "closing_date supplied by the AI model only",
+   "closing_time supplied by the AI model only",
+   "min_quote_validity_days supplied by the AI model only",
+   "Document requirement 'csd_report' supplied by the AI model only",
+   "Document requirement 'tcc' supplied by the AI model only",
+   "Document requirement 'sbd4' supplied by the AI model only",
+   "Document requirement 'sbd8' supplied by the AI model only",
+   "Document requirement 'sbd9' supplied by the AI model only",
+   "Document requirement 'sbd6_1' supplied by the AI model only",
+   "Document requirement 'bbbee_certificate' supplied by the AI model only",
+   "Document requirement 'annexure_c' supplied by the AI model only",
+   "The tender text was longer than the model prompt limit (120,000 characters), so only its opening and the passages that mention requirements were sent to the model.",
+   "Requirements cross-checked: AI model + rules."
+  ]
+ },
+ "findings": [
+  {
+   "id": "F01",
+   "tier": "issue",
+   "severity": "high",
+   "category": "missing_document",
+   "title": "Missing: Municipal Billing Clearance Certificate (company and directors)",
+   "detail": "Required by the RFQ but no page was recognised as this document.",
+   "action": "Check the pack for this document.",
+   "rule": "RFQ: \"A Municipal Billing Clearance Certificate (in respect of both the company and, if applicable, direct\"",
+   "evidence": []
+  },
+  {
+   "id": "F12",
+   "tier": "issue",
+   "severity": "high",
+   "category": "unsigned",
+   "title": "SBD 8 may be unsigned",
+   "detail": "No pen strokes were found above the signature line.",
+   "action": "Open the page and confirm a signature is present.",
+   "rule": "Form certification clause",
+   "evidence": [
+    {
+     "page": 54,
+     "note": "",
+     "source": "image",
+     "box": [
+      284,
+      1373,
+      864,
+      1559
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 6.1: 11 pages found, the standard form has 5",
+   "detail": "More pages than the form as issued. A page may be duplicated or something may have been inserted.",
+   "action": "Check the pages listed.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 3,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 4,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 5,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 6,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F03",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 4: 6 pages found, the standard form has 4",
+   "detail": "More pages than the form as issued. A page may be duplicated or something may have been inserted.",
+   "action": "Check the pages listed.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 2,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 45,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 46,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 47,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F04",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 9: 9 pages found, the standard form has 4",
+   "detail": "More pages than the form as issued. A page may be duplicated or something may have been inserted.",
+   "action": "Check the pages listed.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 55,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 56,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 57,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 58,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F05",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "The CSD summary report is missing a section",
+   "detail": "Not found in the CSD pages: supplier identification, commodity list, B-BBEE information, tax status. A page of the report may be missing.",
+   "action": "Check the CSD report is complete.",
+   "rule": "RFQ: latest CSD summary report",
+   "evidence": [
+    {
+     "page": 52,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 63,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 83,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F06",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "SBD 4: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[2], [45, 46, 47, 48, 49]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 2,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 45,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F07",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "SBD 6.1: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[3, 4, 5, 6, 7, 8, 9], [50, 51], [74, 75]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 3,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 50,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 74,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F08",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "CSD summary report: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[52], [63], [83]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 52,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 63,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 83,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F09",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "SBD 9: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[55, 56, 57, 58], [76, 77, 78, 79, 80]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 55,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 76,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F10",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "SARS tax compliance status: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[59], [64, 65, 66], [82]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 59,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 64,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 82,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F11",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "check_crop",
+   "title": "Could not locate the signature line on SBD 6.1",
+   "detail": "The page expected to carry the signature (the last page of the form) has no 'Signature' label. The signing page may be missing.",
+   "action": "Look at the form to confirm the signing page is there and signed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 75,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F13",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "check_crop",
+   "title": "Could not locate the signature line on SBD 9",
+   "detail": "The page expected to carry the signature (the last page of the form) has no 'Signature' label. The signing page may be missing.",
+   "action": "Look at the form to confirm the signing page is there and signed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 80,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F15",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Printed text crossed out on SBD 9 (page 78)",
+   "detail": "A vision check of the page found this (vision, confirmed by a second look). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 78,
+     "note": "Printed text crossed out",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F17",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "inconsistency",
+   "title": "SA ID number differs between documents",
+   "detail": "Most pages agree on 810\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202286 (pages [45, 60, 68]). Different values: 760\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202282 on page 60",
+   "action": "Open the pages and compare. If it is a misread, ignore; if not, correct the form.",
+   "rule": "Cross-document consistency",
+   "evidence": [
+    {
+     "page": 60,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      613,
+      629,
+      776,
+      645
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F18",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "inconsistency",
+   "title": "Email address differs between documents",
+   "detail": "Most pages agree on tenders@kowiecivils.co.za (pages [32, 34, 36, 39, 42]). Different values: tenders@kawiecivils.co on page 1; civilinfo@saice.org.za on page 9",
+   "action": "Open the pages and compare. If it is a misread, ignore; if not, correct the form.",
+   "rule": "Cross-document consistency",
+   "evidence": [
+    {
+     "page": 1,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      336,
+      1211,
+      569,
+      1232
+     ]
+    },
+    {
+     "page": 9,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      120,
+      1037,
+      346,
+      1061
+     ]
+    },
+    {
+     "page": 32,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      448,
+      170,
+      657,
+      185
+     ]
+    },
+    {
+     "page": 34,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      448,
+      170,
+      657,
+      185
+     ]
+    },
+    {
+     "page": 36,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      441,
+      170,
+      650,
+      186
+     ]
+    },
+    {
+     "page": 39,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      449,
+      169,
+      658,
+      185
+     ]
+    },
+    {
+     "page": 42,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      441,
+      170,
+      650,
+      186
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F19",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "inconsistency",
+   "title": "Company name differs between documents",
+   "detail": "KOWIE RIVER CIVILS AND BUILDING (PTY) LTD; ZOLISWA PATIENCE MBANA",
+   "action": "Compare with the CIPC certificate.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 56,
+     "note": "'KOWIE RIVER CIVILS AND BUILDING (PTY) LTD'",
+     "source": "vision",
+     "box": null
+    },
+    {
+     "page": 45,
+     "note": "'ZOLISWA PATIENCE MBANA'",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F20",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "The affidavit does not say the income was under R10 million",
+   "detail": "The turnover statement that makes the business an Exempted Micro Enterprise was not found.",
+   "action": "Check the affidavit text.",
+   "rule": "B-BBEE EME affidavit",
+   "evidence": [
+    {
+     "page": 68,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F21",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 8 (page 53)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 53,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      29,
+      139,
+      183,
+      330
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F22",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "initials",
+   "title": "Initials missing on 65 page(s)",
+   "detail": "Pages [1, 3, 4, 5, 7, 8, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 42, 44, 45, 47, 49, 50, 51, 52, 53, 55, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 77, 79, 81, 83] have no initials in the bottom-right corner. A page without them may have been replaced or added after the pack was initialled.",
+   "action": "Check these pages are the originals.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 1,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 3,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 4,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 5,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 7,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 8,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 12,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 13,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 15,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 16,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 17,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 18,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 19,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 20,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 21,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 22,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 23,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 24,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 25,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 26,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 27,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 28,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 29,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 30,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 31,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 32,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 33,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 34,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 35,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 36,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 37,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 38,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 39,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 40,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 42,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 44,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 45,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 47,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 49,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 50,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 51,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 52,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 53,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 55,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 57,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 58,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 59,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 60,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 61,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 62,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 63,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 64,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 65,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 66,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 67,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 68,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 69,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 70,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 71,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 72,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 73,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 77,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 79,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 81,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 83,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F14",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "unsigned",
+   "title": "B-BBEE sworn affidavit: the mark on the signature line may not be a signature",
+   "detail": "Ink was found on the signature line, but a vision check of the page does not see a pen signature there (it could be a typed name, a scribble or a stamp).",
+   "action": "Look at the crop and confirm it is a real signature.",
+   "rule": "Form certification clause",
+   "evidence": [
+    {
+     "page": 68,
+     "note": "",
+     "source": "vision",
+     "box": [
+      174,
+      291,
+      754,
+      671
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F16",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Entry overwritten or covered on SBD 9 (page 78)",
+   "detail": "A vision check of the page found this (vision; a second, differently worded look did not confirm it). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 78,
+     "note": "Entry overwritten or covered",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  }
+ ],
+ "passed": [
+  {
+   "title": "Quotation / offer present (found by its wording)",
+   "note": "",
+   "pages": [
+    2,
+    4,
+    44,
+    51
+   ]
+  },
+  {
+   "title": "Required document present: Central Supplier Database (CSD) Registration Summary Report",
+   "note": "",
+   "pages": [
+    52,
+    63,
+    83
+   ]
+  },
+  {
+   "title": "Required document present: Tax Clearance Certificate / Tax Compliance Status Document (TCS) / SARS Tax PIN",
+   "note": "",
+   "pages": [
+    59,
+    64,
+    65,
+    66,
+    82
+   ]
+  },
+  {
+   "title": "Required document present: Declaration of Interest form (MBD4)",
+   "note": "",
+   "pages": [
+    2,
+    45,
+    46,
+    47,
+    48,
+    49
+   ]
+  },
+  {
+   "title": "Required document present: Declaration of Bidder\u2019s Past Supply Chain Management Practices (MBD8)",
+   "note": "",
+   "pages": [
+    53,
+    54
+   ]
+  },
+  {
+   "title": "Required document present: Certificate of Independent Bid Determination (MBD9)",
+   "note": "",
+   "pages": [
+    55,
+    56,
+    57,
+    58,
+    76,
+    77,
+    78,
+    79,
+    80
+   ]
+  },
+  {
+   "title": "Required document present: Preferential Points Claim Form MBD 6.1",
+   "note": "",
+   "pages": [
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    50,
+    51,
+    74,
+    75
+   ]
+  },
+  {
+   "title": "Required document present: Original certified copy of B-BBEE certificate or original B-BBEE sworn affidavit",
+   "note": "",
+   "pages": [
+    68,
+    69,
+    70
+   ]
+  },
+  {
+   "title": "SBD 8: all 2 pages present",
+   "note": "",
+   "pages": [
+    53,
+    54
+   ]
+  },
+  {
+   "title": "No page appears twice",
+   "note": "",
+   "pages": []
+  },
+  {
+   "title": "SBD 4 signed (pen strokes found on the signature line)",
+   "note": "",
+   "pages": [
+    49
+   ]
+  },
+  {
+   "title": "B-BBEE sworn affidavit signed (pen strokes found on the signature line)",
+   "note": "",
+   "pages": [
+    68
+   ]
+  },
+  {
+   "title": "SBD 6.1: all 1 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read; 8 could not be read",
+   "pages": [
+    51
+   ]
+  },
+  {
+   "title": "SBD 4: all 10 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read; 4 could not be read",
+   "pages": [
+    45,
+    47,
+    49
+   ]
+  },
+  {
+   "title": "SBD 8: all 6 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    54
+   ]
+  },
+  {
+   "title": "SBD 9: all 4 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    56,
+    57
+   ]
+  },
+  {
+   "title": "SARS tax compliance status: all 1 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    66
+   ]
+  },
+  {
+   "title": "B-BBEE sworn affidavit: all 4 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    68
+   ]
+  },
+  {
+   "title": "Everyone who signed or swore is the same person (SBD 4 agrees)",
+   "note": "",
+   "pages": [
+    47,
+    49,
+    54
+   ]
+  },
+  {
+   "title": "B-BBEE points claimed (20) match Level 1 under the 80/20 table",
+   "note": "claim read via vision, confidence 60%",
+   "pages": [
+    51
+   ]
+  },
+  {
+   "title": "Company registration number consistent across 10 pages",
+   "note": "201\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202207",
+   "pages": [
+    12,
+    32,
+    34,
+    36,
+    39,
+    42,
+    45,
+    60,
+    64,
+    68
+   ]
+  },
+  {
+   "title": "SA ID number passes the checksum",
+   "note": "810\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202286",
+   "pages": [
+    45,
+    60,
+    68
+   ]
+  },
+  {
+   "title": "Priced schedules add up (1 page(s) checked)",
+   "note": "",
+   "pages": [
+    77
+   ]
+  },
+  {
+   "title": "Every dated form is dated on or before the closing date (2026-11-16)",
+   "note": "",
+   "pages": [
+    49,
+    54,
+    57
+   ]
+  },
+  {
+   "title": "All 3 forms are dated the same day",
+   "note": "2026-11-10",
+   "pages": [
+    49,
+    54,
+    57
+   ]
+  },
+  {
+   "title": "SARS TCS PIN valid past the closing date (expires 2027-11-02)",
+   "note": "date read via vision (OCR garbled this date)",
+   "pages": [
+    66
+   ]
+  },
+  {
+   "title": "B-BBEE affidavit is within its 12-month validity at closing",
+   "note": "commissioned 2026-11-04",
+   "pages": [
+    68
+   ]
+  },
+  {
+   "title": "SBD 4 'not state-employed' agrees with CSD (no director is a government employee)",
+   "note": "",
+   "pages": [
+    45,
+    63
+   ]
+  }
+ ],
+ "ocr_variants": [],
+ "human_only": [
+  "SBD 6.1: could not be read: subcontracting answer, company type, company classification, years in business, company name, registration number, date, witness signatures.",
+  "SBD 4: could not be read: question 2.8, question 2.9, question 2.10, question 2.11.",
+  "4 small isolated mark(s) on SBD/MBD forms were not reported: none touched a signature line or an amount. Marks that are large, over printed text, or in those places are still reported.",
+  "OCR confidence was below 80% on pages [15, 21, 49]: anything read from those pages by OCR alone should be checked by eye.",
+  "Whether the bidder was one of the suppliers actually invited (RFQ: uninvited suppliers may be disqualified). The pack does not show the invitation.",
+  "That the quote was emailed to the central address before 12:00 on 2026-11-16. That needs the sent-email timestamp, which is not in the pack.",
+  "SARS TCS PIN, CSD record and the National Treasury restricted-suppliers and tender-defaulters registers would need live look-ups. The prototype reads the printed copies only."
+ ]
+}

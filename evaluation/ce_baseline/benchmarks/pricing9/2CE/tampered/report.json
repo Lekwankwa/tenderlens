@@ -1,0 +1,731 @@
+{
+ "requirements": {
+  "closing_date": "2026-11-11",
+  "closing_time": "12:00",
+  "submit_to_email": "Quotations4@sentech.co.za",
+  "reference": "",
+  "local_content_required": false,
+  "local_content_basis": "the RFQ asks for SBD 6.2 and Annexure C only 'where there is local content' and neither the RFQ nor the specification names a designated sector or a local content threshold",
+  "local_content_negated": false,
+  "local_content_negated_quote": "",
+  "min_quote_validity_days": 90,
+  "documents": [
+   {
+    "id": "bbbee_certificate",
+    "label": "Valid B-BBEE Certificate",
+    "source_doc": "RFX6000003787.pdf (+3 more)",
+    "source_quote": "Only Suppliers that submit a valid B-BBEE Certificate can claim preference points in line with the 80/20",
+    "conditional": ""
+   },
+   {
+    "id": "sbd4",
+    "label": "Bidder's Disclosure (SBD4)",
+    "source_doc": "RFX6000003787.pdf (+3 more)",
+    "source_quote": "BIDDER\u2019S DISCLOSURE",
+    "conditional": ""
+   }
+  ],
+  "conditions": [],
+  "spec": {},
+  "notes": [
+   "closing_date supplied by the AI model only",
+   "closing_time supplied by the AI model only",
+   "submit_to_email supplied by the AI model only",
+   "min_quote_validity_days supplied by the AI model only",
+   "Document requirement 'bbbee_certificate' supplied by the AI model only",
+   "Document requirement 'sbd4' supplied by the AI model only",
+   "LLM requirement dropped (quote not in source): Valid CIDB certificate with CRS number - grading level of 2CE or Higher",
+   "LLM requirement dropped (quote not in source): Valid Letter of Good Standing for COIDA",
+   "LLM requirement dropped (quote not in source): Reference letters on client's letterhead / Completion certificate for road repairs projects",
+   "LLM condition dropped (quote not in source): Compulsory Site Briefing attendance",
+   "Requirements cross-checked: AI model + rules."
+  ]
+ },
+ "findings": [
+  {
+   "id": "F04",
+   "tier": "issue",
+   "severity": "high",
+   "category": "unsigned",
+   "title": "SBD 4 may be unsigned",
+   "detail": "No pen strokes were found above the signature line.",
+   "action": "Open the page and confirm a signature is present.",
+   "rule": "Form certification clause",
+   "evidence": [
+    {
+     "page": 29,
+     "note": "",
+     "source": "image",
+     "box": [
+      913,
+      1259,
+      1242,
+      1445
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F05",
+   "tier": "issue",
+   "severity": "high",
+   "category": "unsigned",
+   "title": "B-BBEE sworn affidavit may be unsigned",
+   "detail": "No pen strokes were found above the signature line.",
+   "action": "Open the page and confirm a signature is present.",
+   "rule": "Form certification clause",
+   "evidence": [
+    {
+     "page": 15,
+     "note": "",
+     "source": "image",
+     "box": [
+      156,
+      230,
+      736,
+      610
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F07",
+   "tier": "issue",
+   "severity": "high",
+   "category": "incomplete_form",
+   "title": "SBD 4: question 2.11 is blank",
+   "detail": "Nothing is written or ticked for the question 2.11 (page 28, read by the vision model). The form has to be completed in full.",
+   "action": "Complete the entry and re-sign if needed.",
+   "rule": "Standard form must be completed in full",
+   "evidence": [
+    {
+     "page": 28,
+     "note": "question 2.11",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F09",
+   "tier": "issue",
+   "severity": "high",
+   "category": "unsigned",
+   "title": "B-BBEE sworn affidavit: no official stamp",
+   "detail": "The official stamp is missing (page 16, read by the vision model). A sworn affidavit needs the deponent's signature and the commissioner's stamp and signature.",
+   "action": "Get the document properly signed and commissioned.",
+   "rule": "B-BBEE sworn affidavit",
+   "evidence": [
+    {
+     "page": 16,
+     "note": "official stamp",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F01",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 4: 5 pages found, the standard form has 4",
+   "detail": "More pages than the form as issued. A page may be duplicated or something may have been inserted.",
+   "action": "Check the pages listed.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 25,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 26,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 27,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 28,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F03",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "SBD 4: pages are out of order",
+   "detail": "The wording on pack page 28 comes earlier in the blank SBD 4 than the wording on the page before it (pack page 27). The form's pages may have been shuffled.",
+   "action": "Put the pages in the order the form was issued.",
+   "rule": "Standard form page order",
+   "evidence": [
+    {
+     "page": 27,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 28,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F14",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "inconsistency",
+   "title": "SA ID number differs between documents",
+   "detail": "The pages do not agree and there is no majority: 840\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202288 on page 32; 791\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202282 on page 32",
+   "action": "Open the pages and compare. If it is a misread, ignore; if not, correct the form.",
+   "rule": "Cross-document consistency",
+   "evidence": [
+    {
+     "page": 32,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      612,
+      587,
+      775,
+      602
+     ]
+    },
+    {
+     "page": 32,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      612,
+      546,
+      775,
+      561
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F15",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "inconsistency",
+   "title": "Email address differs between documents",
+   "detail": "The pages do not agree and there is no majority: quotations4@sentech.co.za on pages 1, 2; quotes@rethabileroads.co.za on pages 22, 23",
+   "action": "Open the pages and compare. If it is a misread, ignore; if not, correct the form.",
+   "rule": "Cross-document consistency",
+   "evidence": [
+    {
+     "page": 22,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      451,
+      169,
+      682,
+      185
+     ]
+    },
+    {
+     "page": 23,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      446,
+      170,
+      678,
+      185
+     ]
+    },
+    {
+     "page": 1,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      745,
+      189,
+      1014,
+      207
+     ]
+    },
+    {
+     "page": 2,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      415,
+      888,
+      693,
+      908
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F16",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "VAT is not 15% of the amount before VAT",
+   "detail": "15% of 800,405.00 is 120,060.75; the line is 110,656.70 (stated as 15%). Page 21, read by the vision model and confirmed by a second reading.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 21,
+     "note": "vat",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F19",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "The affidavit does not say the income was under R10 million",
+   "detail": "The turnover statement that makes the business an Exempted Micro Enterprise was not found.",
+   "action": "Check the affidavit text.",
+   "rule": "B-BBEE EME affidavit",
+   "evidence": [
+    {
+     "page": 15,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F20",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "initials",
+   "title": "Initials missing on 25 page(s)",
+   "detail": "Pages [1, 2, 3, 7, 8, 9, 10, 11, 12, 13, 15, 18, 19, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32] have no initials in the bottom-right corner. A page without them may have been replaced or added after the pack was initialled.",
+   "action": "Check these pages are the originals.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 1,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 2,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 3,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 7,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 8,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 9,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 10,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 11,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 12,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 13,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 15,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 18,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 19,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 21,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 22,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 23,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 24,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 25,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 26,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 27,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 28,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 29,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 30,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 31,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 32,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F10",
+   "tier": "observation",
+   "severity": "high",
+   "category": "unsigned",
+   "title": "B-BBEE sworn affidavit: no commissioner's signature",
+   "detail": "The commissioner's signature is missing (page 16, read by the vision model). A sworn affidavit needs the deponent's signature and the commissioner's stamp and signature.",
+   "action": "Get the document properly signed and commissioned.",
+   "rule": "B-BBEE sworn affidavit",
+   "evidence": [
+    {
+     "page": 16,
+     "note": "commissioner's signature",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F11",
+   "tier": "observation",
+   "severity": "high",
+   "category": "unsigned",
+   "title": "B-BBEE sworn affidavit: no deponent's signature",
+   "detail": "The deponent's signature is missing (page 16, read by the vision model). A sworn affidavit needs the deponent's signature and the commissioner's stamp and signature.",
+   "action": "Get the document properly signed and commissioned.",
+   "rule": "B-BBEE sworn affidavit",
+   "evidence": [
+    {
+     "page": 16,
+     "note": "deponent's signature",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F18",
+   "tier": "observation",
+   "severity": "high",
+   "category": "validity",
+   "title": "SBD 4 is dated after the closing date",
+   "detail": "Dated 2026-11-12; the RFQ closed 2026-11-11.",
+   "action": "Check the date.",
+   "rule": "RFQ: closing date",
+   "evidence": [
+    {
+     "page": 27,
+     "note": "date",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F02",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "Duplicate page: pages 25 and 26 look like the same page",
+   "detail": "The two page images match closely (correlation 0.996) and 96% of their words are shared. Separate scans of the same sheet are never byte-identical, so this is judged from how they look. It is a lead: consecutive forms of the same kind can look alike.",
+   "action": "Compare the two pages. If one is a copy, remove it or confirm it is intended.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 25,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 26,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F06",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "declaration",
+   "title": "SBD 4: question 2.7 is answered Yes",
+   "detail": "The clean answer is No. A Yes needs particulars on the form and can change whether the bid is accepted; the particulars are not checked here. (page 25, read by the vision model)",
+   "action": "Confirm the answer is intended and that the particulars are given.",
+   "rule": "SBD 4",
+   "evidence": [
+    {
+     "page": 25,
+     "note": "question 2.7",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F08",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 4: declarant is blank",
+   "detail": "Nothing is written or ticked for the declarant (page 29, read by the vision model). The form has to be completed in full.",
+   "action": "Complete the entry and re-sign if needed.",
+   "rule": "Standard form must be completed in full",
+   "evidence": [
+    {
+     "page": 29,
+     "note": "declarant",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F12",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Page cut off at the edge on SBD 4 (page 25)",
+   "detail": "A vision check of the page found this (vision, confirmed by a second look). Part of the page may be missing from the scan, so something on it may not have been read.",
+   "action": "Compare with the paper copy; ask for a complete scan of the page if anything is cut off.",
+   "rule": "Every page of the pack must be complete and legible",
+   "evidence": [
+    {
+     "page": 25,
+     "note": "Page cut off at the edge",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F13",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Page cut off at the edge on SBD 4 (page 26)",
+   "detail": "A vision check of the page found this (vision; a second, differently worded look did not confirm it). Part of the page may be missing from the scan, so something on it may not have been read.",
+   "action": "Compare with the paper copy; ask for a complete scan of the page if anything is cut off.",
+   "rule": "Every page of the pack must be complete and legible",
+   "evidence": [
+    {
+     "page": 26,
+     "note": "Page cut off at the edge",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F17",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "VAT is not 15% of the amount before VAT",
+   "detail": "15% of 740,405.00 is 111,060.75; the line is 118,560.75 (stated as 15%). Page 21, read by the vision model; a second reading did not reproduce it.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 21,
+     "note": "vat",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  }
+ ],
+ "passed": [
+  {
+   "title": "Quotation / offer present (found by its wording)",
+   "note": "",
+   "pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    20
+   ]
+  },
+  {
+   "title": "Required document present: Valid B-BBEE Certificate",
+   "note": "",
+   "pages": [
+    15,
+    16,
+    17
+   ]
+  },
+  {
+   "title": "Required document present: Bidder's Disclosure (SBD4)",
+   "note": "",
+   "pages": [
+    25,
+    26,
+    27,
+    28,
+    29
+   ]
+  },
+  {
+   "title": "SARS tax compliance status: all 1 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    30
+   ]
+  },
+  {
+   "title": "Company registration number consistent across 6 pages",
+   "note": "201\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202207",
+   "pages": [
+    7,
+    15,
+    22,
+    23,
+    31,
+    32
+   ]
+  },
+  {
+   "title": "SA ID number passes the checksum",
+   "note": "840\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202288",
+   "pages": [
+    32
+   ]
+  },
+  {
+   "title": "All 1 forms are dated the same day",
+   "note": "2026-11-12",
+   "pages": [
+    27
+   ]
+  },
+  {
+   "title": "SARS TCS PIN valid past the closing date (expires 2027-11-02)",
+   "note": "date read via vision (OCR garbled this date)",
+   "pages": [
+    30
+   ]
+  },
+  {
+   "title": "No stray marks found outside the entry fields on SBD 4, 6.1, 8, 9",
+   "note": "",
+   "pages": []
+  }
+ ],
+ "ocr_variants": [],
+ "human_only": [
+  "SBD 4: could not be read: bidder name, identity number, position, registration number, tax reference number, question 2.8, question 2.9, question 2.10.",
+  "B-BBEE sworn affidavit: could not be read: date of commissioning.",
+  "Whether the bidder was one of the suppliers actually invited (RFQ: uninvited suppliers may be disqualified). The pack does not show the invitation.",
+  "That the quote was emailed to the central address before 12:00 on 2026-11-11. That needs the sent-email timestamp, which is not in the pack.",
+  "SARS TCS PIN, CSD record and the National Treasury restricted-suppliers and tender-defaulters registers would need live look-ups. The prototype reads the printed copies only."
+ ]
+}

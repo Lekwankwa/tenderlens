@@ -1,0 +1,696 @@
+{
+ "requirements": {
+  "closing_date": "2026-11-11",
+  "closing_time": "12:00",
+  "submit_to_email": "Quotations4@sentech.co.za",
+  "reference": "",
+  "local_content_required": false,
+  "local_content_basis": "the RFQ asks for SBD 6.2 and Annexure C only 'where there is local content' and neither the RFQ nor the specification names a designated sector or a local content threshold",
+  "local_content_negated": false,
+  "local_content_negated_quote": "",
+  "min_quote_validity_days": 90,
+  "documents": [
+   {
+    "id": "bbbee_certificate",
+    "label": "Valid B-BBEE Certificate for preference points",
+    "source_doc": "RFX6000003787.pdf (+3 more)",
+    "source_quote": "Only Suppliers that submit a valid B-BBEE Certificate can claim preference points in line with the 80/20",
+    "conditional": ""
+   },
+   {
+    "id": "sbd4",
+    "label": "Bidder's Disclosure SBD4",
+    "source_doc": "RFX6000003787.pdf (+3 more)",
+    "source_quote": "SBD4\n\n                         BIDDER\u2019S DISCLOSURE",
+    "conditional": ""
+   },
+   {
+    "id": "company_letterhead",
+    "label": "Quotations must be in a Company Letterhead",
+    "source_doc": "RFX6000003787.pdf (+3 more)",
+    "source_quote": "1.2. Quotations must be in a Company Letterhead.",
+    "conditional": ""
+   },
+   {
+    "id": "form_of_offer",
+    "label": "Form of Offer and Acceptance signed in BLACK ink",
+    "source_doc": "RFX6000003787.pdf (+3 more)",
+    "source_quote": "1.4. Quotations or Proposals must be fully completed and signed in BLACK ink.",
+    "conditional": ""
+   },
+   {
+    "id": "pricing_schedule",
+    "label": "Pricing Schedule with offered total inclusive of VAT",
+    "source_doc": "RFX6000003787.pdf (+3 more)",
+    "source_quote": "THE OFFERED TOTAL OF THE PRICES INCLUSIVE OF VAT IS:\n\n (in                                             words)\n \u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026..\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026..",
+    "conditional": ""
+   }
+  ],
+  "conditions": [],
+  "spec": {},
+  "notes": [
+   "closing_date supplied by the AI model only",
+   "closing_time supplied by the AI model only",
+   "submit_to_email supplied by the AI model only",
+   "min_quote_validity_days supplied by the AI model only",
+   "Document requirement 'bbbee_certificate' supplied by the AI model only",
+   "Document requirement 'sbd4' supplied by the AI model only",
+   "Document requirement 'company_letterhead' supplied by the AI model only",
+   "Document requirement 'form_of_offer' supplied by the AI model only",
+   "Document requirement 'pricing_schedule' supplied by the AI model only",
+   "LLM requirement dropped (quote not in source): Valid CIDB certificate with CRS number grading level of 2CE or Higher",
+   "LLM requirement dropped (quote not in source): Valid Letter of Good Standing for Occupational Injuries and Disease Act 130 of 1993 (COIDA)",
+   "LLM requirement dropped (quote not in source): Reference letters on client letterhead / Completion certificate for road repairs experience",
+   "LLM condition dropped (quote not in source): Compulsory Site Briefing attendance",
+   "Requirements cross-checked: AI model + rules."
+  ]
+ },
+ "findings": [
+  {
+   "id": "F03",
+   "tier": "issue",
+   "severity": "high",
+   "category": "unsigned",
+   "title": "SBD 4 may be unsigned",
+   "detail": "No pen strokes were found above the signature line.",
+   "action": "Open the page and confirm a signature is present.",
+   "rule": "Form certification clause",
+   "evidence": [
+    {
+     "page": 32,
+     "note": "",
+     "source": "image",
+     "box": [
+      915,
+      1257,
+      1242,
+      1443
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F04",
+   "tier": "issue",
+   "severity": "high",
+   "category": "unsigned",
+   "title": "B-BBEE sworn affidavit may be unsigned",
+   "detail": "No pen strokes were found above the signature line.",
+   "action": "Open the page and confirm a signature is present.",
+   "rule": "Form certification clause",
+   "evidence": [
+    {
+     "page": 18,
+     "note": "",
+     "source": "image",
+     "box": [
+      154,
+      232,
+      734,
+      612
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F01",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 6.1: 1 of 5 pages found",
+   "detail": "Fewer pages than the standard form. A page of this form may be missing.",
+   "action": "Check the form for the missing page.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 17,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F02",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "check_crop",
+   "title": "Could not locate the signature line on SBD 6.1",
+   "detail": "The page expected to carry the signature (the last page of the form) has no 'Signature' label. The signing page may be missing.",
+   "action": "Look at the form to confirm the signing page is there and signed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 17,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F07",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "inconsistency",
+   "title": "SA ID number differs between documents",
+   "detail": "The pages do not agree and there is no majority: 840\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202288 on page 35; 791\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202282 on page 35",
+   "action": "Open the pages and compare. If it is a misread, ignore; if not, correct the form.",
+   "rule": "Cross-document consistency",
+   "evidence": [
+    {
+     "page": 35,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      615,
+      587,
+      777,
+      603
+     ]
+    },
+    {
+     "page": 35,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      614,
+      546,
+      778,
+      562
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F08",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "inconsistency",
+   "title": "Email address differs between documents",
+   "detail": "Most pages agree on quotes@rethabileroads.co.za (pages [1, 25, 26, 27]). Different values: quotations4@sentech.co.za on page 1; quotations4@sentech.co.za on page 2",
+   "action": "Open the pages and compare. If it is a misread, ignore; if not, correct the form.",
+   "rule": "Cross-document consistency",
+   "evidence": [
+    {
+     "page": 1,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      753,
+      282,
+      1022,
+      309
+     ]
+    },
+    {
+     "page": 2,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      415,
+      887,
+      692,
+      908
+     ]
+    },
+    {
+     "page": 1,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      450,
+      169,
+      681,
+      185
+     ]
+    },
+    {
+     "page": 25,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      449,
+      170,
+      680,
+      185
+     ]
+    },
+    {
+     "page": 26,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      451,
+      169,
+      682,
+      184
+     ]
+    },
+    {
+     "page": 27,
+     "note": "",
+     "source": "ocr",
+     "box": [
+      450,
+      169,
+      682,
+      185
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F09",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "The affidavit does not say the income was under R10 million",
+   "detail": "The turnover statement that makes the business an Exempted Micro Enterprise was not found.",
+   "action": "Check the affidavit text.",
+   "rule": "B-BBEE EME affidavit",
+   "evidence": [
+    {
+     "page": 18,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F10",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 29)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 29,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      137,
+      638,
+      196,
+      705
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F11",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "initials",
+   "title": "Initials missing on 29 page(s)",
+   "detail": "Pages [1, 2, 3, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 21, 22, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35] have no initials in the bottom-right corner. A page without them may have been replaced or added after the pack was initialled.",
+   "action": "Check these pages are the originals.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 1,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 2,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 3,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 7,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 8,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 9,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 10,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 11,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 12,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 13,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 14,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 15,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 16,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 17,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 18,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 21,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 22,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 24,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 25,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 26,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 27,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 28,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 29,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 30,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 31,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 32,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 33,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 34,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 35,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F05",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Page cut off at the edge on SBD 4 (page 29)",
+   "detail": "A vision check of the page found this (vision; a second, differently worded look did not confirm it). Part of the page may be missing from the scan, so something on it may not have been read.",
+   "action": "Compare with the paper copy; ask for a complete scan of the page if anything is cut off.",
+   "rule": "Every page of the pack must be complete and legible",
+   "evidence": [
+    {
+     "page": 29,
+     "note": "Page cut off at the edge",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F06",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Page cut off at the edge on SBD 4 (page 30)",
+   "detail": "A vision check of the page found this (vision; a second, differently worded look did not confirm it). Part of the page may be missing from the scan, so something on it may not have been read.",
+   "action": "Compare with the paper copy; ask for a complete scan of the page if anything is cut off.",
+   "rule": "Every page of the pack must be complete and legible",
+   "evidence": [
+    {
+     "page": 30,
+     "note": "Page cut off at the edge",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  }
+ ],
+ "passed": [
+  {
+   "title": "Quotation / offer present (found by its wording)",
+   "note": "",
+   "pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    23
+   ]
+  },
+  {
+   "title": "Required document present: Valid B-BBEE Certificate for preference points",
+   "note": "",
+   "pages": [
+    18,
+    19,
+    20
+   ]
+  },
+  {
+   "title": "Required document present: Bidder's Disclosure SBD4",
+   "note": "",
+   "pages": [
+    29,
+    30,
+    31,
+    32
+   ]
+  },
+  {
+   "title": "Required document present: Quotations must be in a Company Letterhead",
+   "note": "",
+   "pages": [
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "title": "Required document present: Form of Offer and Acceptance signed in BLACK ink",
+   "note": "",
+   "pages": [
+    2,
+    3
+   ]
+  },
+  {
+   "title": "Required document present: Pricing Schedule with offered total inclusive of VAT",
+   "note": "",
+   "pages": [
+    3
+   ]
+  },
+  {
+   "title": "SBD 4: all 4 pages present",
+   "note": "",
+   "pages": [
+    29,
+    30,
+    31,
+    32
+   ]
+  },
+  {
+   "title": "No page appears twice",
+   "note": "",
+   "pages": []
+  },
+  {
+   "title": "Pages are in order: each form's pages sit together and run in sequence",
+   "note": "page-number footers, the blank forms' wording, and the CSD sections agree",
+   "pages": [
+    17
+   ]
+  },
+  {
+   "title": "SBD 4: all 7 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read; 6 could not be read",
+   "pages": [
+    29,
+    30,
+    31
+   ]
+  },
+  {
+   "title": "SARS tax compliance status: all 1 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    33
+   ]
+  },
+  {
+   "title": "Everyone who signed or swore is the same person (SBD 4 agrees)",
+   "note": "",
+   "pages": [
+    29,
+    30
+   ]
+  },
+  {
+   "title": "Company registration number consistent across 8 pages",
+   "note": "201\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202207",
+   "pages": [
+    1,
+    7,
+    18,
+    25,
+    26,
+    27,
+    34,
+    35
+   ]
+  },
+  {
+   "title": "SA ID number passes the checksum",
+   "note": "840\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202288",
+   "pages": [
+    35
+   ]
+  },
+  {
+   "title": "Priced schedules add up (2 page(s) checked)",
+   "note": "",
+   "pages": [
+    1,
+    24
+   ]
+  },
+  {
+   "title": "Every dated form is dated on or before the closing date (2026-11-11)",
+   "note": "",
+   "pages": [
+    31
+   ]
+  },
+  {
+   "title": "All 1 forms are dated the same day",
+   "note": "2026-11-09",
+   "pages": [
+    31
+   ]
+  },
+  {
+   "title": "SARS TCS PIN valid past the closing date (expires 2027-11-02)",
+   "note": "date read via vision (OCR garbled this date)",
+   "pages": [
+    33
+   ]
+  },
+  {
+   "title": "SBD 4 'not state-employed' agrees with CSD (no director is a government employee)",
+   "note": "",
+   "pages": [
+    29
+   ]
+  }
+ ],
+ "ocr_variants": [],
+ "human_only": [
+  "SBD 6.1: could not be read: points claimed, subcontracting answer, company type, company classification, years in business, company name, registration number, date, witness signatures.",
+  "SBD 4: could not be read: bidder name, identity number, registration number, tax reference number, question 2.8, question 2.10.",
+  "B-BBEE sworn affidavit: could not be read: date of commissioning, official stamp, commissioner's signature, deponent's signature.",
+  "Whether the bidder was one of the suppliers actually invited (RFQ: uninvited suppliers may be disqualified). The pack does not show the invitation.",
+  "That the quote was emailed to the central address before 12:00 on 2026-11-11. That needs the sent-email timestamp, which is not in the pack.",
+  "SARS TCS PIN, CSD record and the National Treasury restricted-suppliers and tender-defaulters registers would need live look-ups. The prototype reads the printed copies only."
+ ]
+}
