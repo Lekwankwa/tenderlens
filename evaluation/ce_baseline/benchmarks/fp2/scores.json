@@ -1,0 +1,5508 @@
+[
+ {
+  "folder": "1CE",
+  "rows": [
+   {
+    "case": "T4-TC-01",
+    "kind": "date",
+    "pages": [
+     13
+    ],
+    "expected": "Attendance certificate date differs from the compulsory meeting date",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-02",
+    "kind": "invalid",
+    "pages": [
+     35
+    ],
+    "expected": "CIDB class of works is GB, not CE, and differs from Annex G / Form of Offer",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-03",
+    "kind": "invalid",
+    "pages": [
+     35
+    ],
+    "expected": "CIDB registration expired before closing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-04",
+    "kind": "blank",
+    "pages": [
+     13
+    ],
+    "expected": "Attendance not confirmed by the Employer's Representative (unsigned confirmation)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-05",
+    "kind": "mismatch",
+    "pages": [
+     95
+    ],
+    "expected": "CIDB CRS number on the Form of Offer differs from Annex G and the certificate",
+    "result": "page only",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T4-TC-06",
+    "kind": "invalid",
+    "pages": [
+     32
+    ],
+    "expected": "Tax status non-compliant",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-07",
+    "kind": "mismatch",
+    "pages": [
+     33
+    ],
+    "expected": "CSD number on the CSD report differs from Annex G / SDF",
+    "result": "wrong page",
+    "matched": "The CSD summary report is missing a section"
+   },
+   {
+    "case": "T4-TC-08",
+    "kind": "invalid",
+    "pages": [
+     28
+    ],
+    "expected": "COID letter expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-09",
+    "kind": "mismatch",
+    "pages": [
+     30
+    ],
+    "expected": "VAT number on Annex G differs from other forms",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-10",
+    "kind": "blank",
+    "pages": [
+     31
+    ],
+    "expected": "Annex G declaration unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-11",
+    "kind": "mismatch",
+    "pages": [
+     22
+    ],
+    "expected": "Resolution names a different tender",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-12",
+    "kind": "date",
+    "pages": [
+     21
+    ],
+    "expected": "Resolution date on T2.2-04 is after the signing date and differs from the attached resolution",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-13",
+    "kind": "authority",
+    "pages": [
+     85
+    ],
+    "expected": "Integrity Pact signed by an unauthorised person",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-14",
+    "kind": "blank",
+    "pages": [
+     95
+    ],
+    "expected": "Form of Offer unsigned",
+    "result": "page only",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T4-TC-15",
+    "kind": "blank",
+    "pages": [
+     50
+    ],
+    "expected": "NDA unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-16",
+    "kind": "blank",
+    "pages": [
+     89
+    ],
+    "expected": "POPIA witnesses missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-17",
+    "kind": "blank",
+    "pages": [
+     69
+    ],
+    "expected": "EME affidavit not commissioned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-18",
+    "kind": "date",
+    "pages": [
+     44
+    ],
+    "expected": "SBD 4 dated after closing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-19",
+    "kind": "date",
+    "pages": [
+     91
+    ],
+    "expected": "Acquaintance certificate dated after closing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-20",
+    "kind": "date",
+    "pages": [
+     41
+    ],
+    "expected": "ID certification older than 3 months",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-21",
+    "kind": "date",
+    "pages": [
+     58
+    ],
+    "expected": "Bank letter older than 3 months",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-22",
+    "kind": "mismatch",
+    "pages": [
+     58
+    ],
+    "expected": "Bank account number differs from the SDF",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-23",
+    "kind": "declaration",
+    "pages": [
+     42
+    ],
+    "expected": "SBD 4 Q2.1 YES with no particulars",
+    "result": "detected",
+    "matched": "Could not locate the signature line on SBD 4"
+   },
+   {
+    "case": "T4-TC-24",
+    "kind": "declaration",
+    "pages": [
+     86
+    ],
+    "expected": "Breach of Law answer contradicts its particulars",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-25",
+    "kind": "blank",
+    "pages": [
+     71
+    ],
+    "expected": "RFQ declaration item 5 left blank",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-26",
+    "kind": "claim",
+    "pages": [
+     39
+    ],
+    "expected": "Points claimed exceed the 20-point maximum",
+    "result": "page only",
+    "matched": "SBD 6.1: subcontracting answer is answered Yes"
+   },
+   {
+    "case": "T4-TC-27",
+    "kind": "claim",
+    "pages": [
+     39
+    ],
+    "expected": "Sub-contracting over 25% to a lower-level non-EME forfeits the B-BBEE points claimed",
+    "result": "page only",
+    "matched": "SBD 6.1: subcontracting answer is answered Yes"
+   },
+   {
+    "case": "T4-TC-28",
+    "kind": "invalid",
+    "pages": [
+     41
+    ],
+    "expected": "ID shows the 60% owner is over 35: youth points not supported; ID differs from other documents",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-29",
+    "kind": "mismatch",
+    "pages": [
+     55
+    ],
+    "expected": "SDF B-BBEE level differs from SBD 6.1 / affidavit",
+    "result": "wrong page",
+    "matched": "Could not locate the signature line on B-BBEE sworn affidavit"
+   },
+   {
+    "case": "T4-TC-30",
+    "kind": "mismatch",
+    "pages": [
+     55
+    ],
+    "expected": "SDF turnover band (QSE) contradicts the EME affidavit",
+    "result": "wrong page",
+    "matched": "The affidavit does not say the income was under R10 million"
+   },
+   {
+    "case": "T4-TC-31",
+    "kind": "mismatch",
+    "pages": [
+     68
+    ],
+    "expected": "Affidavit black female ownership differs from SDF / share certificates",
+    "result": "page only",
+    "matched": "Could not locate the signature line on SBD 6.1"
+   },
+   {
+    "case": "T4-TC-32",
+    "kind": "claim",
+    "pages": [
+     69
+    ],
+    "expected": "Affidavit level (2) contradicts 100% black ownership and the Level 1 claim",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-33",
+    "kind": "invalid",
+    "pages": [
+     29
+    ],
+    "expected": "Motor vehicle liability below R5m minimum and differs from T2.2-06",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-34",
+    "kind": "mismatch",
+    "pages": [
+     114
+    ],
+    "expected": "TLB hourly rate in Contract Data differs from T2.2-03",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-35",
+    "kind": "mismatch",
+    "pages": [
+     16
+    ],
+    "expected": "Reference letter names a different entity",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-36",
+    "kind": "mismatch",
+    "pages": [
+     113
+    ],
+    "expected": "Key person experience differs from the CV",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-37",
+    "kind": "arithmetic",
+    "pages": [
+     125
+    ],
+    "expected": "Item B1 amount is not quantity x rate",
+    "result": "detected",
+    "matched": "Item C2: amount is not quantity x rate"
+   },
+   {
+    "case": "T4-TC-38",
+    "kind": "arithmetic",
+    "pages": [
+     125
+    ],
+    "expected": "Item C2 amount out by a factor of 10",
+    "result": "detected",
+    "matched": "Item C2: amount is not quantity x rate"
+   },
+   {
+    "case": "T4-TC-39",
+    "kind": "blank",
+    "pages": [
+     125
+    ],
+    "expected": "Item A4 unpriced while the section total includes it",
+    "result": "detected",
+    "matched": "Item C2: amount is not quantity x rate"
+   },
+   {
+    "case": "T4-TC-40",
+    "kind": "arithmetic",
+    "pages": [
+     125
+    ],
+    "expected": "Summary Section C differs from the sum of its items",
+    "result": "page only",
+    "matched": "Item C2: amount is not quantity x rate"
+   },
+   {
+    "case": "T4-TC-41",
+    "kind": "arithmetic",
+    "pages": [
+     125
+    ],
+    "expected": "VAT calculated at 14% instead of 15%",
+    "result": "page only",
+    "matched": "Item C2: amount is not quantity x rate"
+   },
+   {
+    "case": "T4-TC-42",
+    "kind": "mismatch",
+    "pages": [
+     95
+    ],
+    "expected": "Form of Offer exclusive total differs from the BOQ",
+    "result": "page only",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T4-TC-43",
+    "kind": "mismatch",
+    "pages": [
+     95
+    ],
+    "expected": "Amount in words differs from figures",
+    "result": "detected",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T4-TC-44",
+    "kind": "mismatch",
+    "pages": [
+     114
+    ],
+    "expected": "Contract Data tendered total includes VAT",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-45",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Completion certificate for project 2 missing; evidence for two projects needs checking",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-46",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Key person 2 CV missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-47",
+    "kind": "missing",
+    "pages": [],
+    "expected": "VAT certificate missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T4-TC-48",
+    "kind": "missing",
+    "pages": [],
+    "expected": "SBD 6.1 signature page missing",
+    "result": "detected",
+    "matched": "SBD 4: 2 of 4 pages found"
+   },
+   {
+    "case": "T4-TC-49",
+    "kind": "duplicate",
+    "pages": [
+     98,
+     99
+    ],
+    "expected": "Duplicate page",
+    "result": "detected",
+    "matched": "Duplicate page: pages 98 and 99 look like the same page"
+   },
+   {
+    "case": "T4-TC-50",
+    "kind": "page order",
+    "pages": [
+     46
+    ],
+    "expected": "NDA pages out of order",
+    "result": "missed",
+    "matched": ""
+   }
+  ],
+  "false_positives": [
+   {
+    "title": "Missing: Annex G Compulsory Enterprise Questionnaire",
+    "pages": [],
+    "severity": "high"
+   },
+   {
+    "title": "B-BBEE sworn affidavit: no official stamp",
+    "pages": [
+     54
+    ],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 6.1: 8 pages found, the standard form has 5",
+    "pages": [
+     37,
+     38,
+     39,
+     40
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: 2 of 4 pages found",
+    "pages": [
+     31,
+     44
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 9: 6 pages found, the standard form has 4",
+    "pages": [
+     45,
+     46,
+     81,
+     82
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "The CSD summary report is missing a section",
+    "pages": [
+     35,
+     36,
+     56
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "CIPC registration certificate: its pages are not together",
+    "pages": [
+     20,
+     62
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: its pages are not together",
+    "pages": [
+     31,
+     44
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "CSD summary report: its pages are not together",
+    "pages": [
+     35,
+     56
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 6.1: its pages are not together",
+    "pages": [
+     37,
+     55,
+     71
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 9: its pages are not together",
+    "pages": [
+     45,
+     81
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "B-BBEE sworn affidavit: its pages are not together",
+    "pages": [
+     54,
+     57,
+     70
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Email address differs between documents",
+    "pages": [
+     35,
+     57
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "The affidavit does not say the income was under R10 million",
+    "pages": [
+     54
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Initials missing on 39 page(s)",
+    "pages": [
+     1,
+     2,
+     12,
+     15,
+     16,
+     17,
+     18,
+     20,
+     21,
+     23,
+     29,
+     30,
+     33,
+     34,
+     35,
+     36,
+     43,
+     47,
+     60,
+     61,
+     62,
+     63,
+     64,
+     65,
+     103,
+     107,
+     113,
+     114,
+     117,
+     118,
+     119,
+     120,
+     121,
+     128,
+     129,
+     130,
+     131,
+     132,
+     134
+    ],
+    "severity": "medium"
+   }
+  ]
+ },
+ {
+  "folder": "2CE",
+  "rows": [
+   {
+    "case": "T5-TC-01",
+    "kind": "invalid",
+    "pages": [
+     7
+    ],
+    "expected": "CIDB grade below 2CE",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-02",
+    "kind": "invalid",
+    "pages": [
+     7
+    ],
+    "expected": "CIDB registration expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-03",
+    "kind": "blank",
+    "pages": [
+     5
+    ],
+    "expected": "Compliance column not completed for CIDB",
+    "result": "wrong page",
+    "matched": "SBD 4: question 2.11 is blank"
+   },
+   {
+    "case": "T5-TC-04",
+    "kind": "invalid",
+    "pages": [
+     8
+    ],
+    "expected": "COID nature of business not aligned with the scope",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-05",
+    "kind": "invalid",
+    "pages": [
+     8
+    ],
+    "expected": "COID letter expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-06",
+    "kind": "format",
+    "pages": [
+     1
+    ],
+    "expected": "Quotation not on company letterhead",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-07",
+    "kind": "ink",
+    "pages": [
+     3
+    ],
+    "expected": "Form of Offer not in black ink",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-08",
+    "kind": "invalid",
+    "pages": [
+     30
+    ],
+    "expected": "Tax status non-compliant",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-09",
+    "kind": "invalid",
+    "pages": [
+     1
+    ],
+    "expected": "Validity shorter than 90 days",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-10",
+    "kind": "invalid",
+    "pages": [
+     1
+    ],
+    "expected": "Duration exceeds 30 working days",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-11",
+    "kind": "invalid",
+    "pages": [
+     1
+    ],
+    "expected": "Sub-contracting proposed although prohibited",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-12",
+    "kind": "mismatch",
+    "pages": [
+     3
+    ],
+    "expected": "Offer figures differ from the pricing schedule and the words",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-13",
+    "kind": "mismatch",
+    "pages": [
+     3
+    ],
+    "expected": "Amount in words differs from the grand total",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-14",
+    "kind": "blank",
+    "pages": [
+     3
+    ],
+    "expected": "Form of Offer not witnessed",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-15",
+    "kind": "date",
+    "pages": [
+     3
+    ],
+    "expected": "Form of Offer dated after closing",
+    "result": "wrong page",
+    "matched": "SBD 4 is dated after the closing date"
+   },
+   {
+    "case": "T5-TC-16",
+    "kind": "mismatch",
+    "pages": [
+     1
+    ],
+    "expected": "Quotation letter total differs from the pricing schedule",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-17",
+    "kind": "declaration",
+    "pages": [
+     25,
+     26
+    ],
+    "expected": "SBD 4 Q2.1 YES without particulars",
+    "result": "detected",
+    "matched": "SBD 4: question 2.7 is answered Yes"
+   },
+   {
+    "case": "T5-TC-18",
+    "kind": "blank",
+    "pages": [
+     28
+    ],
+    "expected": "SBD 4 Q2.3 not answered",
+    "result": "detected",
+    "matched": "SBD 4: question 2.11 is blank"
+   },
+   {
+    "case": "T5-TC-19",
+    "kind": "blank",
+    "pages": [
+     28
+    ],
+    "expected": "SBD 4 declarant not named",
+    "result": "detected",
+    "matched": "SBD 4: question 2.11 is blank"
+   },
+   {
+    "case": "T5-TC-20",
+    "kind": "date",
+    "pages": [
+     27
+    ],
+    "expected": "SBD 4 dated after closing",
+    "result": "detected",
+    "matched": "SBD 4 is dated after the closing date"
+   },
+   {
+    "case": "T5-TC-21",
+    "kind": "blank",
+    "pages": [
+     29
+    ],
+    "expected": "Consent form unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-22",
+    "kind": "mismatch",
+    "pages": [
+     29
+    ],
+    "expected": "Consent form supplier name differs from the bidder",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-23",
+    "kind": "not relevant",
+    "pages": [
+     11
+    ],
+    "expected": "Reference letter is not for a similar (road repair) project",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-24",
+    "kind": "blank",
+    "pages": [
+     13
+    ],
+    "expected": "Reference letter unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-25",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Reference letter 6 missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-26",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Functional score falls below the 40-point minimum",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-27",
+    "kind": "invalid",
+    "pages": [
+     15
+    ],
+    "expected": "B-BBEE certificate expired",
+    "result": "detected",
+    "matched": "B-BBEE sworn affidavit may be unsigned"
+   },
+   {
+    "case": "T5-TC-28",
+    "kind": "mismatch",
+    "pages": [
+     15
+    ],
+    "expected": "Women ownership on the certificate differs from other documents",
+    "result": "page only",
+    "matched": "B-BBEE sworn affidavit may be unsigned"
+   },
+   {
+    "case": "T5-TC-29",
+    "kind": "arithmetic",
+    "pages": [
+     21
+    ],
+    "expected": "Item 5 amount differs from rate x quantity",
+    "result": "detected",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T5-TC-30",
+    "kind": "arithmetic",
+    "pages": [
+     21
+    ],
+    "expected": "Contingency not 10% of items 1-7",
+    "result": "page only",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T5-TC-31",
+    "kind": "arithmetic",
+    "pages": [
+     21
+    ],
+    "expected": "Subtotal does not equal the sum of the items",
+    "result": "page only",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T5-TC-32",
+    "kind": "arithmetic",
+    "pages": [
+     21
+    ],
+    "expected": "VAT calculated at 14%",
+    "result": "detected",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T5-TC-33",
+    "kind": "mismatch",
+    "pages": [
+     21
+    ],
+    "expected": "Summary lines do not add up to the summary total",
+    "result": "page only",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T5-TC-34",
+    "kind": "authority",
+    "pages": [
+     23
+    ],
+    "expected": "H&S undertaking not signed by the CEO/MD",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-35",
+    "kind": "invalid",
+    "pages": [
+     24
+    ],
+    "expected": "Public liability insurance expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-36",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Bar-chart programme missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-37",
+    "kind": "missing",
+    "pages": [],
+    "expected": "RFQ page 7 missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T5-TC-38",
+    "kind": "duplicate",
+    "pages": [
+     25,
+     26
+    ],
+    "expected": "Duplicate page",
+    "result": "detected",
+    "matched": "Duplicate page: pages 25 and 26 look like the same page"
+   },
+   {
+    "case": "T5-TC-39",
+    "kind": "page order",
+    "pages": [
+     28
+    ],
+    "expected": "SBD 4 pages out of order",
+    "result": "detected",
+    "matched": "SBD 4: question 2.11 is blank"
+   }
+  ],
+  "false_positives": [
+   {
+    "title": "B-BBEE sworn affidavit may be unsigned",
+    "pages": [
+     18
+    ],
+    "severity": "high"
+   },
+   {
+    "title": "B-BBEE sworn affidavit: no official stamp",
+    "pages": [
+     18
+    ],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 6.1: 1 of 5 pages found",
+    "pages": [
+     17
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: 3 of 4 pages found",
+    "pages": [
+     29,
+     30,
+     31
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "The affidavit does not say the income was under R10 million",
+    "pages": [
+     18
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 29)",
+    "pages": [
+     29
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Initials missing on 29 page(s)",
+    "pages": [
+     1,
+     2,
+     3,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17,
+     18,
+     21,
+     22,
+     24,
+     25,
+     26,
+     27,
+     28,
+     29,
+     30,
+     31,
+     32,
+     33,
+     34,
+     35
+    ],
+    "severity": "medium"
+   }
+  ]
+ },
+ {
+  "folder": "3CE Tender",
+  "rows": [
+   {
+    "case": "T10-TC-01",
+    "kind": "invalid",
+    "pages": [
+     38
+    ],
+    "expected": "CIDB grade 3CE too low for the sum tendered (needs 4CE)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-02",
+    "kind": "correction",
+    "pages": [
+     118
+    ],
+    "expected": "Uninitialled correction on the BOQ",
+    "result": "page only",
+    "matched": "Item 2.1: amount is not quantity x rate"
+   },
+   {
+    "case": "T10-TC-03",
+    "kind": "blank",
+    "pages": [
+     48
+    ],
+    "expected": "Resolution not signed by all directors",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-04",
+    "kind": "blank",
+    "pages": [
+     22
+    ],
+    "expected": "SBD 4 question 2.1 not answered",
+    "result": "detected",
+    "matched": "Could not locate the signature line on SBD 4"
+   },
+   {
+    "case": "T10-TC-05",
+    "kind": "missing",
+    "pages": [],
+    "expected": "H&S officer SACPCMP registration missing (non-responsive per C3.6 4.3)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-06",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Tender page missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-07",
+    "kind": "arithmetic",
+    "pages": [
+     120
+    ],
+    "expected": "Item 4.1 amount is not qty x rate (R 27 000 over)",
+    "result": "detected",
+    "matched": "Item 4.1: amount is not quantity x rate"
+   },
+   {
+    "case": "T10-TC-08",
+    "kind": "blank",
+    "pages": [
+     119
+    ],
+    "expected": "Item 3.4 not priced",
+    "result": "detected",
+    "matched": "Item 3.1: amount is not quantity x rate"
+   },
+   {
+    "case": "T10-TC-09",
+    "kind": "blank",
+    "pages": [
+     117
+    ],
+    "expected": "Rate-only item 1.4.5 not priced",
+    "result": "wrong page",
+    "matched": "Item 2.1: amount is not quantity x rate"
+   },
+   {
+    "case": "T10-TC-10",
+    "kind": "arithmetic",
+    "pages": [
+     117
+    ],
+    "expected": "Carried-forward total wrong on page 81",
+    "result": "detected",
+    "matched": "Page total does not equal the items on the page"
+   },
+   {
+    "case": "T10-TC-11",
+    "kind": "arithmetic",
+    "pages": [
+     121
+    ],
+    "expected": "VAT calculated at 14 % instead of 15 %",
+    "result": "detected",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T10-TC-12",
+    "kind": "mismatch",
+    "pages": [
+     82
+    ],
+    "expected": "Form of Offer words differ from the figures",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-13",
+    "kind": "stale",
+    "pages": [
+     1
+    ],
+    "expected": "Cover total differs from the offer",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-14",
+    "kind": "mismatch",
+    "pages": [
+     97
+    ],
+    "expected": "Contract Data tendered total differs from the BOQ",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-15",
+    "kind": "date",
+    "pages": [
+     21
+    ],
+    "expected": "SBD 1 dated after closing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-16",
+    "kind": "mismatch",
+    "pages": [
+     20
+    ],
+    "expected": "VAT number differs on SBD 1",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-17",
+    "kind": "mismatch",
+    "pages": [
+     27
+    ],
+    "expected": "Registration number differs on SBD 6.1",
+    "result": "detected",
+    "matched": "Company registration number differs between documents"
+   },
+   {
+    "case": "T10-TC-18",
+    "kind": "invalid",
+    "pages": [
+     40
+    ],
+    "expected": "Tax status non-compliant",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-19",
+    "kind": "blank",
+    "pages": [
+     83
+    ],
+    "expected": "Form of Offer not witnessed",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-20",
+    "kind": "blank",
+    "pages": [
+     236
+    ],
+    "expected": "Mandatary agreement not signed",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-21",
+    "kind": "invalid",
+    "pages": [
+     99
+    ],
+    "expected": "Programme exceeds the 3-month contract period",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-22",
+    "kind": "invalid",
+    "pages": [
+     101
+    ],
+    "expected": "Sub-consultant not professionally registered",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-23",
+    "kind": "invalid",
+    "pages": [
+     58
+    ],
+    "expected": "Project 2 not completed before closing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-24",
+    "kind": "mismatch",
+    "pages": [
+     61
+    ],
+    "expected": "Project 3 below R2 million on its certificate",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-25",
+    "kind": "blank",
+    "pages": [
+     56
+    ],
+    "expected": "Reference letter unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-26",
+    "kind": "mismatch",
+    "pages": [
+     69
+    ],
+    "expected": "CM qualification lower than claimed",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-27",
+    "kind": "mismatch",
+    "pages": [
+     68
+    ],
+    "expected": "CM oxidation-pond experience only 6 years",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-28",
+    "kind": "mismatch",
+    "pages": [
+     74
+    ],
+    "expected": "CHSO experience overstated on Schedule 2",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-29",
+    "kind": "blank",
+    "pages": [
+     71
+    ],
+    "expected": "Site Agent qualification not certified",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-30",
+    "kind": "invalid",
+    "pages": [
+     42
+    ],
+    "expected": "Youth ownership below 51 % (5 points wrongly claimed)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-31",
+    "kind": "mismatch",
+    "pages": [
+     45
+    ],
+    "expected": "Location proof is in Gauteng (5 points not supported)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T10-TC-32",
+    "kind": "expired",
+    "pages": [
+     39
+    ],
+    "expected": "B-BBEE certificate expired",
+    "result": "missed",
+    "matched": ""
+   }
+  ],
+  "false_positives": [
+   {
+    "title": "Missing: CIDB Registration Proof - Grade 3CE or Higher",
+    "pages": [],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 6.1: 8 pages found, the standard form has 5",
+    "pages": [
+     9,
+     11,
+     18,
+     25
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: 1 of 4 pages found",
+    "pages": [
+     22
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 9: 2 of 4 pages found",
+    "pages": [
+     23,
+     24
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "The CSD summary report is missing a section",
+    "pages": [
+     35,
+     37
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 6.1: its pages are not together",
+    "pages": [
+     9,
+     25
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SARS tax compliance status: its pages are not together",
+    "pages": [
+     21,
+     36,
+     41
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "CSD summary report: its pages are not together",
+    "pages": [
+     35,
+     37
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Handwritten note outside the form fields on SBD 6.1 (page 9)",
+    "pages": [
+     9
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Page cut off at the edge on SBD 6.1 (page 9)",
+    "pages": [
+     9
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 6.1 (page 9)",
+    "pages": [
+     9
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 6.1 (page 11)",
+    "pages": [
+     11
+    ],
+    "severity": "medium"
+   }
+  ]
+ },
+ {
+  "folder": "4ce",
+  "rows": [
+   {
+    "case": "T6-TC-01",
+    "kind": "invalid",
+    "pages": [
+     12
+    ],
+    "expected": "CE grade below 4CE and differs from the cover page",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-02",
+    "kind": "invalid",
+    "pages": [
+     12
+    ],
+    "expected": "CIDB registration expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-03",
+    "kind": "mismatch",
+    "pages": [
+     1
+    ],
+    "expected": "CRS number on the cover differs from the certificate",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-04",
+    "kind": "mismatch",
+    "pages": [
+     18
+    ],
+    "expected": "Completion certificate issued to a different entity",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-05",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Civil completion certificate 4 missing",
+    "result": "detected",
+    "matched": "Missing: Municipal Billing Clearance Certificate (company and directors/owners) not more than 3 months in arrears"
+   },
+   {
+    "case": "T6-TC-06",
+    "kind": "blank",
+    "pages": [
+     24
+    ],
+    "expected": "Building completion certificate unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-07",
+    "kind": "mismatch",
+    "pages": [
+     30
+    ],
+    "expected": "CV experience differs from Schedule 12 A",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-08",
+    "kind": "date",
+    "pages": [
+     33
+    ],
+    "expected": "Qualification certification older than 6 months",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-09",
+    "kind": "mismatch",
+    "pages": [
+     29
+    ],
+    "expected": "Foreman experience on Schedule 12 D differs from the CV",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-10",
+    "kind": "missing",
+    "pages": [],
+    "expected": "OH&S Officer registration missing; functionality below 70",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-11",
+    "kind": "mismatch",
+    "pages": [
+     42
+    ],
+    "expected": "ID on MBD 4 differs from other documents and fails the checksum",
+    "result": "detected",
+    "matched": "SA ID number differs between documents"
+   },
+   {
+    "case": "T6-TC-12",
+    "kind": "declaration",
+    "pages": [
+     43,
+     44
+    ],
+    "expected": "MBD 4 Q3.12 YES without particulars",
+    "result": "page only",
+    "matched": "Duplicate page: pages 43 and 44 look like the same page"
+   },
+   {
+    "case": "T6-TC-13",
+    "kind": "declaration",
+    "pages": [
+     52
+    ],
+    "expected": "Municipal arrears over 3 months declared",
+    "result": "wrong page",
+    "matched": "Missing: Municipal Billing Clearance Certificate (company and directors/owners) not more than 3 months in arrears"
+   },
+   {
+    "case": "T6-TC-14",
+    "kind": "date",
+    "pages": [
+     68
+    ],
+    "expected": "Municipal account older than 3 months",
+    "result": "wrong page",
+    "matched": "Missing: Municipal Billing Clearance Certificate (company and directors/owners) not more than 3 months in arrears"
+   },
+   {
+    "case": "T6-TC-15",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Director municipal account missing",
+    "result": "detected",
+    "matched": "Missing: Municipal Billing Clearance Certificate (company and directors/owners) not more than 3 months in arrears"
+   },
+   {
+    "case": "T6-TC-16",
+    "kind": "date",
+    "pages": [
+     47
+    ],
+    "expected": "MBD 5 dated after closing",
+    "result": "detected",
+    "matched": "SBD 4 is dated after the closing date"
+   },
+   {
+    "case": "T6-TC-17",
+    "kind": "mismatch",
+    "pages": [
+     55
+    ],
+    "expected": "MBD 9 names a different tender",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-18",
+    "kind": "blank",
+    "pages": [
+     41
+    ],
+    "expected": "Form of Offer unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-19",
+    "kind": "blank",
+    "pages": [
+     41
+    ],
+    "expected": "Form of Offer not witnessed",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-20",
+    "kind": "blank",
+    "pages": [
+     40
+    ],
+    "expected": "Resolution not signed by all directors",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-21",
+    "kind": "blank",
+    "pages": [
+     13
+    ],
+    "expected": "Terms acceptance unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-22",
+    "kind": "blank",
+    "pages": [
+     7
+    ],
+    "expected": "POPI consent incomplete",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-23",
+    "kind": "ink",
+    "pages": [
+     42
+    ],
+    "expected": "Not completed in black ink",
+    "result": "page only",
+    "matched": "SA ID number differs between documents"
+   },
+   {
+    "case": "T6-TC-24",
+    "kind": "blank",
+    "pages": [
+     15
+    ],
+    "expected": "Project list declaration unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-25",
+    "kind": "invalid",
+    "pages": [
+     64
+    ],
+    "expected": "Tax status non-compliant",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-26",
+    "kind": "mismatch",
+    "pages": [
+     62
+    ],
+    "expected": "CSD number differs",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-27",
+    "kind": "claim",
+    "pages": [
+     66
+    ],
+    "expected": "B-BBEE level claimed is not supported by the affidavit",
+    "result": "wrong page",
+    "matched": "Points claimed do not match the B-BBEE level"
+   },
+   {
+    "case": "T6-TC-28",
+    "kind": "claim",
+    "pages": [
+     50
+    ],
+    "expected": "Locality points claimed for a business outside Ndlambe",
+    "result": "wrong page",
+    "matched": "Points claimed do not match the B-BBEE level"
+   },
+   {
+    "case": "T6-TC-29",
+    "kind": "declaration",
+    "pages": [
+     79
+    ],
+    "expected": "Checklist declares municipal arrears",
+    "result": "wrong page",
+    "matched": "Missing: Municipal Billing Clearance Certificate (company and directors/owners) not more than 3 months in arrears"
+   },
+   {
+    "case": "T6-TC-30",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Tender page 13 missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T6-TC-31",
+    "kind": "duplicate",
+    "pages": [
+     43,
+     44
+    ],
+    "expected": "Duplicate page",
+    "result": "detected",
+    "matched": "Duplicate page: pages 43 and 44 look like the same page"
+   },
+   {
+    "case": "T6-TC-32",
+    "kind": "page order",
+    "pages": [
+     54
+    ],
+    "expected": "MBD 9 pages out of order",
+    "result": "page only",
+    "matched": "Company name differs between documents"
+   }
+  ],
+  "false_positives": [
+   {
+    "title": "Missing: Municipal Billing Clearance Certificate",
+    "pages": [],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 8 may be unsigned",
+    "pages": [
+     54
+    ],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 6.1: 10 pages found, the standard form has 5",
+    "pages": [
+     3,
+     4,
+     5,
+     6
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: 6 pages found, the standard form has 4",
+    "pages": [
+     2,
+     45,
+     46,
+     47
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "The CSD summary report is missing a section",
+    "pages": [
+     52,
+     63,
+     83
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: its pages are not together",
+    "pages": [
+     2,
+     45
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 6.1: its pages are not together",
+    "pages": [
+     3,
+     50,
+     75
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "CSD summary report: its pages are not together",
+    "pages": [
+     52,
+     63,
+     83
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 9: its pages are not together",
+    "pages": [
+     55,
+     76
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SARS tax compliance status: its pages are not together",
+    "pages": [
+     59,
+     64,
+     82
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 8 (page 53)",
+    "pages": [
+     53
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Initials missing on 65 page(s)",
+    "pages": [
+     1,
+     3,
+     4,
+     5,
+     7,
+     8,
+     12,
+     13,
+     15,
+     16,
+     17,
+     18,
+     19,
+     20,
+     21,
+     22,
+     23,
+     24,
+     25,
+     26,
+     27,
+     28,
+     29,
+     30,
+     31,
+     32,
+     33,
+     34,
+     35,
+     36,
+     37,
+     38,
+     39,
+     40,
+     42,
+     44,
+     45,
+     47,
+     49,
+     50,
+     51,
+     52,
+     53,
+     55,
+     57,
+     58,
+     59,
+     60,
+     61,
+     62,
+     63,
+     64,
+     65,
+     66,
+     67,
+     68,
+     69,
+     70,
+     71,
+     72,
+     73,
+     77,
+     79,
+     81,
+     83
+    ],
+    "severity": "medium"
+   }
+  ]
+ },
+ {
+  "folder": "5CE",
+  "rows": [
+   {
+    "case": "T7-TC-01",
+    "kind": "invalid",
+    "pages": [
+     65
+    ],
+    "expected": "GB grade below 5GB",
+    "result": "wrong page",
+    "matched": "Missing: CIDB Grading Proof - Grade 5CE and 5GB or Higher"
+   },
+   {
+    "case": "T7-TC-02",
+    "kind": "invalid",
+    "pages": [
+     65
+    ],
+    "expected": "CIDB registration expired before closing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-03",
+    "kind": "mismatch",
+    "pages": [
+     1
+    ],
+    "expected": "CIDB number on the cover differs from the certificate",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-04",
+    "kind": "date",
+    "pages": [
+     66
+    ],
+    "expected": "NHBRC registration lapsed",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-05",
+    "kind": "invalid",
+    "pages": [
+     67
+    ],
+    "expected": "Agrement certificate inactive (0/20)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-06",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Agrement certificate incomplete (page 3 of 4 missing)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-07",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Architect registration missing (0/5)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-08",
+    "kind": "blank",
+    "pages": [
+     90
+    ],
+    "expected": "Structural Engineer CV without project values (0/5)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-09",
+    "kind": "blank",
+    "pages": [
+     94
+    ],
+    "expected": "H&S qualifications not certified (0/5)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-10",
+    "kind": "mismatch",
+    "pages": [
+     96
+    ],
+    "expected": "Site Agent experience below 5 years and differs from Form B7 (0/1)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-11",
+    "kind": "mismatch",
+    "pages": [
+     98
+    ],
+    "expected": "Foreman experience below 10 years and differs from Form B7 (0/1)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-12",
+    "kind": "blank",
+    "pages": [
+     75
+    ],
+    "expected": "Reference letter unsigned and unstamped",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-13",
+    "kind": "mismatch",
+    "pages": [
+     76
+    ],
+    "expected": "Reference issued to a different entity",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-14",
+    "kind": "blank",
+    "pages": [
+     77
+    ],
+    "expected": "Reference without satisfaction comment",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-15",
+    "kind": "blank",
+    "pages": [
+     72
+    ],
+    "expected": "Form B3 row not client-stamped",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-16",
+    "kind": "date",
+    "pages": [
+     112
+    ],
+    "expected": "Bank rating letter older than one month (0/8)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-17",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Methodology incomplete; functionality below 81",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-18",
+    "kind": "mismatch",
+    "pages": [
+     25
+    ],
+    "expected": "ID on Form A2 differs from other documents and fails the checksum",
+    "result": "page only",
+    "matched": "Could not locate the signature line on SBD 4"
+   },
+   {
+    "case": "T7-TC-19",
+    "kind": "declaration",
+    "pages": [
+     25
+    ],
+    "expected": "Declared in the service of the state",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-20",
+    "kind": "declaration",
+    "pages": [
+     60
+    ],
+    "expected": "Municipal arrears over 3 months declared and shown",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-21",
+    "kind": "date",
+    "pages": [
+     54
+    ],
+    "expected": "Municipal account older than 3 months",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-22",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Director municipal account missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-23",
+    "kind": "date",
+    "pages": [
+     59
+    ],
+    "expected": "MBD 5 dated after closing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-24",
+    "kind": "mismatch",
+    "pages": [
+     32
+    ],
+    "expected": "MBD 9 names a different tender",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-25",
+    "kind": "blank",
+    "pages": [
+     23
+    ],
+    "expected": "Form A1 unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-26",
+    "kind": "blank",
+    "pages": [
+     24
+    ],
+    "expected": "Resolution not signed by all directors",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-27",
+    "kind": "invalid",
+    "pages": [
+     51
+    ],
+    "expected": "Tax status non-compliant",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-28",
+    "kind": "mismatch",
+    "pages": [
+     1
+    ],
+    "expected": "Tax PIN on the cover differs from SARS print-out",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-29",
+    "kind": "mismatch",
+    "pages": [
+     52
+    ],
+    "expected": "CSD number differs",
+    "result": "wrong page",
+    "matched": "Missing: CSD Supplier Number and CSD Report"
+   },
+   {
+    "case": "T7-TC-30",
+    "kind": "date",
+    "pages": [
+     49
+    ],
+    "expected": "COID letter expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-31",
+    "kind": "declaration",
+    "pages": [
+     39
+    ],
+    "expected": "COID good standing denied on Form A10",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-32",
+    "kind": "mismatch",
+    "pages": [
+     43
+    ],
+    "expected": "Bank account number differs between forms and bank letter",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-33",
+    "kind": "ink",
+    "pages": [
+     36
+    ],
+    "expected": "Form completed in pencil",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-34",
+    "kind": "blank",
+    "pages": [
+     33
+    ],
+    "expected": "Pages not initialled",
+    "result": "page only",
+    "matched": "SBD 9: 2 of 4 pages found"
+   },
+   {
+    "case": "T7-TC-35",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Form A2 signature page missing",
+    "result": "detected",
+    "matched": "Could not locate the signature line on SBD 4"
+   },
+   {
+    "case": "T7-TC-36",
+    "kind": "duplicate",
+    "pages": [
+     41,
+     42
+    ],
+    "expected": "Duplicate page",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T7-TC-37",
+    "kind": "page order",
+    "pages": [
+     61
+    ],
+    "expected": "MBD 8 pages out of order",
+    "result": "detected",
+    "matched": "SBD 8: pages are out of order"
+   }
+  ],
+  "false_positives": [
+   {
+    "title": "Missing: CSD Report",
+    "pages": [],
+    "severity": "high"
+   },
+   {
+    "title": "Missing: Annexure C - Health and Safety Specification compliance",
+    "pages": [],
+    "severity": "high"
+   },
+   {
+    "title": "B-BBEE sworn affidavit may be unsigned",
+    "pages": [
+     72
+    ],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 4: 8 pages found, the standard form has 4",
+    "pages": [
+     6,
+     19,
+     20,
+     22
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 9: 2 of 4 pages found",
+    "pages": [
+     33,
+     34
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: pages are out of order",
+    "pages": [
+     27,
+     28
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Printed text crossed out on SBD 4 (page 6)",
+    "pages": [
+     6
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Printed text crossed out on SBD 4 (page 20)",
+    "pages": [
+     20
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Printed text crossed out on SBD 4 (page 22)",
+    "pages": [
+     22
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Entry overwritten or covered on SBD 4 (page 6)",
+    "pages": [
+     6
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Entry overwritten or covered on SBD 4 (page 20)",
+    "pages": [
+     20
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Entry overwritten or covered on SBD 4 (page 22)",
+    "pages": [
+     22
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 6)",
+    "pages": [
+     6
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 19)",
+    "pages": [
+     19
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 19)",
+    "pages": [
+     19
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 19)",
+    "pages": [
+     19
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 19)",
+    "pages": [
+     19
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 20)",
+    "pages": [
+     20
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 20)",
+    "pages": [
+     20
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 22)",
+    "pages": [
+     22
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 22)",
+    "pages": [
+     22
+    ],
+    "severity": "medium"
+   }
+  ]
+ },
+ {
+  "folder": "6 CE Tender",
+  "rows": [
+   {
+    "case": "T3-TC-01",
+    "kind": "invalid",
+    "pages": [
+     50
+    ],
+    "expected": "RD.A.1 CIDB grade (5CE) is below the 6CE minimum and differs from the certificate",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-02",
+    "kind": "mismatch",
+    "pages": [
+     50
+    ],
+    "expected": "VAT number on RD.A.1 does not match MBD 4, RD.C.3 and the CSD report",
+    "result": "wrong page",
+    "matched": "The CSD summary report is missing a section"
+   },
+   {
+    "case": "T3-TC-03",
+    "kind": "invalid",
+    "pages": [
+     54
+    ],
+    "expected": "Signatory ID on MBD 4 differs from the certified ID copy and fails the SA ID checksum",
+    "result": "detected",
+    "matched": "SA ID number fails the checksum"
+   },
+   {
+    "case": "T3-TC-04",
+    "kind": "mismatch",
+    "pages": [
+     106
+    ],
+    "expected": "RD.C.9 CIDB grade (6CE) differs from the certificate (7CE)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-05",
+    "kind": "mismatch",
+    "pages": [
+     79
+    ],
+    "expected": "CSD legal name differs from the company name used everywhere else",
+    "result": "wrong page",
+    "matched": "Company name differs between documents"
+   },
+   {
+    "case": "T3-TC-06",
+    "kind": "invalid",
+    "pages": [
+     81
+    ],
+    "expected": "Tax compliance status shows Non-compliant",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-07",
+    "kind": "mismatch",
+    "pages": [
+     61
+    ],
+    "expected": "Board resolution names a different tender (WSBU 13 2026/27)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-08",
+    "kind": "ink",
+    "pages": [
+     50
+    ],
+    "expected": "RD.A.1 completed in blue ink (black ink required)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-09",
+    "kind": "date",
+    "pages": [
+     56
+    ],
+    "expected": "MBD 8 dated after the closing date",
+    "result": "detected",
+    "matched": "SBD 8 is dated after the closing date"
+   },
+   {
+    "case": "T3-TC-10",
+    "kind": "blank",
+    "pages": [
+     58
+    ],
+    "expected": "MBD 9 tenderer name left blank",
+    "result": "detected",
+    "matched": "SBD 9: bidder name is blank"
+   },
+   {
+    "case": "T3-TC-11",
+    "kind": "authority",
+    "pages": [
+     59
+    ],
+    "expected": "MBD 9 signed by a person who is not a director and not authorised by the resolution",
+    "result": "page only",
+    "matched": "The signature on SBD 9 may be in a different hand from the quotation's"
+   },
+   {
+    "case": "T3-TC-12",
+    "kind": "blank",
+    "pages": [
+     60
+    ],
+    "expected": "Resolution RD.A.5 not signed by the second director",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-13",
+    "kind": "blank",
+    "pages": [
+     66
+    ],
+    "expected": "MBD 6.1 declaration witnesses missing",
+    "result": "page only",
+    "matched": "SBD 6.1: the date is not a valid date"
+   },
+   {
+    "case": "T3-TC-14",
+    "kind": "blank",
+    "pages": [
+     157
+    ],
+    "expected": "Key personnel schedule RD.D.3 not signed",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-15",
+    "kind": "blank",
+    "pages": [
+     176
+    ],
+    "expected": "Team Leader CV certification not signed",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-16",
+    "kind": "blank",
+    "pages": [
+     184
+    ],
+    "expected": "Form of Offer company stamp missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-17",
+    "kind": "date",
+    "pages": [
+     184
+    ],
+    "expected": "Form of Offer signed after the closing date",
+    "result": "wrong page",
+    "matched": "SBD 8 is dated after the closing date"
+   },
+   {
+    "case": "T3-TC-18",
+    "kind": "blank",
+    "pages": [
+     184
+    ],
+    "expected": "Form of Offer second witness missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-19",
+    "kind": "declaration",
+    "pages": [
+     52
+    ],
+    "expected": "MBD 4 Q3.8 answered YES (in the service of the state) with no particulars",
+    "result": "detected",
+    "matched": "SBD 4: question 2.7 is answered Yes"
+   },
+   {
+    "case": "T3-TC-20",
+    "kind": "blank",
+    "pages": [
+     53
+    ],
+    "expected": "MBD 4 Q3.11 not answered",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-21",
+    "kind": "declaration",
+    "pages": [
+     55
+    ],
+    "expected": "MBD 8 Q4.1 has both YES and NO ticked",
+    "result": "detected",
+    "matched": "SBD 8: question 4.1 is answered Yes"
+   },
+   {
+    "case": "T3-TC-22",
+    "kind": "declaration",
+    "pages": [
+     56
+    ],
+    "expected": "MBD 8 Q4.4 declares municipal arrears over three months (director S.D. Mahlaule)",
+    "result": "page only",
+    "matched": "SBD 8 may be unsigned"
+   },
+   {
+    "case": "T3-TC-23",
+    "kind": "invalid",
+    "pages": [
+     73
+    ],
+    "expected": "Director municipal statement older than three months and in arrears over 90 days",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-24",
+    "kind": "claim",
+    "pages": [
+     65
+    ],
+    "expected": "Youth points claimed, but both directors are over 35",
+    "result": "page only",
+    "matched": "SBD 6.1: only 0 witness signature(s)"
+   },
+   {
+    "case": "T3-TC-25",
+    "kind": "claim",
+    "pages": [
+     65
+    ],
+    "expected": "Tshwane and Gauteng participation points both claimed (alternative categories)",
+    "result": "page only",
+    "matched": "SBD 6.1: only 0 witness signature(s)"
+   },
+   {
+    "case": "T3-TC-26",
+    "kind": "claim",
+    "pages": [
+     65
+    ],
+    "expected": "Disability points claimed while RD.B.6 is marked not applicable and no medical certificate is attached",
+    "result": "page only",
+    "matched": "SBD 6.1: only 0 witness signature(s)"
+   },
+   {
+    "case": "T3-TC-27",
+    "kind": "claim",
+    "pages": [
+     65
+    ],
+    "expected": "EME/QSE point claimed by a R 94.6 million generic enterprise with no EME/QSE affidavit",
+    "result": "page only",
+    "matched": "SBD 6.1: only 0 witness signature(s)"
+   },
+   {
+    "case": "T3-TC-28",
+    "kind": "claim",
+    "pages": [
+     65
+    ],
+    "expected": "Two company types ticked on MBD 6.1",
+    "result": "detected",
+    "matched": "SBD 6.1: only 0 witness signature(s)"
+   },
+   {
+    "case": "T3-TC-29",
+    "kind": "invalid",
+    "pages": [
+     107
+    ],
+    "expected": "CIDB certificate expired before the closing date",
+    "result": "wrong page",
+    "matched": "SBD 8 is dated after the closing date"
+   },
+   {
+    "case": "T3-TC-30",
+    "kind": "mismatch",
+    "pages": [
+     68
+    ],
+    "expected": "B-BBEE certificate level (2) differs from the level claimed (1)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-31",
+    "kind": "invalid",
+    "pages": [
+     114
+    ],
+    "expected": "Bank rating D is below the Level C minimum",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-32",
+    "kind": "invalid",
+    "pages": [
+     114
+    ],
+    "expected": "Raised capital R 1 800 000 is below the R 2 500 000 minimum",
+    "result": "wrong page",
+    "matched": "Item B304.01.03: amount is not quantity x rate"
+   },
+   {
+    "case": "T3-TC-33",
+    "kind": "invalid",
+    "pages": [
+     105
+    ],
+    "expected": "COID letter of good standing expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-34",
+    "kind": "invalid",
+    "pages": [
+     109
+    ],
+    "expected": "Pr.CM registration expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-35",
+    "kind": "invalid",
+    "pages": [
+     120
+    ],
+    "expected": "Team Leader labour-intensive NQF 2 result \"Not yet competent\"",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-36",
+    "kind": "invalid",
+    "pages": [
+     167
+    ],
+    "expected": "Team Leader C1 licence / PrDP expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-37",
+    "kind": "date",
+    "pages": [
+     164
+    ],
+    "expected": "Plumbing trade certificate dated in the future",
+    "result": "wrong page",
+    "matched": "SBD 8 is dated after the closing date"
+   },
+   {
+    "case": "T3-TC-38",
+    "kind": "invalid",
+    "pages": [
+     156
+    ],
+    "expected": "Fleet insurance expired before closing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-39",
+    "kind": "mismatch",
+    "pages": [
+     128
+    ],
+    "expected": "Completion certificate date differs from RD.C.2/RD.D.1",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-40",
+    "kind": "invalid",
+    "pages": [
+     140
+    ],
+    "expected": "Project completed in six weeks; minimum duration is 6 months; date differs from RD.C.2/RD.D.1",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-41",
+    "kind": "missing",
+    "pages": [],
+    "expected": "CHSO registration certificate missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-42",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Lease agreement for the two leased plumbers' vehicles missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-43",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Reference letter for project 1 missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-44",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Municipal statement for director K.N. Lehumo missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-45",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Certified ID of the OHS Officer missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-46",
+    "kind": "duplicate",
+    "pages": [
+     158,
+     159
+    ],
+    "expected": "Construction Manager qualification page duplicated",
+    "result": "detected",
+    "matched": "Duplicate page: pages 158 and 159 look like the same page"
+   },
+   {
+    "case": "T3-TC-47",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Tender page 170 (scope of work) missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T3-TC-48",
+    "kind": "mismatch",
+    "pages": [
+     184
+    ],
+    "expected": "Form of Offer figures differ from the amount in words and the pricing summary (digits transposed)",
+    "result": "wrong page",
+    "matched": "Amount carried to the summary is not in the summary"
+   },
+   {
+    "case": "T3-TC-49",
+    "kind": "arithmetic",
+    "pages": [
+     224
+    ],
+    "expected": "Item 101.01.01 amount does not equal quantity x rate",
+    "result": "wrong page",
+    "matched": "Item 302.01.06: amount is not quantity x rate"
+   },
+   {
+    "case": "T3-TC-50",
+    "kind": "blank",
+    "pages": [
+     227
+    ],
+    "expected": "Item 302.01.02 not priced",
+    "result": "detected",
+    "matched": "Item 302.01.06: amount is not quantity x rate"
+   },
+   {
+    "case": "T3-TC-51",
+    "kind": "correction",
+    "pages": [
+     231
+    ],
+    "expected": "Item B304.01.03 rate corrected without signature or initials",
+    "result": "detected",
+    "matched": "Item B304.01.02: amount is not quantity x rate"
+   },
+   {
+    "case": "T3-TC-52",
+    "kind": "correction",
+    "pages": [
+     233
+    ],
+    "expected": "Item B305.03.01 rate altered with correction fluid",
+    "result": "wrong page",
+    "matched": "Item 302.01.06: amount is not quantity x rate"
+   },
+   {
+    "case": "T3-TC-53",
+    "kind": "arithmetic",
+    "pages": [
+     226
+    ],
+    "expected": "Item 202.01.01 amount uses the wrong quantity",
+    "result": "detected",
+    "matched": "Item 202.01.01: amount is not quantity x rate"
+   },
+   {
+    "case": "T3-TC-54",
+    "kind": "arithmetic",
+    "pages": [
+     227
+    ],
+    "expected": "Section 302 carried forward differs from the page items and from the brought forward on the next page",
+    "result": "detected",
+    "matched": "Item 302.01.06: amount is not quantity x rate"
+   },
+   {
+    "case": "T3-TC-55",
+    "kind": "arithmetic",
+    "pages": [
+     232
+    ],
+    "expected": "Section 304 total does not equal the brought forward amount",
+    "result": "detected",
+    "matched": "Page total does not equal the items on the page"
+   },
+   {
+    "case": "T3-TC-56",
+    "kind": "invalid",
+    "pages": [
+     222
+    ],
+    "expected": "Item B001.09.02 charged at 15%, above the 10% maximum, and not carried into the page total",
+    "result": "detected",
+    "matched": "Page total does not equal the items on the page"
+   },
+   {
+    "case": "T3-TC-57",
+    "kind": "mismatch",
+    "pages": [
+     234
+    ],
+    "expected": "Summary Section 202 figure differs from the Section 202 total",
+    "result": "wrong page",
+    "matched": "Amount carried to the summary is not in the summary"
+   },
+   {
+    "case": "T3-TC-58",
+    "kind": "arithmetic",
+    "pages": [
+     234
+    ],
+    "expected": "Summary escalation calculated at 15% instead of 10%",
+    "result": "detected",
+    "matched": "Escalation is not the stated percentage of its base"
+   },
+   {
+    "case": "T3-TC-59",
+    "kind": "arithmetic",
+    "pages": [
+     234
+    ],
+    "expected": "Summary VAT calculated at 14% instead of 15%",
+    "result": "detected",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T3-TC-60",
+    "kind": "order",
+    "pages": [
+     229
+    ],
+    "expected": "Pricing pages 7 and 8 (tender pages 150 and 151) out of order",
+    "result": "missed",
+    "matched": ""
+   }
+  ],
+  "false_positives": [
+   {
+    "title": "SBD 8 may be unsigned",
+    "pages": [
+     56
+    ],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 9 may be unsigned",
+    "pages": [
+     59
+    ],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 6.1: 9 pages found, the standard form has 5",
+    "pages": [
+     35,
+     44,
+     63,
+     64
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: 8 pages found, the standard form has 4",
+    "pages": [
+     15,
+     16,
+     19,
+     46
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 9: 3 of 4 pages found",
+    "pages": [
+     57,
+     58,
+     59
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "The CSD summary report is missing a section",
+    "pages": [
+     79,
+     81
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: its pages are not together",
+    "pages": [
+     15,
+     46
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Voided form: its pages are not together",
+    "pages": [
+     28,
+     69
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "B-BBEE sworn affidavit: its pages are not together",
+    "pages": [
+     29,
+     70
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 6.1: its pages are not together",
+    "pages": [
+     35,
+     63,
+     259
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "CSD summary report: its pages are not together",
+    "pages": [
+     79,
+     81
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SARS tax compliance status: its pages are not together",
+    "pages": [
+     80,
+     82
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Page total does not equal the items on the page",
+    "pages": [
+     231
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Page total does not equal the items on the page",
+    "pages": [
+     234
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Carried forward differs from what the next page brings forward",
+    "pages": [
+     235
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 15)",
+    "pages": [
+     15
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 15)",
+    "pages": [
+     15
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 15)",
+    "pages": [
+     15
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 15)",
+    "pages": [
+     15
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 15)",
+    "pages": [
+     15
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 16)",
+    "pages": [
+     16
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 16)",
+    "pages": [
+     16
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Initials missing on 190 page(s)",
+    "pages": [
+     1,
+     3,
+     4,
+     6,
+     14,
+     25,
+     29,
+     30,
+     31,
+     38,
+     41,
+     43,
+     45,
+     47,
+     48,
+     49,
+     51,
+     53,
+     54,
+     56,
+     59,
+     61,
+     64,
+     66,
+     67,
+     68,
+     71,
+     72,
+     73,
+     74,
+     76,
+     77,
+     80,
+     81,
+     82,
+     87,
+     88,
+     89,
+     95,
+     96,
+     97,
+     98,
+     104,
+     105,
+     106,
+     108,
+     110,
+     111,
+     113,
+     114,
+     116,
+     118,
+     119,
+     120,
+     121,
+     122,
+     123,
+     127,
+     128,
+     129,
+     130,
+     131,
+     132,
+     133,
+     134,
+     135,
+     136,
+     137,
+     138,
+     139,
+     140,
+     141,
+     142,
+     143,
+     144,
+     147,
+     148,
+     149,
+     150,
+     151,
+     152,
+     153,
+     154,
+     155,
+     156,
+     157,
+     158,
+     159,
+     160,
+     162,
+     163,
+     164,
+     165,
+     166,
+     167,
+     168,
+     169,
+     170,
+     171,
+     172,
+     173,
+     174,
+     175,
+     176,
+     177,
+     187,
+     189,
+     190,
+     191,
+     192,
+     193,
+     194,
+     202,
+     207,
+     208,
+     210,
+     211,
+     212,
+     213,
+     214,
+     216,
+     217,
+     219,
+     220,
+     225,
+     226,
+     232,
+     235,
+     236,
+     237,
+     238,
+     239,
+     242,
+     243,
+     244,
+     245,
+     246,
+     251,
+     252,
+     259,
+     291,
+     292,
+     293,
+     294,
+     296,
+     297,
+     306,
+     313,
+     317,
+     318,
+     319,
+     320,
+     323,
+     324,
+     325,
+     326,
+     327,
+     329,
+     331,
+     332,
+     333,
+     334,
+     335,
+     336,
+     337,
+     338,
+     339,
+     340,
+     342,
+     343,
+     344,
+     345,
+     347,
+     348,
+     349,
+     350,
+     351,
+     352,
+     353,
+     354,
+     355,
+     357,
+     358,
+     359,
+     360,
+     363,
+     364,
+     366,
+     367,
+     375
+    ],
+    "severity": "medium"
+   }
+  ]
+ },
+ {
+  "folder": "7CE Tender",
+  "rows": [
+   {
+    "case": "T2-TC-01",
+    "kind": "mismatch",
+    "pages": [
+     1
+    ],
+    "expected": "Cover page CIDB grade (6CE) is below 7CE and differs from the certificate",
+    "result": "wrong page",
+    "matched": "Missing: CIDB Grading Certificate 7CE or higher"
+   },
+   {
+    "case": "T2-TC-02",
+    "kind": "mismatch",
+    "pages": [
+     47
+    ],
+    "expected": "VAT number on RD.A.1 does not match RD.C.8 and the CSD report",
+    "result": "wrong page",
+    "matched": "The CSD summary report is missing a section"
+   },
+   {
+    "case": "T2-TC-03",
+    "kind": "invalid",
+    "pages": [
+     50
+    ],
+    "expected": "Signatory ID on MBD 4 differs from the certified ID copy and fails the SA ID checksum",
+    "result": "detected",
+    "matched": "SA ID number fails the checksum"
+   },
+   {
+    "case": "T2-TC-04",
+    "kind": "mismatch",
+    "pages": [
+     74
+    ],
+    "expected": "CSD legal name differs from the company name used everywhere else",
+    "result": "wrong page",
+    "matched": "Company name differs between documents"
+   },
+   {
+    "case": "T2-TC-05",
+    "kind": "mismatch",
+    "pages": [
+     99
+    ],
+    "expected": "CIPC CM1/CM29 company name differs from the tendering entity",
+    "result": "wrong page",
+    "matched": "Company name differs between documents"
+   },
+   {
+    "case": "T2-TC-06",
+    "kind": "invalid",
+    "pages": [
+     76
+    ],
+    "expected": "Tax compliance status shows Non-compliant",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-07",
+    "kind": "ink",
+    "pages": [
+     47
+    ],
+    "expected": "RD.A.1 signature block completed in blue ink (black ink required)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-08",
+    "kind": "date",
+    "pages": [
+     52
+    ],
+    "expected": "MBD 8 dated after the closing date",
+    "result": "detected",
+    "matched": "SBD 8 is dated after the closing date"
+   },
+   {
+    "case": "T2-TC-09",
+    "kind": "blank",
+    "pages": [
+     54
+    ],
+    "expected": "MBD 9 tenderer name left blank",
+    "result": "detected",
+    "matched": "SBD 9: bidder name is blank"
+   },
+   {
+    "case": "T2-TC-10",
+    "kind": "authority",
+    "pages": [
+     55
+    ],
+    "expected": "MBD 9 signed by a person who is not a director and not authorised by the resolution",
+    "result": "page only",
+    "matched": "SBD 9 may be unsigned"
+   },
+   {
+    "case": "T2-TC-11",
+    "kind": "blank",
+    "pages": [
+     56
+    ],
+    "expected": "Resolution RD.A.5 not signed by the third director",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-12",
+    "kind": "blank",
+    "pages": [
+     57
+    ],
+    "expected": "Attached board resolution not signed by the third director",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-13",
+    "kind": "blank",
+    "pages": [
+     63
+    ],
+    "expected": "MBD 6.1 declaration witnesses missing",
+    "result": "page only",
+    "matched": "SBD 6.1: the date is not a valid date"
+   },
+   {
+    "case": "T2-TC-14",
+    "kind": "blank",
+    "pages": [
+     105
+    ],
+    "expected": "Letter of intent for the performance guarantee not signed by the tenderer",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-15",
+    "kind": "blank",
+    "pages": [
+     174
+    ],
+    "expected": "Form of Offer company stamp missing",
+    "result": "wrong page",
+    "matched": "B-BBEE sworn affidavit: no official stamp"
+   },
+   {
+    "case": "T2-TC-16",
+    "kind": "date",
+    "pages": [
+     175
+    ],
+    "expected": "Form of Offer signed after the closing date",
+    "result": "wrong page",
+    "matched": "SBD 8 is dated after the closing date"
+   },
+   {
+    "case": "T2-TC-17",
+    "kind": "blank",
+    "pages": [
+     175
+    ],
+    "expected": "Form of Offer second witness missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-18",
+    "kind": "blank",
+    "pages": [
+     120
+    ],
+    "expected": "Site Agent CV certification not signed",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-19",
+    "kind": "declaration",
+    "pages": [
+     49
+    ],
+    "expected": "MBD 4 Q3.8 answered YES (in the service of the state) with no particulars",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-20",
+    "kind": "blank",
+    "pages": [
+     49
+    ],
+    "expected": "MBD 4 Q3.11 not answered",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-21",
+    "kind": "declaration",
+    "pages": [
+     51
+    ],
+    "expected": "MBD 8 Q4.1 has both YES and NO circled",
+    "result": "detected",
+    "matched": "SBD 8: both YES and NO are marked for the question 4.1"
+   },
+   {
+    "case": "T2-TC-22",
+    "kind": "declaration",
+    "pages": [
+     52
+    ],
+    "expected": "MBD 8 Q4.4 declares municipal arrears over three months (director T.S. Kekana)",
+    "result": "page only",
+    "matched": "SBD 8 is dated after the closing date"
+   },
+   {
+    "case": "T2-TC-23",
+    "kind": "invalid",
+    "pages": [
+     109
+    ],
+    "expected": "Director municipal statement older than three months and in arrears over 90 days",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-24",
+    "kind": "claim",
+    "pages": [
+     62
+    ],
+    "expected": "Youth points claimed, but all directors are over 35 and RD.B.5 says youth is not claimed",
+    "result": "detected",
+    "matched": "Points claimed do not match the B-BBEE level"
+   },
+   {
+    "case": "T2-TC-25",
+    "kind": "claim",
+    "pages": [
+     62
+    ],
+    "expected": "Tshwane and Gauteng participation points both claimed (alternative categories)",
+    "result": "detected",
+    "matched": "Points claimed do not match the B-BBEE level"
+   },
+   {
+    "case": "T2-TC-26",
+    "kind": "claim",
+    "pages": [
+     62
+    ],
+    "expected": "Disability points claimed while RD.B.6 is marked not applicable and no medical certificate is attached",
+    "result": "detected",
+    "matched": "Points claimed do not match the B-BBEE level"
+   },
+   {
+    "case": "T2-TC-27",
+    "kind": "claim",
+    "pages": [
+     62
+    ],
+    "expected": "Two company types ticked on MBD 6.1",
+    "result": "detected",
+    "matched": "SBD 6.1: only 0 witness signature(s)"
+   },
+   {
+    "case": "T2-TC-28",
+    "kind": "invalid",
+    "pages": [
+     83
+    ],
+    "expected": "CIDB certificate expired before the closing date",
+    "result": "wrong page",
+    "matched": "Missing: CIDB Grading Certificate 7CE or higher"
+   },
+   {
+    "case": "T2-TC-29",
+    "kind": "mismatch",
+    "pages": [
+     65
+    ],
+    "expected": "B-BBEE certificate level (2) differs from the level claimed (1)",
+    "result": "wrong page",
+    "matched": "Points claimed do not match the B-BBEE level"
+   },
+   {
+    "case": "T2-TC-30",
+    "kind": "invalid",
+    "pages": [
+     96
+    ],
+    "expected": "Bank rating D is below the Level C minimum",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-31",
+    "kind": "invalid",
+    "pages": [
+     87
+    ],
+    "expected": "COID letter of good standing expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-32",
+    "kind": "invalid",
+    "pages": [
+     94
+    ],
+    "expected": "CCTV equipment lease ends long before the contract period ends",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-33",
+    "kind": "invalid",
+    "pages": [
+     111
+    ],
+    "expected": "Pr.CM registration expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-34",
+    "kind": "date",
+    "pages": [
+     136
+    ],
+    "expected": "CIPP operator certificate dated in the future",
+    "result": "wrong page",
+    "matched": "SBD 8 is dated after the closing date"
+   },
+   {
+    "case": "T2-TC-35",
+    "kind": "invalid",
+    "pages": [
+     153
+    ],
+    "expected": "Trenchless project completion value below R2 000 000 and different from RD.C.5/RD.C.16",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-36",
+    "kind": "mismatch",
+    "pages": [
+     148
+    ],
+    "expected": "Completion certificate date differs from RD.C.5/RD.C.16",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-37",
+    "kind": "date",
+    "pages": [
+     88
+    ],
+    "expected": "Completed project listed with a completion date in the future",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-38",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Completion certificate of a trenchless project missing; fewer than three trenchless projects fully proven",
+    "result": "detected",
+    "matched": "Missing: CIDB Grading Certificate 7CE or higher"
+   },
+   {
+    "case": "T2-TC-39",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Reference letter of a conventional project missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-40",
+    "kind": "missing",
+    "pages": [],
+    "expected": "CHSO registration certificate missing",
+    "result": "detected",
+    "matched": "Missing: CIDB Grading Certificate 7CE or higher"
+   },
+   {
+    "case": "T2-TC-41",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Municipal statement for one director missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-42",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Certified IDs of two operators missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-43",
+    "kind": "duplicate",
+    "pages": [
+     122,
+     123
+    ],
+    "expected": "Foreman CV page duplicated",
+    "result": "detected",
+    "matched": "Duplicate page: pages 122 and 123 look like the same page"
+   },
+   {
+    "case": "T2-TC-44",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Tender page 160 (scope of work) missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-45",
+    "kind": "invalid",
+    "pages": [
+     196
+    ],
+    "expected": "Dayworks percentage 15% exceeds the 10% maximum",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-46",
+    "kind": "mismatch",
+    "pages": [
+     174
+    ],
+    "expected": "Form of Offer figures differ from the amount in words and the pricing summary (digits transposed)",
+    "result": "wrong page",
+    "matched": "Amount carried to the summary is not in the summary"
+   },
+   {
+    "case": "T2-TC-47",
+    "kind": "arithmetic",
+    "pages": [
+     218
+    ],
+    "expected": "Item 101.01.01 amount does not equal quantity x rate",
+    "result": "detected",
+    "matched": "Item 101.01.01: amount is not quantity x rate"
+   },
+   {
+    "case": "T2-TC-48",
+    "kind": "blank",
+    "pages": [
+     221
+    ],
+    "expected": "Item 302.01.02 not priced",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T2-TC-49",
+    "kind": "correction",
+    "pages": [
+     229
+    ],
+    "expected": "Item B810.01.02 rate corrected without signature or initials",
+    "result": "wrong page",
+    "matched": "Item 101.01.01: amount is not quantity x rate"
+   },
+   {
+    "case": "T2-TC-50",
+    "kind": "correction",
+    "pages": [
+     233
+    ],
+    "expected": "Item B815.07.01 rate altered with correction fluid",
+    "result": "wrong page",
+    "matched": "Item 101.01.01: amount is not quantity x rate"
+   },
+   {
+    "case": "T2-TC-51",
+    "kind": "arithmetic",
+    "pages": [
+     226
+    ],
+    "expected": "Item 606.02.01 amount uses the wrong quantity",
+    "result": "detected",
+    "matched": "Item 606.02.01: amount is not quantity x rate"
+   },
+   {
+    "case": "T2-TC-52",
+    "kind": "arithmetic",
+    "pages": [
+     232
+    ],
+    "expected": "Section B815 carried forward differs from the page items and from the brought forward on the next page",
+    "result": "detected",
+    "matched": "Item B815.04: amount is not quantity x rate"
+   },
+   {
+    "case": "T2-TC-53",
+    "kind": "arithmetic",
+    "pages": [
+     234
+    ],
+    "expected": "Section B815 total does not equal brought forward plus page items",
+    "result": "detected",
+    "matched": "Amount carried to the summary is not in the summary"
+   },
+   {
+    "case": "T2-TC-54",
+    "kind": "arithmetic",
+    "pages": [
+     215
+    ],
+    "expected": "Item B001.05.02 percentage and amount do not agree with the carried-forward and section total",
+    "result": "detected",
+    "matched": "Page total does not equal the items on the page"
+   },
+   {
+    "case": "T2-TC-55",
+    "kind": "mismatch",
+    "pages": [
+     235
+    ],
+    "expected": "Summary Section 202 figure differs from the Section 202 total",
+    "result": "wrong page",
+    "matched": "Amount carried to the summary is not in the summary"
+   },
+   {
+    "case": "T2-TC-56",
+    "kind": "arithmetic",
+    "pages": [
+     235
+    ],
+    "expected": "Summary contingencies calculated at 15% instead of 10%",
+    "result": "page only",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T2-TC-57",
+    "kind": "arithmetic",
+    "pages": [
+     235
+    ],
+    "expected": "Summary VAT calculated at 14% instead of 15%",
+    "result": "detected",
+    "matched": "VAT is not 15% of the amount before VAT"
+   },
+   {
+    "case": "T2-TC-58",
+    "kind": "order",
+    "pages": [
+     222
+    ],
+    "expected": "Pricing pages 7 and 8 (tender pages 140 and 141) out of order",
+    "result": "page only",
+    "matched": "Amount carried to the summary is not in the summary"
+   }
+  ],
+  "false_positives": [
+   {
+    "title": "Missing: CIDB Grading Certificate 7CE or higher",
+    "pages": [],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 4 may be unsigned",
+    "pages": [
+     50
+    ],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 8 may be unsigned",
+    "pages": [
+     52
+    ],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 9 may be unsigned",
+    "pages": [
+     55
+    ],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 6.1: 13 pages found, the standard form has 5",
+    "pages": [
+     24,
+     32,
+     43,
+     59
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: 7 pages found, the standard form has 4",
+    "pages": [
+     15,
+     16,
+     19,
+     46
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 9: 3 of 4 pages found",
+    "pages": [
+     53,
+     54,
+     55
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "The CSD summary report is missing a section",
+    "pages": [
+     73,
+     75
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: its pages are not together",
+    "pages": [
+     15,
+     46
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 6.1: its pages are not together",
+    "pages": [
+     24,
+     32,
+     59,
+     256
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "B-BBEE sworn affidavit: its pages are not together",
+    "pages": [
+     25,
+     67,
+     285
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SARS tax compliance status: its pages are not together",
+    "pages": [
+     26,
+     74,
+     76
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Voided form: its pages are not together",
+    "pages": [
+     66,
+     243
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "CSD summary report: its pages are not together",
+    "pages": [
+     73,
+     75
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Item B810.01.02: amount is not quantity x rate",
+    "pages": [
+     233
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Page total does not equal the items on the page",
+    "pages": [
+     234
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Page total does not equal the items on the page",
+    "pages": [
+     238
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Carried forward differs from what the next page brings forward",
+    "pages": [
+     233
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Carried forward differs from what the next page brings forward",
+    "pages": [
+     237
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "The affidavit does not say the income was under R10 million",
+    "pages": [
+     25
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 15)",
+    "pages": [
+     15
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 15)",
+    "pages": [
+     15
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 15)",
+    "pages": [
+     15
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 15)",
+    "pages": [
+     15
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 15)",
+    "pages": [
+     15
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 16)",
+    "pages": [
+     16
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 16)",
+    "pages": [
+     16
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 16)",
+    "pages": [
+     16
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Initials missing on 230 page(s)",
+    "pages": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     26,
+     27,
+     28,
+     32,
+     34,
+     40,
+     41,
+     42,
+     43,
+     44,
+     45,
+     50,
+     52,
+     53,
+     54,
+     55,
+     57,
+     59,
+     62,
+     63,
+     65,
+     67,
+     68,
+     69,
+     70,
+     71,
+     72,
+     74,
+     75,
+     76,
+     78,
+     79,
+     80,
+     81,
+     83,
+     85,
+     86,
+     87,
+     90,
+     91,
+     92,
+     93,
+     94,
+     95,
+     96,
+     98,
+     99,
+     100,
+     101,
+     102,
+     103,
+     105,
+     106,
+     107,
+     108,
+     109,
+     110,
+     111,
+     112,
+     113,
+     115,
+     116,
+     117,
+     118,
+     120,
+     121,
+     123,
+     125,
+     127,
+     129,
+     131,
+     133,
+     135,
+     137,
+     139,
+     140,
+     141,
+     142,
+     143,
+     144,
+     146,
+     147,
+     148,
+     149,
+     150,
+     151,
+     152,
+     153,
+     154,
+     155,
+     156,
+     157,
+     158,
+     159,
+     160,
+     161,
+     162,
+     163,
+     164,
+     165,
+     166,
+     167,
+     168,
+     169,
+     171,
+     172,
+     175,
+     176,
+     177,
+     178,
+     179,
+     182,
+     183,
+     184,
+     185,
+     194,
+     199,
+     200,
+     201,
+     202,
+     203,
+     204,
+     206,
+     209,
+     211,
+     212,
+     213,
+     215,
+     218,
+     240,
+     241,
+     242,
+     243,
+     245,
+     246,
+     248,
+     249,
+     250,
+     251,
+     252,
+     253,
+     254,
+     257,
+     258,
+     259,
+     274,
+     281,
+     282,
+     289,
+     291,
+     296,
+     300,
+     301,
+     306,
+     309,
+     311,
+     313,
+     314,
+     316,
+     323,
+     328,
+     332,
+     335,
+     337,
+     338,
+     339,
+     344,
+     347,
+     349,
+     362,
+     369,
+     379,
+     380,
+     381,
+     382,
+     383,
+     390,
+     396,
+     397,
+     399,
+     400,
+     401,
+     402,
+     403,
+     405,
+     406,
+     407,
+     408,
+     409,
+     410,
+     411,
+     412,
+     413,
+     415,
+     417,
+     418,
+     419,
+     420,
+     421,
+     422,
+     423,
+     424,
+     425,
+     426,
+     427,
+     428,
+     429,
+     430,
+     431,
+     432,
+     433,
+     434,
+     435,
+     436,
+     438,
+     439,
+     440,
+     441,
+     442,
+     443,
+     444,
+     446,
+     447,
+     452,
+     454
+    ],
+    "severity": "medium"
+   }
+  ]
+ },
+ {
+  "folder": "8CE",
+  "rows": [
+   {
+    "case": "T8-TC-01",
+    "kind": "invalid",
+    "pages": [
+     56
+    ],
+    "expected": "CE grade below 8CE",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-02",
+    "kind": "invalid",
+    "pages": [
+     56
+    ],
+    "expected": "CIDB registration expired before closing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-03",
+    "kind": "mismatch",
+    "pages": [
+     1
+    ],
+    "expected": "CIDB number on the cover differs from the certificate",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-04",
+    "kind": "invalid",
+    "pages": [
+     62
+    ],
+    "expected": "Project below R60 million (no points) and value differs from Form A8",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-05",
+    "kind": "blank",
+    "pages": [
+     63
+    ],
+    "expected": "Client reference form unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-06",
+    "kind": "blank",
+    "pages": [
+     64
+    ],
+    "expected": "Client reference form not stamped",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-07",
+    "kind": "mismatch",
+    "pages": [
+     70
+    ],
+    "expected": "Contracts Manager experience below 10 years and differs from Form B7 (0/50)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-08",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Contracts Manager SACPCMP registration missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-09",
+    "kind": "mismatch",
+    "pages": [
+     72
+    ],
+    "expected": "Site Agent experience below 10 years and differs from Form B7 (0/30)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-10",
+    "kind": "blank",
+    "pages": [
+     77
+    ],
+    "expected": "OHS Officer qualification not certified (0/20)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-11",
+    "kind": "missing",
+    "pages": [],
+    "expected": "SMME plan item 4 missing; functionality below 224",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-12",
+    "kind": "mismatch",
+    "pages": [],
+    "expected": "ID on Form A2 differs from other documents and fails the checksum",
+    "result": "detected",
+    "matched": "SA ID number fails the checksum"
+   },
+   {
+    "case": "T8-TC-13",
+    "kind": "declaration",
+    "pages": [
+     24
+    ],
+    "expected": "Director in the service of the state declared",
+    "result": "wrong page",
+    "matched": "Missing: Declaration on State of Municipal Accounts and copy of current Municipal Account"
+   },
+   {
+    "case": "T8-TC-14",
+    "kind": "declaration",
+    "pages": [
+     53
+    ],
+    "expected": "Municipal arrears over 3 months declared and shown",
+    "result": "wrong page",
+    "matched": "Missing: Declaration on State of Municipal Accounts and copy of current Municipal Account"
+   },
+   {
+    "case": "T8-TC-15",
+    "kind": "date",
+    "pages": [
+     48
+    ],
+    "expected": "Municipal account older than 3 months",
+    "result": "wrong page",
+    "matched": "Missing: Declaration on State of Municipal Accounts and copy of current Municipal Account"
+   },
+   {
+    "case": "T8-TC-16",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Director municipal account missing",
+    "result": "detected",
+    "matched": "Missing: Declaration on State of Municipal Accounts and copy of current Municipal Account"
+   },
+   {
+    "case": "T8-TC-17",
+    "kind": "date",
+    "pages": [
+     52
+    ],
+    "expected": "MBD 5 dated after closing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-18",
+    "kind": "mismatch",
+    "pages": [
+     29
+    ],
+    "expected": "MBD 9 names a different tender",
+    "result": "page only",
+    "matched": "Company name differs between documents"
+   },
+   {
+    "case": "T8-TC-19",
+    "kind": "blank",
+    "pages": [
+     22
+    ],
+    "expected": "Form A1 unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-20",
+    "kind": "blank",
+    "pages": [
+     23
+    ],
+    "expected": "Resolution not signed by all directors",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-21",
+    "kind": "invalid",
+    "pages": [
+     44
+    ],
+    "expected": "Tax status non-compliant",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-22",
+    "kind": "mismatch",
+    "pages": [
+     1
+    ],
+    "expected": "Tax PIN on the cover differs from the SARS print-out",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-23",
+    "kind": "mismatch",
+    "pages": [
+     45
+    ],
+    "expected": "CSD number differs",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-24",
+    "kind": "date",
+    "pages": [
+     96
+    ],
+    "expected": "COIDA letter expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-25",
+    "kind": "declaration",
+    "pages": [
+     35
+    ],
+    "expected": "COID good standing denied on Form A10",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-26",
+    "kind": "mismatch",
+    "pages": [
+     37,
+     38
+    ],
+    "expected": "Bank account number differs between forms and bank letter",
+    "result": "wrong page",
+    "matched": "Company registration number differs between documents"
+   },
+   {
+    "case": "T8-TC-27",
+    "kind": "ink",
+    "pages": [
+     33
+    ],
+    "expected": "Form completed in pencil",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-28",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Letter of intent missing",
+    "result": "detected",
+    "matched": "Missing: Letter of Intent from a Financial Institution to provide a Construction Guarantee"
+   },
+   {
+    "case": "T8-TC-29",
+    "kind": "blank",
+    "pages": [
+     30
+    ],
+    "expected": "Pages not initialled",
+    "result": "page only",
+    "matched": "SBD 9: 2 of 4 pages found"
+   },
+   {
+    "case": "T8-TC-30",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Form A2 signature page missing",
+    "result": "detected",
+    "matched": "B-BBEE sworn affidavit: no official stamp"
+   },
+   {
+    "case": "T8-TC-31",
+    "kind": "duplicate",
+    "pages": [
+     37,
+     38
+    ],
+    "expected": "Duplicate page",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T8-TC-32",
+    "kind": "page order",
+    "pages": [
+     54
+    ],
+    "expected": "MBD 8 pages out of order",
+    "result": "detected",
+    "matched": "SBD 8: pages are out of order"
+   }
+  ],
+  "false_positives": [
+   {
+    "title": "Missing: Letter of Intent from a Financial Institution to provide a Construction Guarantee",
+    "pages": [],
+    "severity": "high"
+   },
+   {
+    "title": "B-BBEE sworn affidavit may be unsigned",
+    "pages": [
+     59
+    ],
+    "severity": "high"
+   },
+   {
+    "title": "B-BBEE sworn affidavit: no official stamp",
+    "pages": [
+     59
+    ],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 6.1: 1 of 5 pages found",
+    "pages": [
+     37
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: 6 pages found, the standard form has 4",
+    "pages": [
+     6,
+     18,
+     19,
+     21
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 9: 2 of 4 pages found",
+    "pages": [
+     30,
+     31
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "The CSD summary report is missing a section",
+    "pages": [
+     4
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: its pages are not together",
+    "pages": [
+     6,
+     18
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "CIPC registration certificate: its pages are not together",
+    "pages": [
+     11,
+     41
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Printed text crossed out on SBD 4 (page 19)",
+    "pages": [
+     19
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Printed text crossed out on SBD 4 (page 21)",
+    "pages": [
+     21
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 6)",
+    "pages": [
+     6
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 18)",
+    "pages": [
+     18
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 4 (page 18)",
+    "pages": [
+     18
+    ],
+    "severity": "medium"
+   }
+  ]
+ },
+ {
+  "folder": "9 CE",
+  "rows": [
+   {
+    "case": "T9-TC-01",
+    "kind": "blank",
+    "pages": [
+     34
+    ],
+    "expected": "Briefing attendance not confirmed by the Employer (check the attendance register)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-02",
+    "kind": "mismatch",
+    "pages": [
+     36
+    ],
+    "expected": "CIDB grading 8CE on the certificate, 9CE required",
+    "result": "wrong page",
+    "matched": "Missing: Valid CIDB certificate in the correct designated grading 9CE"
+   },
+   {
+    "case": "T9-TC-03",
+    "kind": "date",
+    "pages": [
+     40
+    ],
+    "expected": "CHSO professional registration lapsed",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-04",
+    "kind": "invalid",
+    "pages": [
+     38
+    ],
+    "expected": "Construction Manager not registered as Pr.CM",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-05",
+    "kind": "invalid",
+    "pages": [
+     241
+    ],
+    "expected": "Form of Offer signed by a person without authority",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-06",
+    "kind": "blank",
+    "pages": [
+     287
+    ],
+    "expected": "BOQ item 2.2 not priced",
+    "result": "page only",
+    "matched": "Subtotal does not equal the sum of its sections"
+   },
+   {
+    "case": "T9-TC-07",
+    "kind": "arithmetic",
+    "pages": [
+     287
+    ],
+    "expected": "Extension error on item 4.9 carried to the tender total",
+    "result": "page only",
+    "matched": "Subtotal does not equal the sum of its sections"
+   },
+   {
+    "case": "T9-TC-08",
+    "kind": "arithmetic",
+    "pages": [
+     284
+    ],
+    "expected": "Page total carried forward does not equal the sum of the page",
+    "result": "detected",
+    "matched": "Page total does not equal the items on the page"
+   },
+   {
+    "case": "T9-TC-09",
+    "kind": "arithmetic",
+    "pages": [
+     241
+    ],
+    "expected": "VAT on the Form of Offer is not 15 % of the offered total",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-10",
+    "kind": "mismatch",
+    "pages": [
+     268
+    ],
+    "expected": "Contract Data total of the Prices differs from the Form of Offer",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-11",
+    "kind": "mismatch",
+    "pages": [
+     241
+    ],
+    "expected": "CIDB number on the Form of Offer differs from the certificate",
+    "result": "wrong page",
+    "matched": "Missing: Valid CIDB certificate in the correct designated grading 9CE"
+   },
+   {
+    "case": "T9-TC-12",
+    "kind": "blank",
+    "pages": [
+     43
+    ],
+    "expected": "Reference letter unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-13",
+    "kind": "blank",
+    "pages": [
+     45
+    ],
+    "expected": "Reference letter without contract value",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-14",
+    "kind": "mismatch",
+    "pages": [
+     46
+    ],
+    "expected": "Reference issued to another company",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-15",
+    "kind": "blank",
+    "pages": [
+     54
+    ],
+    "expected": "Organogram shows 4 of 6 key personnel",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-16",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Construction Manager CV incomplete",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-17",
+    "kind": "blank",
+    "pages": [
+     75
+    ],
+    "expected": "PQP covers 3 of 5 requirements",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-18",
+    "kind": "missing",
+    "pages": [],
+    "expected": "QCP for dolos placement missing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-19",
+    "kind": "missing",
+    "pages": [],
+    "expected": "QO auditing certificate missing",
+    "result": "detected",
+    "matched": "Missing: Valid CIDB certificate in the correct designated grading 9CE"
+   },
+   {
+    "case": "T9-TC-20",
+    "kind": "blank",
+    "pages": [
+     91
+    ],
+    "expected": "H&S policy unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-21",
+    "kind": "arithmetic",
+    "pages": [
+     88
+    ],
+    "expected": "H&S cost total does not add up and differs from the BOQ",
+    "result": "wrong page",
+    "matched": "Page total does not equal the items on the page"
+   },
+   {
+    "case": "T9-TC-22",
+    "kind": "blank",
+    "pages": [
+     95
+    ],
+    "expected": "Baseline risk assessment covers 4 of 5 activities",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-23",
+    "kind": "blank",
+    "pages": [
+     109
+    ],
+    "expected": "Environmental policy unsigned",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-24",
+    "kind": "blank",
+    "pages": [
+     108
+    ],
+    "expected": "EMP misses incident and non-conformance reporting",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-25",
+    "kind": "blank",
+    "pages": [
+     106
+    ],
+    "expected": "Environmental declaration has one witness only",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-26",
+    "kind": "invalid",
+    "pages": [
+     123
+    ],
+    "expected": "Programme exceeds the 15-month contract period",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-27",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Method statement page missing (10 of 14 aspects)",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-28",
+    "kind": "invalid",
+    "pages": [
+     13
+    ],
+    "expected": "Tax status non-compliant",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-29",
+    "kind": "date",
+    "pages": [
+     176
+    ],
+    "expected": "B-BBEE certificate expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-30",
+    "kind": "date",
+    "pages": [
+     140
+    ],
+    "expected": "COID letter of good standing expired",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-31",
+    "kind": "mismatch",
+    "pages": [
+     11
+    ],
+    "expected": "CSD number on SBD1 differs from the CSD report",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-32",
+    "kind": "blank",
+    "pages": [
+     132
+    ],
+    "expected": "Authority certificate not signed",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-33",
+    "kind": "mismatch",
+    "pages": [
+     177
+    ],
+    "expected": "SBD 4 declares state employment without particulars",
+    "result": "detected",
+    "matched": "Could not locate the signature line on SBD 4"
+   },
+   {
+    "case": "T9-TC-34",
+    "kind": "date",
+    "pages": [
+     169
+    ],
+    "expected": "Questionnaire dated after closing",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-35",
+    "kind": "mismatch",
+    "pages": [
+     146
+    ],
+    "expected": "Subcontracting below 30 % on the schedule; amount differs from the agreement",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-36",
+    "kind": "blank",
+    "pages": [
+     163
+    ],
+    "expected": "Subcontract agreement unsigned by the subcontractor",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-37",
+    "kind": "blank",
+    "pages": [
+     152
+    ],
+    "expected": "Subcontractor affidavit not commissioned",
+    "result": "page only",
+    "matched": "Company registration number differs between documents"
+   },
+   {
+    "case": "T9-TC-38",
+    "kind": "invalid",
+    "pages": [
+     159
+    ],
+    "expected": "Subcontractor grade outside CIDB grades 1-6",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-39",
+    "kind": "arithmetic",
+    "pages": [
+     218
+    ],
+    "expected": "Job totals do not agree",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-40",
+    "kind": "invalid",
+    "pages": [
+     220
+    ],
+    "expected": "Motor vehicle cover below R 5 million",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-41",
+    "kind": "blank",
+    "pages": [
+     230
+    ],
+    "expected": "Guarantor confirmation not signed",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-42",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Only two years of financial statements",
+    "result": "missed",
+    "matched": ""
+   },
+   {
+    "case": "T9-TC-43",
+    "kind": "missing",
+    "pages": [],
+    "expected": "Form of Offer page missing",
+    "result": "missed",
+    "matched": ""
+   }
+  ],
+  "false_positives": [
+   {
+    "title": "Missing: Proof of registration on the Central Supplier Database",
+    "pages": [],
+    "severity": "high"
+   },
+   {
+    "title": "Missing: Valid CIDB certificate in the correct designated grading",
+    "pages": [],
+    "severity": "high"
+   },
+   {
+    "title": "SBD 6.1: 11 pages found, the standard form has 5",
+    "pages": [
+     29,
+     30,
+     33,
+     174
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: 2 of 4 pages found",
+    "pages": [
+     172,
+     181
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 9: 6 pages found, the standard form has 4",
+    "pages": [
+     182,
+     183,
+     194,
+     195
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 6.1: its pages are not together",
+    "pages": [
+     29,
+     174,
+     178,
+     222
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "B-BBEE sworn affidavit: its pages are not together",
+    "pages": [
+     153,
+     177
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 4: its pages are not together",
+    "pages": [
+     172,
+     181
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 9: pages are out of order",
+    "pages": [
+     183,
+     194
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SBD 6.1: subcontracting answer is answered Yes",
+    "pages": [
+     178
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Handwritten note outside the form fields on SBD 6.1 (page 178)",
+    "pages": [
+     178
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "SA ID number differs between documents",
+    "pages": [
+     153,
+     156,
+     159,
+     162,
+     165,
+     168
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Page total does not equal the items on the page",
+    "pages": [
+     293
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Page total does not equal the items on the page",
+    "pages": [
+     294
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Amount carried to the summary is not in the summary",
+    "pages": [
+     293
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 9 (page 182)",
+    "pages": [
+     182
+    ],
+    "severity": "medium"
+   },
+   {
+    "title": "Unexplained mark on SBD 6.1 (page 223)",
+    "pages": [
+     223
+    ],
+    "severity": "medium"
+   }
+  ]
+ }
+]

@@ -1,0 +1,711 @@
+{
+ "requirements": {
+  "closing_date": "",
+  "closing_time": "",
+  "submit_to_email": "",
+  "reference": "",
+  "local_content_required": false,
+  "local_content_basis": "the RFQ asks for SBD 6.2 and Annexure C only 'where there is local content' and neither the RFQ nor the specification names a designated sector or a local content threshold",
+  "local_content_negated": false,
+  "local_content_negated_quote": "",
+  "min_quote_validity_days": 0,
+  "documents": [
+   {
+    "id": "tcc",
+    "label": "Valid Tax Clearance Certificate / Tax Pin Number",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "A copy of a valid Tax Clearance Certificate Tax Pin Number.",
+    "conditional": ""
+   },
+   {
+    "id": "bbbee_certificate",
+    "label": "Valid B-BBEE status level verification certificate or sworn affidavit for EME",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "A valid original or certified copy of the B-BBEE status level verification certificate substantiating the B-BBEE rating or an EME must submit a sworn affidavit",
+    "conditional": ""
+   },
+   {
+    "id": "csd_report",
+    "label": "CSD Supplier Number and CSD Report",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "CSD SUPPLIER NUMBER",
+    "conditional": ""
+   },
+   {
+    "id": "annexure_c",
+    "label": "CIDB Grading Proof - Grade 5CE and 5GB or Higher",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Proof of CIDB Grading required. In the event of a JV a certificate indicating the combined CIDB grading is required.",
+    "conditional": ""
+   },
+   {
+    "id": "sbd4",
+    "label": "Declaration of Interest",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Declaration of Interest",
+    "conditional": ""
+   },
+   {
+    "id": "sbd9",
+    "label": "Certificate of Independent Bid Determination (MBD 9)",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "MBD 9: Certificate of Independent Bid Determination",
+    "conditional": ""
+   }
+  ],
+  "conditions": [],
+  "spec": {},
+  "notes": [
+   "Document requirement 'tcc' supplied by the AI model only",
+   "Document requirement 'bbbee_certificate' supplied by the AI model only",
+   "Document requirement 'csd_report' supplied by the AI model only",
+   "Document requirement 'annexure_c' supplied by the AI model only",
+   "Document requirement 'sbd4' supplied by the AI model only",
+   "Document requirement 'sbd9' supplied by the AI model only",
+   "LLM closing date dropped: source_quote not found in documents",
+   "LLM requirement dropped (quote not in source): Declaration of Bidder's Past Supply Chain Management Practices (MBD 8)",
+   "The tender text was longer than the model prompt limit (120,000 characters), so only its opening and the passages that mention requirements were sent to the model.",
+   "Requirements cross-checked: AI model + rules."
+  ]
+ },
+ "findings": [
+  {
+   "id": "F01",
+   "tier": "issue",
+   "severity": "high",
+   "category": "missing_document",
+   "title": "Missing: CSD Supplier Number and CSD Report",
+   "detail": "Required by the RFQ but no page was recognised as this document.",
+   "action": "Check the pack for this document.",
+   "rule": "RFQ: \"CSD SUPPLIER NUMBER\"",
+   "evidence": []
+  },
+  {
+   "id": "F02",
+   "tier": "issue",
+   "severity": "high",
+   "category": "missing_document",
+   "title": "Missing: CIDB Grading Proof - Grade 5CE and 5GB or Higher",
+   "detail": "Required by the RFQ but no page was recognised as this document.",
+   "action": "Check the pack for this document.",
+   "rule": "RFQ: \"Proof of CIDB Grading required. In the event of a JV a certificate indicating the combined CIDB grad\"",
+   "evidence": []
+  },
+  {
+   "id": "F09",
+   "tier": "issue",
+   "severity": "high",
+   "category": "unsigned",
+   "title": "B-BBEE sworn affidavit may be unsigned",
+   "detail": "No pen strokes were found above the signature line.",
+   "action": "Open the page and confirm a signature is present.",
+   "rule": "Form certification clause",
+   "evidence": [
+    {
+     "page": 70,
+     "note": "",
+     "source": "image",
+     "box": [
+      282,
+      631,
+      862,
+      1011
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F03",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 4: 7 pages found, the standard form has 4",
+   "detail": "More pages than the form as issued. A page may be duplicated or something may have been inserted.",
+   "action": "Check the pages listed.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 6,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 19,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 20,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 22,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F04",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 9: 2 of 4 pages found",
+   "detail": "Fewer pages than the standard form. A page of this form may be missing.",
+   "action": "Check the form for the missing page.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 32,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 33,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F05",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "Pack page 123 is blank",
+   "detail": "No printed text was found on this page. A blank sheet inside a bid pack is unusual: it can replace a removed page or hide something that was taken out.",
+   "action": "Check whether a page is missing here, or remove the blank sheet.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 123,
+     "note": "blank page",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F06",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "SBD 8: pages are out of order",
+   "detail": "The wording on pack page 61 comes earlier in the blank SBD 8 than the wording on the page before it (pack page 60). The form's pages may have been shuffled.",
+   "action": "Put the pages in the order the form was issued.",
+   "rule": "Standard form page order",
+   "evidence": [
+    {
+     "page": 60,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 61,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F10",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Printed text crossed out on SBD 4 (page 20)",
+   "detail": "A vision check of the page found this (vision, confirmed by a second look). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 20,
+     "note": "Printed text crossed out",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F11",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Printed text crossed out on SBD 4 (page 22)",
+   "detail": "A vision check of the page found this (vision, confirmed by a second look). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 22,
+     "note": "Printed text crossed out",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F12",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Entry overwritten or covered on SBD 4 (page 6)",
+   "detail": "A vision check of the page found this (vision; a non-AI check of the page image also found ink there; a second, differently worded look did not confirm it). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 6,
+     "note": "Entry overwritten or covered",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F13",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Entry overwritten or covered on SBD 4 (page 20)",
+   "detail": "A vision check of the page found this (vision; a non-AI check of the page image also found ink there; a second, differently worded look did not confirm it). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 20,
+     "note": "Entry overwritten or covered",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F14",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Entry overwritten or covered on SBD 4 (page 22)",
+   "detail": "A vision check of the page found this (vision; a non-AI check of the page image also found ink there; a second, differently worded look did not confirm it). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 22,
+     "note": "Entry overwritten or covered",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F15",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 6)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 6,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      1137,
+      326,
+      1232,
+      379
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F16",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 19)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 19,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      182,
+      161,
+      290,
+      218
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F17",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 19)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 19,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      192,
+      608,
+      279,
+      641
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F18",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 19)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 19,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      290,
+      632,
+      388,
+      668
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F19",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 19)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 19,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      174,
+      1628,
+      296,
+      1703
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F20",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 20)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 20,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      172,
+      1594,
+      248,
+      1629
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F21",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 20)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 20,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      172,
+      1637,
+      293,
+      1681
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F22",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 22)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 22,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      174,
+      167,
+      249,
+      201
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F23",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 22)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 22,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      163,
+      1623,
+      285,
+      1698
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F07",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "check_crop",
+   "title": "Could not locate the signature line on SBD 4",
+   "detail": "The page expected to carry the signature (the last page of the form) has no 'Signature' label. The signing page may be missing.",
+   "action": "Look at the form to confirm the signing page is there and signed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 27,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F08",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "check_crop",
+   "title": "Could not locate the signature line on SBD 8",
+   "detail": "The page expected to carry the signature (the last page of the form) has no 'Signature' label. The signing page may be missing.",
+   "action": "Look at the form to confirm the signing page is there and signed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 61,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  }
+ ],
+ "passed": [
+  {
+   "title": "Quotation / offer present (found by its wording)",
+   "note": "",
+   "pages": [
+    9,
+    21
+   ]
+  },
+  {
+   "title": "Required document present: Valid Tax Clearance Certificate / Tax Pin Number",
+   "note": "",
+   "pages": [
+    51,
+    52
+   ]
+  },
+  {
+   "title": "Required document present: Valid B-BBEE status level verification certificate or sworn affidavit for EME",
+   "note": "",
+   "pages": [
+    70,
+    71
+   ]
+  },
+  {
+   "title": "Required document present: Declaration of Interest",
+   "note": "",
+   "pages": [
+    6,
+    19,
+    20,
+    22,
+    25,
+    26,
+    27
+   ]
+  },
+  {
+   "title": "Required document present: Certificate of Independent Bid Determination (MBD 9)",
+   "note": "",
+   "pages": [
+    32,
+    33
+   ]
+  },
+  {
+   "title": "SBD 8: all 2 pages present",
+   "note": "",
+   "pages": [
+    60,
+    61
+   ]
+  },
+  {
+   "title": "No page appears twice",
+   "note": "",
+   "pages": []
+  },
+  {
+   "title": "SBD 9 signed (pen strokes found on the signature line)",
+   "note": "",
+   "pages": [
+    33
+   ]
+  },
+  {
+   "title": "SBD 4: all 2 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read; 11 could not be read",
+   "pages": [
+    27
+   ]
+  },
+  {
+   "title": "SBD 8: all 6 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    60,
+    61
+   ]
+  },
+  {
+   "title": "SBD 9: all 4 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    32,
+    33
+   ]
+  },
+  {
+   "title": "SARS tax compliance status: all 1 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    51
+   ]
+  },
+  {
+   "title": "B-BBEE sworn affidavit: all 2 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read; 2 could not be read",
+   "pages": [
+    71
+   ]
+  },
+  {
+   "title": "Everyone who signed or swore is the same person (SBD 4 agrees)",
+   "note": "",
+   "pages": [
+    27,
+    60
+   ]
+  },
+  {
+   "title": "Company registration number consistent across 3 pages",
+   "note": "201\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202207",
+   "pages": [
+    47,
+    52,
+    71
+   ]
+  },
+  {
+   "title": "Company name consistent across documents",
+   "note": "",
+   "pages": [
+    32
+   ]
+  },
+  {
+   "title": "Priced schedules add up (1 page(s) checked)",
+   "note": "",
+   "pages": [
+    93
+   ]
+  },
+  {
+   "title": "All 2 forms are dated the same day",
+   "note": "2026-06-19",
+   "pages": [
+    33,
+    60
+   ]
+  },
+  {
+   "title": "Initials present on all 209 pages",
+   "note": "",
+   "pages": []
+  }
+ ],
+ "ocr_variants": [],
+ "human_only": [
+  "SBD 4: could not be read: bidder name, identity number, position, registration number, tax reference number, question 2.7, question 2.8, question 2.9, question 2.10, question 2.11, date.",
+  "B-BBEE sworn affidavit: could not be read: date of commissioning, deponent's signature.",
+  "2 small isolated mark(s) on SBD/MBD forms were not reported: none touched a signature line or an amount. Marks that are large, over printed text, or in those places are still reported.",
+  "OCR confidence was below 80% on pages [5, 7, 21, 39, 40, 44, 45, 62, 72, 78, 80, 116, 117, 122, 123, 125, 130, 131, 132, 134, 135, 149, 151, 158]: anything read from those pages by OCR alone should be checked by eye.",
+  "Whether the bidder was one of the suppliers actually invited (RFQ: uninvited suppliers may be disqualified). The pack does not show the invitation.",
+  "That the quote was emailed to the central address before  on . That needs the sent-email timestamp, which is not in the pack.",
+  "SARS TCS PIN, CSD record and the National Treasury restricted-suppliers and tender-defaulters registers would need live look-ups. The prototype reads the printed copies only."
+ ]
+}

@@ -1,0 +1,2162 @@
+{
+ "requirements": {
+  "closing_date": "",
+  "closing_time": "",
+  "submit_to_email": "",
+  "reference": "",
+  "local_content_required": true,
+  "local_content_basis": "the buyer's documents mention: 'designated sector'",
+  "local_content_negated": false,
+  "local_content_negated_quote": "",
+  "min_quote_validity_days": 0,
+  "documents": [],
+  "conditions": [],
+  "spec": {},
+  "notes": [
+   "AI model call failed (LLMError: timed out after 300 s contacting https://api.fireworks.ai/inference/v1 (accounts/fireworks/models/muse-spark-open)); used rules only.",
+   "Requirements built by rules only (no model endpoint configured)."
+  ]
+ },
+ "findings": [
+  {
+   "id": "F13",
+   "tier": "issue",
+   "severity": "high",
+   "category": "unsigned",
+   "title": "SBD 8 may be unsigned",
+   "detail": "No pen strokes were found above the signature line.",
+   "action": "Open the page and confirm a signature is present.",
+   "rule": "Form certification clause",
+   "evidence": [
+    {
+     "page": 56,
+     "note": "",
+     "source": "image",
+     "box": [
+      278,
+      1206,
+      858,
+      1392
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F14",
+   "tier": "issue",
+   "severity": "high",
+   "category": "unsigned",
+   "title": "SBD 9 may be unsigned",
+   "detail": "No pen strokes were found above the signature line.",
+   "action": "Open the page and confirm a signature is present.",
+   "rule": "Form certification clause",
+   "evidence": [
+    {
+     "page": 59,
+     "note": "",
+     "source": "image",
+     "box": [
+      277,
+      621,
+      857,
+      807
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F01",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 6.1: 9 pages found, the standard form has 5",
+   "detail": "More pages than the form as issued. A page may be duplicated or something may have been inserted.",
+   "action": "Check the pages listed.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 35,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 44,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 63,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 64,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F02",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 4: 8 pages found, the standard form has 4",
+   "detail": "More pages than the form as issued. A page may be duplicated or something may have been inserted.",
+   "action": "Check the pages listed.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 15,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 16,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 19,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 46,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F03",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 9: 3 of 4 pages found",
+   "detail": "Fewer pages than the standard form. A page of this form may be missing.",
+   "action": "Check the form for the missing page.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 57,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 58,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 59,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F04",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "The CSD summary report is missing a section",
+   "detail": "Not found in the CSD pages: supplier identification, commodity list, B-BBEE information, tax status. A page of the report may be missing.",
+   "action": "Check the CSD report is complete.",
+   "rule": "RFQ: latest CSD summary report",
+   "evidence": [
+    {
+     "page": 79,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 81,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F06",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "SBD 4: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[15, 16, 19], [46, 47, 52, 53, 54]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 15,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 46,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F07",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "Voided form: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[28], [69]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 28,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 69,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F08",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "B-BBEE sworn affidavit: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[29], [70]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 29,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 70,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F09",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "SBD 6.1: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[35, 44], [63, 64, 65, 66, 67, 68], [259]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 35,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 63,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 259,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F10",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "CSD summary report: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[79], [81]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 79,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 81,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F11",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "SARS tax compliance status: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[80], [82]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 80,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 82,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F23",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Page total does not equal the items on the page",
+   "detail": "Brought forward 0.00 plus the page's items 646,324.50 is 646,324.50, but the page carries forward 647,116.50. Page 231, read by the vision model and confirmed by a second reading.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 231,
+     "note": "carried",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F24",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Page total does not equal the items on the page",
+   "detail": "Brought forward 0.00 plus the page's items 531,000.00 is 531,000.00, but the page carries forward 591,000.00. Page 234, read by the vision model and confirmed by a second reading.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 234,
+     "note": "carried",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F28",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Carried forward differs from what the next page brings forward",
+   "detail": "Page 235 carries forward 5,024,100.00; page 236 brings forward 5,024,700.00. Page 235, read by the vision model and confirmed by a second reading.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 235,
+     "note": "to236",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F33",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 15)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 15,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      140,
+      275,
+      222,
+      305
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F34",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 15)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 15,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      140,
+      416,
+      222,
+      446
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F35",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 15)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 15,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      140,
+      556,
+      222,
+      587
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F36",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 15)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 15,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      140,
+      697,
+      221,
+      728
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F37",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 15)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 15,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      140,
+      938,
+      221,
+      969
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F38",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 16)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 16,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      139,
+      570,
+      221,
+      601
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F39",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 16)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 16,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      140,
+      919,
+      222,
+      950
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F40",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "initials",
+   "title": "Initials missing on 190 page(s)",
+   "detail": "Pages [1, 3, 4, 6, 14, 25, 29, 30, 31, 38, 41, 43, 45, 47, 48, 49, 51, 53, 54, 56, 59, 61, 64, 66, 67, 68, 71, 72, 73, 74, 76, 77, 80, 81, 82, 87, 88, 89, 95, 96, 97, 98, 104, 105, 106, 108, 110, 111, 113, 114, 116, 118, 119, 120, 121, 122, 123, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 187, 189, 190, 191, 192, 193, 194, 202, 207, 208, 210, 211, 212, 213, 214, 216, 217, 219, 220, 225, 226, 232, 235, 236, 237, 238, 239, 242, 243, 244, 245, 246, 251, 252, 259, 291, 292, 293, 294, 296, 297, 306, 313, 317, 318, 319, 320, 323, 324, 325, 326, 327, 329, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 342, 343, 344, 345, 347, 348, 349, 350, 351, 352, 353, 354, 355, 357, 358, 359, 360, 363, 364, 366, 367, 375] have no initials in the bottom-right corner. A page without them may have been replaced or added after the pack was initialled.",
+   "action": "Check these pages are the originals.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 1,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 3,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 4,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 6,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 14,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 25,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 29,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 30,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 31,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 38,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 41,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 43,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 45,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 47,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 48,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 49,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 51,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 53,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 54,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 56,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 59,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 61,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 64,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 66,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 67,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 68,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 71,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 72,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 73,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 74,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 76,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 77,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 80,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 81,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 82,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 87,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 88,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 89,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 95,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 96,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 97,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 98,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 104,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 105,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 106,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 108,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 110,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 111,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 113,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 114,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 116,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 118,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 119,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 120,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 121,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 122,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 123,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 127,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 128,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 129,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 130,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 131,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 132,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 133,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 134,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 135,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 136,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 137,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 138,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 139,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 140,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 141,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 142,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 143,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 144,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 147,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 148,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 149,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 150,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 151,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 152,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 153,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 154,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 155,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 156,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 157,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 158,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 159,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 160,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 162,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 163,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 164,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 165,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 166,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 167,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 168,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 169,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 170,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 171,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 172,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 173,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 174,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 175,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 176,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 177,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 187,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 189,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 190,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 191,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 192,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 193,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 194,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 202,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 207,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 208,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 210,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 211,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 212,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 213,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 214,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 216,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 217,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 219,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 220,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 225,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 226,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 232,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 235,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 236,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 237,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 238,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 239,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 242,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 243,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 244,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 245,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 246,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 251,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 252,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 259,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 291,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 292,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 293,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 294,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 296,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 297,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 306,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 313,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 317,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 318,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 319,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 320,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 323,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 324,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 325,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 326,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 327,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 329,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 331,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 332,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 333,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 334,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 335,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 336,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 337,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 338,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 339,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 340,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 342,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 343,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 344,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 345,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 347,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 348,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 349,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 350,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 351,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 352,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 353,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 354,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 355,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 357,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 358,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 359,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 360,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 363,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 364,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 366,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 367,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 375,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F05",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "Duplicate page: pages 154 and 155 look like the same page",
+   "detail": "The two page images match closely (correlation 0.986) and 87% of their words are shared. Separate scans of the same sheet are never byte-identical, so this is judged from how they look. It is a lead: consecutive forms of the same kind can look alike.",
+   "action": "Compare the two pages. If one is a copy, remove it or confirm it is intended.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 154,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 155,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F12",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "check_crop",
+   "title": "Could not locate the signature line on SBD 6.1",
+   "detail": "The page expected to carry the signature (the last page of the form) has no 'Signature' label. The signing page may be missing.",
+   "action": "Look at the form to confirm the signing page is there and signed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 259,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F15",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "check_crop",
+   "title": "Could not locate the signature line on B-BBEE sworn affidavit",
+   "detail": "The page expected to carry the signature (the last page of the form) has no 'Signature' label. The signing page may be missing.",
+   "action": "Look at the form to confirm the signing page is there and signed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 29,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F16",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "unsigned",
+   "title": "SBD 6.1: only 0 witness signature(s)",
+   "detail": "The form needs two witnesses (read by the vision model).",
+   "action": "Get the missing witness signature(s).",
+   "rule": "SBD 6.1",
+   "evidence": [
+    {
+     "page": 65,
+     "note": "witness signatures",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F17",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 9: bid description is blank",
+   "detail": "Nothing is written or ticked for the bid description (page 58, read by the vision model). The form has to be completed in full.",
+   "action": "Complete the entry and re-sign if needed.",
+   "rule": "Standard form must be completed in full",
+   "evidence": [
+    {
+     "page": 58,
+     "note": "bid description",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F18",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 9: institution is blank",
+   "detail": "Nothing is written or ticked for the institution (page 58, read by the vision model). The form has to be completed in full.",
+   "action": "Complete the entry and re-sign if needed.",
+   "rule": "Standard form must be completed in full",
+   "evidence": [
+    {
+     "page": 58,
+     "note": "institution",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F19",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Page cut off at the edge on SBD 4 (page 15)",
+   "detail": "A vision check of the page found this (vision; a second, differently worded look did not confirm it). Part of the page may be missing from the scan, so something on it may not have been read.",
+   "action": "Compare with the paper copy; ask for a complete scan of the page if anything is cut off.",
+   "rule": "Every page of the pack must be complete and legible",
+   "evidence": [
+    {
+     "page": 15,
+     "note": "Page cut off at the edge",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F20",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "inconsistency",
+   "title": "Company name differs between documents",
+   "detail": "KEABETSWE NOMSA LEHUMO; LEHUMO SANITATION WORKS (PTY) LTD",
+   "action": "Compare with the CIPC certificate.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 52,
+     "note": "'KEABETSWE NOMSA LEHUMO'",
+     "source": "vision",
+     "box": null
+    },
+    {
+     "page": 65,
+     "note": "'LEHUMO SANITATION WORKS (PTY) LTD'",
+     "source": "vision",
+     "box": null
+    },
+    {
+     "page": 58,
+     "note": "'LEHUMO SANITATION WORKS (PTY) LTD'",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F21",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Item 202.01.04: amount is not quantity x rate",
+   "detail": "250 x 151.00 = 37,750.00, but the amount written is 39,250.00. Page 230, read by the vision model; a second reading did not reproduce it.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 230,
+     "note": "202.01.04",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F22",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Item 202.01.05: amount is not quantity x rate",
+   "detail": "150 x 115.00 = 17,250.00, but the amount written is 26,250.00. Page 230, read by the vision model; a second reading did not reproduce it.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 230,
+     "note": "202.01.05",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F25",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Item B304.01.02: amount is not quantity x rate",
+   "detail": "600 x 1 297.50 = 778,500.00, but the amount written is 718,500.00. Page 235, read by the vision model; a second reading did not reproduce it.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 235,
+     "note": "B304.01.02",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F26",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Page total does not equal the items on the page",
+   "detail": "Brought forward 0.00 plus the page's items 4,904,700.00 is 4,904,700.00, but the page carries forward 5,024,100.00. Page 235, read by the vision model; a second reading did not reproduce it.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 235,
+     "note": "carried",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F27",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Carried forward differs from what the next page brings forward",
+   "detail": "Page 231 carries forward 647,116.50; page 232 brings forward 647,176.50. Page 231, read by the vision model; a second reading did not reproduce it.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 231,
+     "note": "to232",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F29",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Amount carried to the summary is not in the summary",
+   "detail": "Page 230 carries 431,400.00 to the summary; the summary's section amounts are 21,066,470.00, 68,455.00, 138,037.50, 437,400.00, 5,267,129.00, 591,000.00, 5,024,700.00, 482,420.00. Page 230, read by the vision model; a second reading did not reproduce it.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 230,
+     "note": "summary431400",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F32",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "validity",
+   "title": "SBD 6.1: the date is not a valid date",
+   "detail": "The date was read as '9th NOVEMBER 2026' (page 66).",
+   "action": "Check the date on the form.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 66,
+     "note": "date",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F30",
+   "tier": "observation",
+   "severity": "low",
+   "category": "voided",
+   "title": "Form struck through (page 28)",
+   "detail": "A long diagonal line crosses this page, as a bidder does to cancel a form that does not apply. It was not checked for signatures, stamps or entries.",
+   "action": "Confirm the form really is not applicable to this bid.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 28,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F31",
+   "tier": "observation",
+   "severity": "low",
+   "category": "voided",
+   "title": "Form struck through (page 69)",
+   "detail": "A long diagonal line crosses this page, as a bidder does to cancel a form that does not apply. It was not checked for signatures, stamps or entries.",
+   "action": "Confirm the form really is not applicable to this bid.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 69,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  }
+ ],
+ "passed": [
+  {
+   "title": "Quotation / offer present (found by its wording)",
+   "note": "",
+   "pages": [
+    2,
+    7,
+    14,
+    20,
+    41,
+    43
+   ]
+  },
+  {
+   "title": "SBD 8: all 2 pages present",
+   "note": "",
+   "pages": [
+    55,
+    56
+   ]
+  },
+  {
+   "title": "SBD 4 signed (pen strokes found on the signature line)",
+   "note": "",
+   "pages": [
+    54
+   ]
+  },
+  {
+   "title": "SBD 4: all 9 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read; 5 could not be read",
+   "pages": [
+    52,
+    54
+   ]
+  },
+  {
+   "title": "SBD 8: all 5 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read; 1 could not be read",
+   "pages": [
+    55,
+    56
+   ]
+  },
+  {
+   "title": "SARS tax compliance status: all 1 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    82
+   ]
+  },
+  {
+   "title": "Everyone who signed or swore is the same person (SBD 8 agrees)",
+   "note": "",
+   "pages": [
+    54,
+    56
+   ]
+  },
+  {
+   "title": "Company registration number consistent across 8 pages",
+   "note": "201\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202207",
+   "pages": [
+    52,
+    65,
+    68,
+    80,
+    87,
+    88,
+    89,
+    108
+   ]
+  },
+  {
+   "title": "CSD supplier number consistent across 2 pages",
+   "note": "MAA\u2022\u2022\u2022\u2022\u2022\u202205",
+   "pages": [
+    79,
+    80
+   ]
+  },
+  {
+   "title": "SA ID number passes the checksum",
+   "note": "790\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202289",
+   "pages": [
+    52
+   ]
+  },
+  {
+   "title": "CSD number on the quote matches the CSD report",
+   "note": "",
+   "pages": [
+    79,
+    80
+   ]
+  },
+  {
+   "title": "All 3 forms are dated the same day",
+   "note": "2026-11-09",
+   "pages": [
+    54,
+    56,
+    59
+   ]
+  },
+  {
+   "title": "SBD 4 'not state-employed' agrees with CSD (no director is a government employee)",
+   "note": "",
+   "pages": [
+    52,
+    81
+   ]
+  }
+ ],
+ "ocr_variants": [],
+ "human_only": [
+  "SBD 6.1: could not be read: points claimed, subcontracting answer, company classification, years in business.",
+  "SBD 4: could not be read: question 2.8, question 2.9, question 2.10, question 2.11, declarant.",
+  "SBD 8: could not be read: question 4.4.",
+  "B-BBEE sworn affidavit: could not be read: date of commissioning, official stamp, commissioner's signature, deponent's signature.",
+  "1 handwritten note(s) reported by the vision model were not listed: the page image shows no ink outside the printed text and the entry fields at those places.",
+  "3 small isolated mark(s) on SBD/MBD forms were not reported: none touched a signature line or an amount. Marks that are large, over printed text, or in those places are still reported.",
+  "OCR confidence was below 80% on pages [45, 187, 226, 241, 339, 341, 361]: anything read from those pages by OCR alone should be checked by eye.",
+  "Whether the bidder was one of the suppliers actually invited (RFQ: uninvited suppliers may be disqualified). The pack does not show the invitation.",
+  "That the quote was emailed to the central address before  on . That needs the sent-email timestamp, which is not in the pack.",
+  "SARS TCS PIN, CSD record and the National Treasury restricted-suppliers and tender-defaulters registers would need live look-ups. The prototype reads the printed copies only."
+ ]
+}

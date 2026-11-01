@@ -1,0 +1,1322 @@
+{
+ "requirements": {
+  "closing_date": "2026-06-26",
+  "closing_time": "12:00",
+  "submit_to_email": "",
+  "reference": "",
+  "local_content_required": false,
+  "local_content_basis": "the RFQ asks for SBD 6.2 and Annexure C only 'where there is local content' and neither the RFQ nor the specification names a designated sector or a local content threshold",
+  "local_content_negated": false,
+  "local_content_negated_quote": "",
+  "min_quote_validity_days": 0,
+  "documents": [
+   {
+    "id": "authority_to_sign",
+    "label": "Authority to Sign Tender",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Authority to Sign Tender",
+    "conditional": ""
+   },
+   {
+    "id": "declaration_of_interest",
+    "label": "Declaration of Interest",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Declaration of Interest",
+    "conditional": ""
+   },
+   {
+    "id": "record_of_addenda",
+    "label": "Record of Addenda to Tender Documents",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Record of Addenda to Tender Documents",
+    "conditional": ""
+   },
+   {
+    "id": "banking_details",
+    "label": "Banking Details",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Banking Details",
+    "conditional": ""
+   },
+   {
+    "id": "proposed_amendments",
+    "label": "Proposed Amendments and Qualifications",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Proposed Amendments and Qualifications (if any)",
+    "conditional": ""
+   },
+   {
+    "id": "joint_venture_agreement",
+    "label": "Certificate of Authority for Joint Venture and Joint Venture Agreement",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Certificate of Authority for Joint Venture and Joint Venture Agreement (if applicable)",
+    "conditional": ""
+   },
+   {
+    "id": "sbd5",
+    "label": "MBD 5: Declaration for Procurement above R10 million",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "MBD 5: Declaration for Procurement above R10 million",
+    "conditional": ""
+   },
+   {
+    "id": "sbd8",
+    "label": "MBD 8: Declaration of Bidder\u2019s Past Supply Chain Management Practices",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "MBD 8: Declaration of Bidder\u2019s Past Supply Chain Management Practices",
+    "conditional": ""
+   },
+   {
+    "id": "sbd9",
+    "label": "MBD 9: Certificate of Independent Bid Determination",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "MBD 9: Certificate of Independent Bid Determination",
+    "conditional": ""
+   },
+   {
+    "id": "particulars_contracts_organ_of_state",
+    "label": "Particulars of all Contracts awarded by an Organ of State during the last 5 years",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Particulars of all Contracts awarded by an Organ of State during the last 5 years",
+    "conditional": ""
+   },
+   {
+    "id": "fulfilment_construction_regulations",
+    "label": "Fulfilment of the Construction Regulations",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Fulfilment of the Construction Regulations",
+    "conditional": ""
+   },
+   {
+    "id": "questionnaire_ohsa",
+    "label": "Questionnaire on Tenderer\u2019s Procedures with respect to OHSA and Construction Regulations",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Questionnaire on Tenderer\u2019s Procedures with respect to OHSA and Construction Regulations",
+    "conditional": ""
+   },
+   {
+    "id": "business_declaration",
+    "label": "Business Declaration",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Business Declaration",
+    "conditional": ""
+   },
+   {
+    "id": "tcc",
+    "label": "Valid Tax Clearance Certificate / Tax Pin Number",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "A copy of a valid Tax Clearance Certificate Tax Pin Number.",
+    "conditional": ""
+   },
+   {
+    "id": "municipal_account",
+    "label": "Copy of current Municipal Account in name of Tenderer or Directors/Partners",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Copy of current Municipal Account in the name of the Tenderer or alternatively, in the names of the Directors/Partners of the tendering entity",
+    "conditional": ""
+   },
+   {
+    "id": "letter_of_intent_guarantee",
+    "label": "Letter of Intent from Financial Institution to provide Construction Guarantee",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Letter of Intent from a Financial Institution to provide a Construction Guarantee in accordance with the JBCC form (Refer C1.3)",
+    "conditional": ""
+   },
+   {
+    "id": "cidb_grading",
+    "label": "Proof of CIDB Grading 5CE and 5GB or Higher",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Proof of CIDB Grading required. In the event of a JV a certificate indicating the combined CIDB grading is required.",
+    "conditional": ""
+   },
+   {
+    "id": "bbbee_certificate",
+    "label": "Valid B-BBEE status level verification certificate or sworn affidavit for EME",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "A valid original or certified copy of the B-BBEE status level verification certificate substantiating the B-BBEE rating or an EME must submit a sworn affidavit",
+    "conditional": ""
+   },
+   {
+    "id": "schedule_recently_completed_contracts",
+    "label": "Schedule of Recently Completed Contracts",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Schedule of Recently Completed Contracts",
+    "conditional": ""
+   },
+   {
+    "id": "project_verification_form",
+    "label": "Project Verification Form",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Project Verification Form",
+    "conditional": ""
+   },
+   {
+    "id": "schedule_current_contracts",
+    "label": "Schedule of Current Contracts",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Schedule of Current Contracts",
+    "conditional": ""
+   },
+   {
+    "id": "schedule_plant_equipment",
+    "label": "Schedule of Construction Plant, Equipment and labour",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Schedule of Construction Plant, Equipment and labour",
+    "conditional": ""
+   },
+   {
+    "id": "schedule_subcontractors",
+    "label": "Schedule of Proposed Subcontractors",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Schedule of Proposed Subcontractors",
+    "conditional": ""
+   },
+   {
+    "id": "schedule_key_personnel",
+    "label": "Schedule of Proposed Key Personnel and detailed Curricula Vitae",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Schedule of Proposed Key Personnel and detailed Curricula Vitae of all Key Personnel",
+    "conditional": ""
+   },
+   {
+    "id": "estimated_monthly_expenditure",
+    "label": "Estimated Monthly Expenditure",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Estimated Monthly Expenditure",
+    "conditional": ""
+   },
+   {
+    "id": "methodology_statement",
+    "label": "Methodology Statement",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Methodology Statement",
+    "conditional": ""
+   },
+   {
+    "id": "preliminary_construction_programme",
+    "label": "Preliminary Construction Programme",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Preliminary Construction Programme",
+    "conditional": ""
+   },
+   {
+    "id": "histograms",
+    "label": "Labour, Plant and Equipment Histograms",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Labour, Plant and Equipment Histograms",
+    "conditional": ""
+   },
+   {
+    "id": "audited_financial_statements",
+    "label": "Audited Financial Statements for past 3 years",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Audited Financial Statements for past 3 years",
+    "conditional": ""
+   },
+   {
+    "id": "bank_rating",
+    "label": "Bank Rating",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "Bank Rating",
+    "conditional": ""
+   },
+   {
+    "id": "smme_plan",
+    "label": "SMME Plan",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "SMME Plan",
+    "conditional": ""
+   },
+   {
+    "id": "csd_report",
+    "label": "CSD Report",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "CSD Report",
+    "conditional": ""
+   },
+   {
+    "id": "annexure_c",
+    "label": "Annexure C - Health and Safety Specification compliance",
+    "source_doc": "Panel of Main Contractors 5CE 5GB Fv2.pdf.pdf",
+    "source_quote": "compliance with the employer\u2019s health and safety specification attached as Annexure C, the Construction Regulations, all applicable health & safety laws and regulations",
+    "conditional": ""
+   }
+  ],
+  "conditions": [],
+  "spec": {},
+  "notes": [
+   "closing_date supplied by the AI model only",
+   "closing_time supplied by the AI model only",
+   "Document requirement 'authority_to_sign' supplied by the AI model only",
+   "Document requirement 'declaration_of_interest' supplied by the AI model only",
+   "Document requirement 'record_of_addenda' supplied by the AI model only",
+   "Document requirement 'banking_details' supplied by the AI model only",
+   "Document requirement 'proposed_amendments' supplied by the AI model only",
+   "Document requirement 'joint_venture_agreement' supplied by the AI model only",
+   "Document requirement 'sbd5' supplied by the AI model only",
+   "Document requirement 'sbd8' supplied by the AI model only",
+   "Document requirement 'sbd9' supplied by the AI model only",
+   "Document requirement 'particulars_contracts_organ_of_state' supplied by the AI model only",
+   "Document requirement 'fulfilment_construction_regulations' supplied by the AI model only",
+   "Document requirement 'questionnaire_ohsa' supplied by the AI model only",
+   "Document requirement 'business_declaration' supplied by the AI model only",
+   "Document requirement 'tcc' supplied by the AI model only",
+   "Document requirement 'municipal_account' supplied by the AI model only",
+   "Document requirement 'letter_of_intent_guarantee' supplied by the AI model only",
+   "Document requirement 'cidb_grading' supplied by the AI model only",
+   "Document requirement 'bbbee_certificate' supplied by the AI model only",
+   "Document requirement 'schedule_recently_completed_contracts' supplied by the AI model only",
+   "Document requirement 'project_verification_form' supplied by the AI model only",
+   "Document requirement 'schedule_current_contracts' supplied by the AI model only",
+   "Document requirement 'schedule_plant_equipment' supplied by the AI model only",
+   "Document requirement 'schedule_subcontractors' supplied by the AI model only",
+   "Document requirement 'schedule_key_personnel' supplied by the AI model only",
+   "Document requirement 'estimated_monthly_expenditure' supplied by the AI model only",
+   "Document requirement 'methodology_statement' supplied by the AI model only",
+   "Document requirement 'preliminary_construction_programme' supplied by the AI model only",
+   "Document requirement 'histograms' supplied by the AI model only",
+   "Document requirement 'audited_financial_statements' supplied by the AI model only",
+   "Document requirement 'bank_rating' supplied by the AI model only",
+   "Document requirement 'smme_plan' supplied by the AI model only",
+   "Document requirement 'csd_report' supplied by the AI model only",
+   "Document requirement 'annexure_c' supplied by the AI model only",
+   "LLM requirement dropped (quote not in source): Full Active Agr\u00e9ment certificate",
+   "LLM condition dropped (quote not in source): Tender validity 180 days",
+   "The tender text was longer than the model prompt limit (120,000 characters), so only its opening and the passages that mention requirements were sent to the model.",
+   "Requirements cross-checked: AI model + rules."
+  ]
+ },
+ "findings": [
+  {
+   "id": "F01",
+   "tier": "issue",
+   "severity": "high",
+   "category": "missing_document",
+   "title": "Missing: CSD Report",
+   "detail": "Required by the RFQ but no page was recognised as this document.",
+   "action": "Check the pack for this document.",
+   "rule": "RFQ: \"CSD Report\"",
+   "evidence": []
+  },
+  {
+   "id": "F02",
+   "tier": "issue",
+   "severity": "high",
+   "category": "missing_document",
+   "title": "Missing: Annexure C - Health and Safety Specification compliance",
+   "detail": "Required by the RFQ but no page was recognised as this document.",
+   "action": "Check the pack for this document.",
+   "rule": "RFQ: \"compliance with the employer\u2019s health and safety specification attached as Annexure C, the Construct\"",
+   "evidence": []
+  },
+  {
+   "id": "F06",
+   "tier": "issue",
+   "severity": "high",
+   "category": "unsigned",
+   "title": "B-BBEE sworn affidavit may be unsigned",
+   "detail": "No pen strokes were found above the signature line.",
+   "action": "Open the page and confirm a signature is present.",
+   "rule": "Form certification clause",
+   "evidence": [
+    {
+     "page": 72,
+     "note": "",
+     "source": "image",
+     "box": [
+      282,
+      632,
+      862,
+      1012
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F03",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 4: 8 pages found, the standard form has 4",
+   "detail": "More pages than the form as issued. A page may be duplicated or something may have been inserted.",
+   "action": "Check the pages listed.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 6,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 19,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 20,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 22,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F04",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 9: 2 of 4 pages found",
+   "detail": "Fewer pages than the standard form. A page of this form may be missing.",
+   "action": "Check the form for the missing page.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 33,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 34,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F05",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "SBD 4: pages are out of order",
+   "detail": "The wording on pack page 28 comes earlier in the blank SBD 4 than the wording on the page before it (pack page 27). The form's pages may have been shuffled.",
+   "action": "Put the pages in the order the form was issued.",
+   "rule": "Standard form page order",
+   "evidence": [
+    {
+     "page": 27,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 28,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F07",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Printed text crossed out on SBD 4 (page 6)",
+   "detail": "A vision check of the page found this (vision, confirmed by a second look). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 6,
+     "note": "Printed text crossed out",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F08",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Printed text crossed out on SBD 4 (page 20)",
+   "detail": "A vision check of the page found this (vision, confirmed by a second look). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 20,
+     "note": "Printed text crossed out",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F09",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Printed text crossed out on SBD 4 (page 22)",
+   "detail": "A vision check of the page found this (vision, confirmed by a second look). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 22,
+     "note": "Printed text crossed out",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F10",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Entry overwritten or covered on SBD 4 (page 6)",
+   "detail": "A vision check of the page found this (vision; a non-AI check of the page image also found ink there; a second, differently worded look did not confirm it). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 6,
+     "note": "Entry overwritten or covered",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F11",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Entry overwritten or covered on SBD 4 (page 20)",
+   "detail": "A vision check of the page found this (vision; a non-AI check of the page image also found ink there; a second, differently worded look did not confirm it). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 20,
+     "note": "Entry overwritten or covered",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F12",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Entry overwritten or covered on SBD 4 (page 22)",
+   "detail": "A vision check of the page found this (vision; a non-AI check of the page image also found ink there; a second, differently worded look did not confirm it). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 22,
+     "note": "Entry overwritten or covered",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F16",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 6)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 6,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      1139,
+      329,
+      1235,
+      382
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F17",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 19)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 19,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      196,
+      156,
+      294,
+      188
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F18",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 19)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 19,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      195,
+      603,
+      283,
+      636
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F19",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 19)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 19,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      293,
+      628,
+      392,
+      664
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F20",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 19)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 19,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      163,
+      1622,
+      284,
+      1698
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F21",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 20)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 20,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      169,
+      1592,
+      246,
+      1627
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F22",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 20)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 20,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      169,
+      1636,
+      291,
+      1679
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F23",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 22)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 22,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      170,
+      169,
+      246,
+      203
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F24",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 4 (page 22)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 22,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      167,
+      1625,
+      289,
+      1700
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F13",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Page cut off at the edge on SBD 4 (page 27)",
+   "detail": "A vision check of the page found this (vision; a second, differently worded look did not confirm it). Part of the page may be missing from the scan, so something on it may not have been read.",
+   "action": "Compare with the paper copy; ask for a complete scan of the page if anything is cut off.",
+   "rule": "Every page of the pack must be complete and legible",
+   "evidence": [
+    {
+     "page": 27,
+     "note": "Page cut off at the edge",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F14",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "inconsistency",
+   "title": "Company name differs between documents",
+   "detail": "LERATO NOMSA MASHABA; THABONG MODULAR STRUCTURES (PTY) LTD",
+   "action": "Compare with the CIPC certificate.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 33,
+     "note": "'THABONG MODULAR STRUCTURES (PTY) LTD'",
+     "source": "vision",
+     "box": null
+    },
+    {
+     "page": 25,
+     "note": "'LERATO NOMSA MASHABA'",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F15",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "inconsistency",
+   "title": "Forms are signed on different dates",
+   "detail": "SBD 4: 2024-06-19; SBD 8: 2026-06-19; SBD 9: 2026-06-19",
+   "action": "Check the dates.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 28,
+     "note": "",
+     "source": "vision",
+     "box": null
+    },
+    {
+     "page": 62,
+     "note": "",
+     "source": "vision",
+     "box": null
+    },
+    {
+     "page": 34,
+     "note": "",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  }
+ ],
+ "passed": [
+  {
+   "title": "Quotation / offer present (found by its wording)",
+   "note": "",
+   "pages": [
+    9,
+    21,
+    167
+   ]
+  },
+  {
+   "title": "Required document present: Authority to Sign Tender",
+   "note": "",
+   "pages": [
+    6,
+    20,
+    22,
+    23,
+    32
+   ]
+  },
+  {
+   "title": "Required document present: Declaration of Interest",
+   "note": "",
+   "pages": [
+    6,
+    19,
+    20,
+    22,
+    25,
+    27
+   ]
+  },
+  {
+   "title": "Required document present: Record of Addenda to Tender Documents",
+   "note": "",
+   "pages": [
+    6,
+    20,
+    22,
+    29
+   ]
+  },
+  {
+   "title": "Required document present: Banking Details",
+   "note": "",
+   "pages": [
+    6,
+    20,
+    22,
+    30,
+    43,
+    44,
+    46
+   ]
+  },
+  {
+   "title": "Required document present: Proposed Amendments and Qualifications",
+   "note": "",
+   "pages": [
+    6,
+    20,
+    22,
+    31,
+    83,
+    84,
+    87,
+    90
+   ]
+  },
+  {
+   "title": "Required document present: Certificate of Authority for Joint Venture and Joint Venture Agreement",
+   "note": "",
+   "pages": [
+    6,
+    12,
+    23,
+    33,
+    72
+   ]
+  },
+  {
+   "title": "Required document present: MBD 5: Declaration for Procurement above R10 million",
+   "note": "",
+   "pages": [
+    6,
+    20,
+    22,
+    58
+   ]
+  },
+  {
+   "title": "Required document present: MBD 8: Declaration of Bidder\u2019s Past Supply Chain Management Practices",
+   "note": "",
+   "pages": [
+    61,
+    62
+   ]
+  },
+  {
+   "title": "Required document present: MBD 9: Certificate of Independent Bid Determination",
+   "note": "",
+   "pages": [
+    33,
+    34
+   ]
+  },
+  {
+   "title": "Required document present: Particulars of all Contracts awarded by an Organ of State during the last 5 years",
+   "note": "",
+   "pages": [
+    6,
+    18,
+    20,
+    22,
+    35,
+    58,
+    62
+   ]
+  },
+  {
+   "title": "Required document present: Fulfilment of the Construction Regulations",
+   "note": "",
+   "pages": [
+    6,
+    10,
+    11,
+    19,
+    20,
+    22,
+    37,
+    38
+   ]
+  },
+  {
+   "title": "Required document present: Questionnaire on Tenderer\u2019s Procedures with respect to OHSA and Construction Regulations",
+   "note": "",
+   "pages": [
+    6,
+    20,
+    22,
+    39
+   ]
+  },
+  {
+   "title": "Required document present: Business Declaration",
+   "note": "",
+   "pages": [
+    6,
+    20,
+    22,
+    27,
+    28,
+    41,
+    61,
+    63
+   ]
+  },
+  {
+   "title": "Required document present: Valid Tax Clearance Certificate / Tax Pin Number",
+   "note": "",
+   "pages": [
+    51,
+    52
+   ]
+  },
+  {
+   "title": "Required document present: Copy of current Municipal Account in name of Tenderer or Directors/Partners",
+   "note": "",
+   "pages": [
+    6,
+    20,
+    22,
+    53
+   ]
+  },
+  {
+   "title": "Required document present: Letter of Intent from Financial Institution to provide Construction Guarantee",
+   "note": "",
+   "pages": [
+    57
+   ]
+  },
+  {
+   "title": "Required document present: Proof of CIDB Grading 5CE and 5GB or Higher",
+   "note": "",
+   "pages": [
+    6,
+    8,
+    10,
+    18,
+    20,
+    22,
+    65,
+    66
+   ]
+  },
+  {
+   "title": "Required document present: Valid B-BBEE status level verification certificate or sworn affidavit for EME",
+   "note": "",
+   "pages": [
+    72,
+    73
+   ]
+  },
+  {
+   "title": "Required document present: Schedule of Recently Completed Contracts",
+   "note": "",
+   "pages": [
+    4,
+    6,
+    7,
+    9,
+    20,
+    22,
+    24,
+    74
+   ]
+  },
+  {
+   "title": "Required document present: Project Verification Form",
+   "note": "",
+   "pages": [
+    7,
+    17
+   ]
+  },
+  {
+   "title": "Required document present: Schedule of Current Contracts",
+   "note": "",
+   "pages": [
+    4,
+    6,
+    7,
+    9,
+    20,
+    22,
+    24,
+    74
+   ]
+  },
+  {
+   "title": "Required document present: Schedule of Construction Plant, Equipment and labour",
+   "note": "",
+   "pages": [
+    6,
+    7,
+    9,
+    20,
+    22,
+    38,
+    39,
+    74
+   ]
+  },
+  {
+   "title": "Required document present: Schedule of Proposed Subcontractors",
+   "note": "",
+   "pages": [
+    6,
+    7,
+    20,
+    22,
+    31,
+    82,
+    189
+   ]
+  },
+  {
+   "title": "Required document present: Schedule of Proposed Key Personnel and detailed Curricula Vitae",
+   "note": "",
+   "pages": [
+    7,
+    20,
+    22,
+    83
+   ]
+  },
+  {
+   "title": "Required document present: Estimated Monthly Expenditure",
+   "note": "",
+   "pages": [
+    182
+   ]
+  },
+  {
+   "title": "Required document present: Methodology Statement",
+   "note": "",
+   "pages": [
+    7,
+    20,
+    22,
+    106,
+    107,
+    108
+   ]
+  },
+  {
+   "title": "Required document present: Preliminary Construction Programme",
+   "note": "",
+   "pages": [
+    108,
+    109,
+    177,
+    184,
+    185,
+    206
+   ]
+  },
+  {
+   "title": "Required document present: Labour, Plant and Equipment Histograms",
+   "note": "",
+   "pages": [
+    7,
+    20,
+    22,
+    39,
+    81,
+    182,
+    185,
+    197
+   ]
+  },
+  {
+   "title": "Required document present: Audited Financial Statements for past 3 years",
+   "note": "",
+   "pages": [
+    7,
+    21,
+    22,
+    58,
+    111,
+    112,
+    113,
+    114
+   ]
+  },
+  {
+   "title": "Required document present: Bank Rating",
+   "note": "",
+   "pages": [
+    7,
+    16,
+    21,
+    22,
+    115,
+    116
+   ]
+  },
+  {
+   "title": "Required document present: SMME Plan",
+   "note": "",
+   "pages": [
+    7,
+    21,
+    22,
+    107,
+    117,
+    118,
+    119,
+    179
+   ]
+  },
+  {
+   "title": "SBD 8: all 2 pages present",
+   "note": "",
+   "pages": [
+    61,
+    62
+   ]
+  },
+  {
+   "title": "No page appears twice",
+   "note": "",
+   "pages": []
+  },
+  {
+   "title": "SBD 4 signed (pen strokes found on the signature line)",
+   "note": "",
+   "pages": [
+    28
+   ]
+  },
+  {
+   "title": "SBD 8 signed (pen strokes found on the signature line)",
+   "note": "",
+   "pages": [
+    62
+   ]
+  },
+  {
+   "title": "SBD 9 signed (pen strokes found on the signature line)",
+   "note": "",
+   "pages": [
+    34
+   ]
+  },
+  {
+   "title": "SBD 4: all 13 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read; 1 could not be read",
+   "pages": [
+    25,
+    26,
+    27,
+    28
+   ]
+  },
+  {
+   "title": "SBD 8: all 6 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    61,
+    62
+   ]
+  },
+  {
+   "title": "SBD 9: all 4 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    33,
+    34
+   ]
+  },
+  {
+   "title": "SARS tax compliance status: all 1 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    51
+   ]
+  },
+  {
+   "title": "B-BBEE sworn affidavit: all 3 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read; 1 could not be read",
+   "pages": [
+    73
+   ]
+  },
+  {
+   "title": "Everyone who signed or swore is the same person (SBD 4 agrees)",
+   "note": "",
+   "pages": [
+    27,
+    62
+   ]
+  },
+  {
+   "title": "Company registration number consistent across 4 pages",
+   "note": "201\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202207",
+   "pages": [
+    25,
+    47,
+    52,
+    73
+   ]
+  },
+  {
+   "title": "SA ID number passes the checksum",
+   "note": "790\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202286",
+   "pages": [
+    25
+   ]
+  },
+  {
+   "title": "Priced schedules add up (1 page(s) checked)",
+   "note": "",
+   "pages": [
+    90
+   ]
+  },
+  {
+   "title": "Every dated form is dated on or before the closing date (2026-06-26)",
+   "note": "",
+   "pages": [
+    28,
+    34,
+    62
+   ]
+  },
+  {
+   "title": "SARS TCS PIN valid past the closing date (expires 2027-06-05)",
+   "note": "date read via vision (OCR garbled this date)",
+   "pages": [
+    51
+   ]
+  },
+  {
+   "title": "B-BBEE affidavit is within its 12-month validity at closing",
+   "note": "commissioned 2026-06-08",
+   "pages": [
+    73
+   ]
+  },
+  {
+   "title": "SBD 4 'not state-employed' agrees with CSD (no director is a government employee)",
+   "note": "",
+   "pages": [
+    25
+   ]
+  },
+  {
+   "title": "Initials present on all 213 pages",
+   "note": "",
+   "pages": []
+  }
+ ],
+ "ocr_variants": [],
+ "human_only": [
+  "SBD 4: could not be read: question 2.11.",
+  "B-BBEE sworn affidavit: could not be read: deponent's signature.",
+  "2 small isolated mark(s) on SBD/MBD forms were not reported: none touched a signature line or an amount. Marks that are large, over printed text, or in those places are still reported.",
+  "OCR confidence was below 80% on pages [5, 21, 32, 41, 42, 43, 44, 45, 74, 82, 105, 109, 110, 120, 122, 126, 127, 129, 131, 139, 144, 152, 155, 158, 159, 167]: anything read from those pages by OCR alone should be checked by eye.",
+  "Whether the bidder was one of the suppliers actually invited (RFQ: uninvited suppliers may be disqualified). The pack does not show the invitation.",
+  "That the quote was emailed to the central address before 12:00 on 2026-06-26. That needs the sent-email timestamp, which is not in the pack.",
+  "SARS TCS PIN, CSD record and the National Treasury restricted-suppliers and tender-defaulters registers would need live look-ups. The prototype reads the printed copies only."
+ ]
+}

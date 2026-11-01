@@ -1,0 +1,54 @@
+{
+ "pack": "Tender5_clean_pack.pdf",
+ "status": "ok",
+ "error": "",
+ "seconds": 104.7,
+ "pages": 35,
+ "vision_complete": true,
+ "failed_pages": [],
+ "stages": {
+  "text_model": 12.844575881958008,
+  "render": 19.259432588304794,
+  "ocr": 11.24482090132577,
+  "vision_first": 65.81931495666504,
+  "vision_second": 0.03267383575439453,
+  "vision_pricing": 17.77192497253418,
+  "vision_total": 65.86383891105652
+ },
+ "slice_errors": [],
+ "timeouts": 7,
+ "large_pack_profile": true,
+ "image_dpi": 100,
+ "jpeg_quality": 85,
+ "peak_rss_mb": 711.0,
+ "provider": "api.fireworks.ai",
+ "model": "accounts/fireworks/models/muse-spark-open",
+ "fallback_fired": false,
+ "text_calls": 1,
+ "vision_calls": 23,
+ "prompt_tokens": 47386,
+ "cached_tokens": 15168,
+ "completion_tokens": 9076,
+ "retries": 7,
+ "errors": [],
+ "latency": {
+  "text": {
+   "n": 1,
+   "p50_s": 12.4,
+   "p90_s": 12.4,
+   "max_s": 12.4,
+   "p50_tok": 1151,
+   "max_tok": 1151,
+   "thinking_tok": 325
+  },
+  "vision": {
+   "n": 23,
+   "p50_s": 11.9,
+   "p90_s": 54.0,
+   "max_s": 56.3,
+   "p50_tok": 240,
+   "max_tok": 1344,
+   "thinking_tok": 6018
+  }
+ }
+}

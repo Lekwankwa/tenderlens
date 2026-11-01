@@ -1,0 +1,651 @@
+{
+ "requirements": {
+  "closing_date": "",
+  "closing_time": "",
+  "submit_to_email": "tenders@misa.gov.za",
+  "reference": "",
+  "local_content_required": true,
+  "local_content_basis": "the buyer's documents mention: 'minimum threshold'",
+  "local_content_negated": false,
+  "local_content_negated_quote": "",
+  "min_quote_validity_days": 90,
+  "documents": [
+   {
+    "id": "csd_report",
+    "label": "CSD report Annexure - Proof of Registration on the National Treasury Central Supplier Database (CSD)",
+    "source_doc": "another 3ce.pdf",
+    "source_quote": "CSD report Annexure",
+    "conditional": ""
+   },
+   {
+    "id": "bbbee_certificate",
+    "label": "Valid original or certified copy of amended Construction Sector Codes (CSC000) B-BBEE Certificate verified by SANAS or Sworn Affidavit",
+    "source_doc": "another 3ce.pdf",
+    "source_quote": "A valid original or certified copy of amended Construction Sector Codes (CSC000) B-BBEE Certificate verified by SANAS must be submitted with the tender OR a valid original or certified copy of an attested by a commissioner of Oaths prepared and issued in terms of the amended B-BBEE Construction Sector Codes (CSC000) must be submitted with the tender",
+    "conditional": ""
+   },
+   {
+    "id": "sbd6_1",
+    "label": "SBD 6.1 \u2013 Preference Points claim form",
+    "source_doc": "another 3ce.pdf",
+    "source_quote": "SBD 6.1 \u2013 Preference Points claim form.",
+    "conditional": ""
+   },
+   {
+    "id": "sbd4",
+    "label": "SBD 4 - Declaration of Interest",
+    "source_doc": "another 3ce.pdf",
+    "source_quote": "various pieces of legislation, it is required for the bidder to make this declaration in respect of the details required hereunder.",
+    "conditional": ""
+   }
+  ],
+  "conditions": [],
+  "spec": {},
+  "notes": [
+   "submit_to_email supplied by the AI model only",
+   "min_quote_validity_days supplied by the AI model only",
+   "Document requirement 'csd_report' supplied by the AI model only",
+   "Document requirement 'bbbee_certificate' supplied by the AI model only",
+   "Document requirement 'sbd6_1' supplied by the AI model only",
+   "Document requirement 'sbd4' supplied by the AI model only",
+   "LLM closing date dropped: source_quote not found in documents",
+   "LLM requirement dropped (quote not in source): Tax Compliance Status PIN / TCS Certificate",
+   "The tender text was longer than the model prompt limit (120,000 characters), so only its opening and the passages that mention requirements were sent to the model.",
+   "Requirements cross-checked: AI model + rules."
+  ]
+ },
+ "findings": [
+  {
+   "id": "F01",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 6.1: 7 pages found, the standard form has 5",
+   "detail": "More pages than the form as issued. A page may be duplicated or something may have been inserted.",
+   "action": "Check the pages listed.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 9,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 11,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 18,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 25,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F02",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 4: 1 of 4 pages found",
+   "detail": "Fewer pages than the standard form. A page of this form may be missing.",
+   "action": "Check the form for the missing page.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 22,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F03",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "SBD 9: 2 of 4 pages found",
+   "detail": "Fewer pages than the standard form. A page of this form may be missing.",
+   "action": "Check the form for the missing page.",
+   "rule": "Standard form page count",
+   "evidence": [
+    {
+     "page": 23,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 24,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F04",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "incomplete_form",
+   "title": "The CSD summary report is missing a section",
+   "detail": "Not found in the CSD pages: supplier identification, commodity list, B-BBEE information, tax status. A page of the report may be missing.",
+   "action": "Check the CSD report is complete.",
+   "rule": "RFQ: latest CSD summary report",
+   "evidence": [
+    {
+     "page": 34,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    },
+    {
+     "page": 36,
+     "note": "",
+     "source": "ocr",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F05",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "SBD 6.1: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[9, 11, 18], [25, 26, 27, 28]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 9,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 25,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F06",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "SARS tax compliance status: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[21], [35], [40]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 21,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 35,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 40,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F07",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "page_order",
+   "title": "CSD summary report: its pages are not together",
+   "detail": "The pages of this form appear in separate places in the pack (pack pages [[34], [36]]). A page may have been moved, or another document may sit in the middle of it.",
+   "action": "Check the order of the pages listed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 34,
+     "note": "",
+     "source": "image",
+     "box": null
+    },
+    {
+     "page": 36,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F11",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Handwritten note outside the form fields on SBD 6.1 (page 11)",
+   "detail": "A vision check of the page found this (vision; a non-AI check of the page image also found ink there; a second, differently worded look did not confirm it). Alterations to a standard form should be initialled by the bidder.",
+   "action": "Look at the page. If the alteration is real, ask for it to be initialled or re-issued.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 11,
+     "note": "Handwritten note outside the form fields",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F14",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Item 2.1: amount is not quantity x rate",
+   "detail": "10867 x 14.50 = 157,571.50, but the amount written is 157,511.50. Page 118, read by the vision model and confirmed by a second reading.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 118,
+     "note": "2.1",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F15",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Item 3.1: amount is not quantity x rate",
+   "detail": "10867 x 32.80 = 356,437.60, but the amount written is 356,431.60. Page 119, read by the vision model and confirmed by a second reading.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 119,
+     "note": "3.1",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F16",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Item 4.1: amount is not quantity x rate",
+   "detail": "10867 x 168.00 = 1,825,656.00, but the amount written is 1,852,656.00. Page 120, read by the vision model and confirmed by a second reading.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 120,
+     "note": "4.1",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F17",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "VAT is not 15% of the amount before VAT",
+   "detail": "15% of 3,794,665.10 is 569,199.77; the line is 531,253.11 (stated as 15%). Page 121, read by the vision model and confirmed by a second reading.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 121,
+     "note": "vat",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F18",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Amount carried to the summary is not in the summary",
+   "detail": "Page 118 carries 157,511.50 to the summary; the summary's section amounts are 992,900.00, 157,571.50, 543,537.60, 2,100,656.00. Page 118, read by the vision model and confirmed by a second reading.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 118,
+     "note": "summary157512",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F19",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Amount carried to the summary is not in the summary",
+   "detail": "Page 119 carries 543,531.60 to the summary; the summary's section amounts are 992,900.00, 157,571.50, 543,537.60, 2,100,656.00. Page 119, read by the vision model and confirmed by a second reading.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 119,
+     "note": "summary543532",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F22",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 6.1 (page 9)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 9,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      129,
+      73,
+      226,
+      105
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F23",
+   "tier": "issue",
+   "severity": "medium",
+   "category": "stray_mark",
+   "title": "Unexplained mark on SBD 6.1 (page 11)",
+   "detail": "A handwritten mark sits in the margin, outside the printed text and every entry field. It is not a signature, date, tick or other expected entry.",
+   "action": "Look at the crop. If it is a stray scribble, no action; if it could be read as an amendment or annotation, consider re-signing a clean copy.",
+   "rule": "Standard form must be returned unaltered",
+   "evidence": [
+    {
+     "page": 11,
+     "note": "highlighted region",
+     "source": "image",
+     "box": [
+      134,
+      70,
+      231,
+      103
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F08",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "check_crop",
+   "title": "Could not locate the signature line on SBD 4",
+   "detail": "The page expected to carry the signature (the last page of the form) has no 'Signature' label. The signing page may be missing.",
+   "action": "Look at the form to confirm the signing page is there and signed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 22,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F09",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "check_crop",
+   "title": "Could not locate the signature line on B-BBEE sworn affidavit",
+   "detail": "The page expected to carry the signature (the last page of the form) has no 'Signature' label. The signing page may be missing.",
+   "action": "Look at the form to confirm the signing page is there and signed.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 29,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F10",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "unsigned",
+   "title": "SBD 6.1: only 0 witness signature(s)",
+   "detail": "The form needs two witnesses (read by the vision model).",
+   "action": "Get the missing witness signature(s).",
+   "rule": "SBD 6.1",
+   "evidence": [
+    {
+     "page": 28,
+     "note": "witness signatures",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F12",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "inconsistency",
+   "title": "Company registration number differs between documents",
+   "detail": "Most pages agree on 201\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202207 (pages [35]). Different values: 201\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u202207 on page 27",
+   "action": "Open the pages and compare. If it is a misread, ignore; if not, correct the form.",
+   "rule": "Cross-document consistency",
+   "evidence": [
+    {
+     "page": 27,
+     "note": "",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F13",
+   "tier": "observation",
+   "severity": "medium",
+   "category": "arithmetic",
+   "title": "Page total does not equal the items on the page",
+   "detail": "Brought forward 559,000.00 plus the page's items 433,900.00 is 992,900.00, but the page carries forward 992,090.00. Page 117, read by the vision model; a second reading did not reproduce it.",
+   "action": "Check the figures on the page and have the bidder correct the arithmetic.",
+   "rule": "Priced schedules must add up and use the stated rates",
+   "evidence": [
+    {
+     "page": 117,
+     "note": "carried",
+     "source": "vision",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F20",
+   "tier": "observation",
+   "severity": "low",
+   "category": "voided",
+   "title": "Form struck through (page 30)",
+   "detail": "A long diagonal line crosses this page, as a bidder does to cancel a form that does not apply. It was not checked for signatures, stamps or entries.",
+   "action": "Confirm the form really is not applicable to this bid.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 30,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  },
+  {
+   "id": "F21",
+   "tier": "observation",
+   "severity": "low",
+   "category": "voided",
+   "title": "Form struck through (page 31)",
+   "detail": "A long diagonal line crosses this page, as a bidder does to cancel a form that does not apply. It was not checked for signatures, stamps or entries.",
+   "action": "Confirm the form really is not applicable to this bid.",
+   "rule": "",
+   "evidence": [
+    {
+     "page": 31,
+     "note": "",
+     "source": "image",
+     "box": null
+    }
+   ]
+  }
+ ],
+ "passed": [
+  {
+   "title": "Quotation / offer present (found by its wording)",
+   "note": "",
+   "pages": [
+    1,
+    2,
+    3,
+    4,
+    13,
+    16
+   ]
+  },
+  {
+   "title": "Required document present: CSD report Annexure - Proof of Registration on the National Treasury Central Supplier Database (CSD)",
+   "note": "",
+   "pages": [
+    34,
+    36
+   ]
+  },
+  {
+   "title": "Required document present: Valid original or certified copy of amended Construction Sector Codes (CSC000) B-BBEE Certificate verified by SANAS or Sworn Affidavit",
+   "note": "",
+   "pages": [
+    29
+   ]
+  },
+  {
+   "title": "Required document present: SBD 6.1 \u2013 Preference Points claim form",
+   "note": "",
+   "pages": [
+    9,
+    11,
+    18,
+    25,
+    26,
+    27,
+    28
+   ]
+  },
+  {
+   "title": "Required document present: SBD 4 - Declaration of Interest",
+   "note": "",
+   "pages": [
+    22
+   ]
+  },
+  {
+   "title": "No page appears twice",
+   "note": "",
+   "pages": []
+  },
+  {
+   "title": "SBD 6.1 signed (pen strokes found on the signature line)",
+   "note": "",
+   "pages": [
+    28
+   ]
+  },
+  {
+   "title": "SBD 9 signed (pen strokes found on the signature line)",
+   "note": "",
+   "pages": [
+    24
+   ]
+  },
+  {
+   "title": "SBD 9: all 2 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read; 2 could not be read",
+   "pages": [
+    24
+   ]
+  },
+  {
+   "title": "SARS tax compliance status: all 1 handwritten entries are filled in and none gives cause for concern",
+   "note": "answers, names, dates and amounts as read",
+   "pages": [
+    40
+   ]
+  },
+  {
+   "title": "Company name consistent across documents",
+   "note": "",
+   "pages": [
+    24,
+    27
+   ]
+  },
+  {
+   "title": "All 2 forms are dated the same day",
+   "note": "2026-11-05",
+   "pages": [
+    24,
+    28
+   ]
+  },
+  {
+   "title": "Initials present on all 271 pages",
+   "note": "",
+   "pages": []
+  }
+ ],
+ "ocr_variants": [],
+ "human_only": [
+  "SBD 6.1: could not be read: subcontracting answer, company classification, years in business.",
+  "SBD 4: could not be read: bidder name, identity number, position, registration number, tax reference number, question 2.7, question 2.8, question 2.9, question 2.10, question 2.11, declarant, date.",
+  "SBD 9: could not be read: bid description, institution.",
+  "B-BBEE sworn affidavit: could not be read: date of commissioning, official stamp, commissioner's signature, deponent's signature.",
+  "OCR confidence was below 80% on pages [66, 73, 110, 114, 217, 263, 267]: anything read from those pages by OCR alone should be checked by eye.",
+  "Whether the bidder was one of the suppliers actually invited (RFQ: uninvited suppliers may be disqualified). The pack does not show the invitation.",
+  "That the quote was emailed to the central address before  on . That needs the sent-email timestamp, which is not in the pack.",
+  "SARS TCS PIN, CSD record and the National Treasury restricted-suppliers and tender-defaulters registers would need live look-ups. The prototype reads the printed copies only."
+ ]
+}

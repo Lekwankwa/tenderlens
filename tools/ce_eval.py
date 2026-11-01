@@ -30,9 +30,10 @@ from urllib.parse import urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tenderlens.cli import audit_pack  # noqa: E402
-from tenderlens.ingest import pdf_page_count  # noqa: E402
+from tenderlens.ingest import DPI as DPI_NOW, pdf_page_count  # noqa: E402
 from tenderlens.llm import ModelClient, load_env  # noqa: E402
 from tenderlens.report import to_json  # noqa: E402
+from tenderlens.telemetry import RunTelemetry  # noqa: E402
 
 ALLOWED_ROLES = ("tender", "clean_pack", "tampered_pack")
 # The control set (4, 1, 8) is the default. The other grades were enabled on request for the full local baseline; they are
@@ -123,7 +124,7 @@ def flag_report(report: dict) -> dict:
     return {"total_findings": len(report.get("findings", [])), "by_class": groups}
 
 
-def run_one(tender: list[Path], pack: Path, out: Path, work: Path, blank: Path) -> dict:
+def run_one(tender: list[Path], pack: Path, out: Path, work: Path, blank: Path, native: bool = False) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     # the 100 DPI profile normally applies above BATCH_OVER pages; these runs are fixed at that profile, so a short pack
     # (grade 2 has 32 and 35 pages) must not fall under the threshold
@@ -131,12 +132,16 @@ def run_one(tender: list[Path], pack: Path, out: Path, work: Path, blank: Path) 
     llm = ModelClient()
     vision = ModelClient.for_vision(llm)
     t0 = time.time()
-    if not vision.use_large_pack_profile(pdf_page_count(pack)) or round(vision.image_scale, 3) != round(100 / 150, 3) \
+    tel = RunTelemetry()
+    if native:     # the resolution experiment: the page image is sent at the render resolution, not shrunk
+        if vision.use_large_pack_profile(pdf_page_count(pack)) or vision.image_scale != 1.0 or vision.jpeg_quality != 85:
+            raise SystemExit(f"refusing to run {pack.name}: the native-resolution profile (quality 85, not shrunk) is not active")
+    elif not vision.use_large_pack_profile(pdf_page_count(pack)) or round(vision.image_scale, 3) != round(100 / 150, 3) \
             or vision.jpeg_quality != 85:
         raise SystemExit(f"refusing to run {pack.name}: the 100 DPI / quality 85 image profile is not active")
     status, err = "ok", ""
     try:
-        req, res, facts, pages = audit_pack(tender, None, pack, blank, None, work, llm, "auto", vision=vision)
+        req, res, facts, pages = audit_pack(tender, None, pack, blank, None, work, llm, "auto", vision=vision, telemetry=tel)
         (out / "report.json").write_text(to_json(req, res))
         (out / "flags.json").write_text(json.dumps(flag_report(json.loads(to_json(req, res))), indent=1))
         stages, complete = dict(facts.stage_times), facts.vision_complete
@@ -149,12 +154,13 @@ def run_one(tender: list[Path], pack: Path, out: Path, work: Path, blank: Path) 
     info = {"pack": pack.name, "status": status, "error": err, "seconds": round(time.time() - t0, 1),
             "pages": npages, "vision_complete": complete, "failed_pages": failed_pages, "stages": stages,
             "slice_errors": slice_errors, "timeouts": llm.timeouts + vision.timeouts,
-            "large_pack_profile": profile, "image_dpi": round(150 * vision.image_scale),
+            "large_pack_profile": profile, "image_dpi": round(DPI_NOW * vision.image_scale), "render_dpi": DPI_NOW,
             "jpeg_quality": vision.jpeg_quality, "peak_rss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
                                                                 / (1 << 20), 0),
             "provider": urlparse(llm.base_url).hostname, "model": llm.model, "fallback_fired": False,
             **usage(llm, vision)}
     (out / "run.json").write_text(json.dumps(info, indent=1))
+    (out / "telemetry.json").write_text(json.dumps({**tel.snapshot(), "events": tel.events}, indent=1))
     return info
 
 
@@ -166,6 +172,9 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=Path("evaluation/ce_baseline"))
     ap.add_argument("--blank", type=Path, default=Path("samples/blank"))
     ap.add_argument("--tag", default="dpi100", help="keeps this run's results and OCR work area apart")
+    ap.add_argument("--native", action="store_true",
+                    help="send each page at the render resolution (TENDERLENS_RENDER_DPI, default 150) instead of the 100 DPI copy; "
+                         "for the resolution experiment")
     ap.add_argument("--delete-renders", action="store_true",
                     help="delete a pack's rendered page images (this tool's own .work copy) once its run is saved; the large "
                          "packs are hundreds of megabytes each")
@@ -179,6 +188,8 @@ def main() -> int:
     load_env()
     for k, v in IMAGE_PROFILE.items():  # the image profile is fixed for these runs, whatever the shell has set
         os.environ[k] = v
+    if a.native:
+        os.environ["TENDERLENS_LARGE_PACK_PROFILE"] = "0"
     manifest = json.loads((a.out / "manifest.json").read_text())
     root = Path(manifest["root"])
     by_grade = {s["grade"]: s for s in manifest["scenarios"]}
@@ -204,7 +215,7 @@ def main() -> int:
             if a.dry_run:
                 continue
             work = a.out / ".work" / folder
-            info = run_one(inp["tender"], pack, out, work, a.blank)
+            info = run_one(inp["tender"], pack, out, work, a.blank, native=a.native)
             if a.delete_renders:
                 shutil.rmtree(work, ignore_errors=True)
             print(f"  {info['status']} in {info['seconds']}s at {info['image_dpi']} DPI q{info['jpeg_quality']}, "

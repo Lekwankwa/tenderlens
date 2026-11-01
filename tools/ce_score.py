@@ -24,6 +24,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools.ce_verify_keys import page_set, parse_key  # noqa: E402
 
+LEGACY_MATCHING = False   # True (tools/ce_score.py --legacy) reproduces the earlier, more generous matching
+
+
 STOP = {"the", "and", "for", "with", "that", "this", "from", "page", "pages", "form", "pack", "not", "are", "was",
         "has", "have", "differs", "than", "which", "but", "its", "any", "all", "one", "may", "must", "should", "into"}
 
@@ -54,6 +57,28 @@ class GradeScore:
         return Counter(r.result for r in self.rows)
 
 
+# Findings about the pack as a whole or about a general condition (initials, page counts, stray marks, ...) name many pages, so
+# they land on a key row's page by coincidence. A spot-check of 40 "page only" and 25 "detected" rows found most of the
+# credit given for them was coincidence (about 5% and 54% real). They only count for a key row whose own expected
+# finding is about that same thing (the cue words below).
+GENERIC = (
+    (r"^Initials missing", r"initial"),
+    (r"pages found|not together|out of order|more than once|pages? (are|is) missing", r"page|order|swapped|duplicate|missing|removed|sequence"),
+    (r"^Page cut off", r"cut|crop|truncat|edge"),
+    (r"^(Small|Unexplained) mark|Handwritten note", r"mark|note|stray|annotation|scribble"),
+    (r"Forms are signed on different dates|signed on different", r"date"),
+    (r"^Page rotated|^Form struck", r"rotat|upside|struck|voided"),
+    (r"^The CSD (summary )?report", r"csd|supplier database|report"),
+)
+
+
+def is_generic_for(finding_title: str, expected: str) -> bool:
+    for title_rx, cue_rx in GENERIC:
+        if re.search(title_rx, finding_title) and not re.search(cue_rx, expected, re.I):
+            return True
+    return False
+
+
 def finding_pages(f: dict) -> set[int]:
     return {e.get("page") for e in f.get("evidence", []) if isinstance(e.get("page"), int)}
 
@@ -65,6 +90,8 @@ def match_defect(d: dict, findings: list[dict]) -> Row:
     row = Row(d["Test case"], d.get("Type", ""), pages, d.get("Expected TenderLens finding", ""))
     best_rank = 0
     for f in findings:
+        if not LEGACY_MATCHING and is_generic_for(f.get("title", ""), d.get("Expected TenderLens finding", "") + " " + d.get("Type", "")):
+            continue
         shared = len(want & words(f.get("title", "") + " " + f.get("detail", "")))
         on_page = bool(finding_pages(f) & (set(pages) | set(knock)))
         rank = 3 if on_page and shared >= 1 else 2 if shared >= 2 else 1 if on_page else 0
@@ -251,8 +278,11 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=Path("evaluation/ce_baseline"))
     ap.add_argument("--tag", default="dpi100", help="which tagged runs to score (ce_eval.py --tag)")
     ap.add_argument("--grades", help="comma-separated grade numbers to include (default: those with runs)")
+    ap.add_argument("--legacy", action="store_true", help="the earlier matching, which credited pack-wide findings by coincidence")
     ap.add_argument("--compare", help="an earlier tag to compare --tag against; writes gating_comparison.md")
     a = ap.parse_args()
+    global LEGACY_MATCHING
+    LEGACY_MATCHING = a.legacy
     manifest = json.loads((a.out / "manifest.json").read_text())
     root = Path(manifest["root"])
     vpath = a.out / "key_verification.json"
