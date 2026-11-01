@@ -16,6 +16,7 @@ from .ingest import (classify_pages, find_spec_sheet, load_pdf, load_templates, 
                      pdf_page_count)
 from .llm import ModelClient, load_env
 from .report import render_html, to_json
+from .pricing import run_pricing_check
 from .requirements import build_requirements
 
 def _tender_text(rfq, spec) -> str | None:
@@ -183,6 +184,7 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
             # (every field that only applies "when local content applies" is on the declaration form itself, so
             # whether the RFQ/Tender requires local content changes nothing about what vision reads)
             local = True
+            start(3, lambda f, t: run_pricing_check(vision, pages, f, passes=passes, timing=t))  # priced schedules
             if inspect != "off":
                 start(2, lambda f, t: signature_match(vision, pages, f, progress=checks, timing=t))
             first = None

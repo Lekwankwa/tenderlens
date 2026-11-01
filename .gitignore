@@ -29,3 +29,4 @@ evaluation/ce_baseline/runs/
 evaluation/ce_baseline/.work/
 evaluation/ce_baseline/.ocr_cache/
 evaluation/ce_baseline/runs_failed/
+evaluation/ce_baseline/baseline_runs_snapshot.tgz

@@ -221,7 +221,7 @@ class ModelClient:
         comes up as "not configured", not as "configured, but every call is refused with a 401"."""
         return bool(self.base_url and self.model and (self.api_key or "fireworks.ai" not in self.base_url))
 
-    def _post(self, body: dict) -> dict:
+    def _post(self, body: dict, timeout: float | None = None) -> dict:
         req = urllib.request.Request(
             f"{self.base_url}/chat/completions",
             data=json.dumps(body).encode(),
@@ -238,7 +238,7 @@ class ModelClient:
         waits = self.retry_waits
         for attempt in range(len(waits) + 1):
             try:
-                with self._slots, urllib.request.urlopen(req, timeout=self.timeout, context=_HTTPS_CTX) as r:
+                with self._slots, urllib.request.urlopen(req, timeout=timeout or self.timeout, context=_HTTPS_CTX) as r:
                     return json.load(r)
             except urllib.error.HTTPError as err:
                 body_text = _read_error_body(err, self.api_key)
@@ -253,7 +253,7 @@ class ModelClient:
                 if isinstance(reason, TimeoutError) or isinstance(err, TimeoutError):
                     with self._lock:
                         self.timeouts += 1
-                    last_err = LLMError(f"timed out after {self.timeout:.0f} s contacting {self.base_url} ({self.model})")
+                    last_err = LLMError(f"timed out after {(timeout or self.timeout):.0f} s contacting {self.base_url} ({self.model})")
                 else:
                     last_err = LLMError(f"{type(reason).__name__}: {reason} contacting {self.base_url} ({self.model})")
                 retryable, retry_after = True, None
@@ -270,7 +270,9 @@ class ModelClient:
             time.sleep(wait if wait is not None else waits[attempt])
         raise last_err  # unreachable - the loop above always returns or raises
 
-    def complete_json(self, system: str, user: str, images: list[str] | None = None) -> dict:
+    def complete_json(self, system: str, user: str, images: list[str] | None = None, timeout: float | None = None) -> dict:
+        """`timeout`, if given, replaces this client's per-attempt timeout for this one call (a dense table page needs a
+        long answer; a yes/no read does not)."""
         if not self.configured:
             raise LLMUnavailable("No model configured. Set FIREWORKS_API_KEY.")
         content: list[dict] = [{"type": "text", "text": user}]
@@ -290,7 +292,7 @@ class ModelClient:
             body["reasoning_effort"] = self.reasoning_effort
         with self._lock:
             self.calls += 1
-        return self._complete(body)
+        return self._complete(body, timeout)
 
     def call_summary(self) -> dict:
         """How long calls took and how many tokens they produced (p50 / p90 / max), for the run log: tells a few
@@ -308,18 +310,18 @@ class ModelClient:
         return {"n": len(stats), "p50_s": round(pct(secs, .5), 1), "p90_s": round(pct(secs, .9), 1),
                 "max_s": round(max(secs), 1), "p50_tok": pct(out, .5), "max_tok": max(out), "thinking_tok": sum(think)}
 
-    def _complete(self, body: dict) -> dict:
+    def _complete(self, body: dict, timeout: float | None = None) -> dict:
         t_call = time.monotonic()
         try:
             if self.json_mode:
                 try:
-                    payload = self._post({**body, "response_format": {"type": "json_object"}})
+                    payload = self._post({**body, "response_format": {"type": "json_object"}}, timeout)
                 except LLMError as err:
                     if err.status_code not in (400, 422):
                         raise
-                    payload = self._post(body)  # this server does not accept response_format
+                    payload = self._post(body, timeout)  # this server does not accept response_format
             else:
-                payload = self._post(body)
+                payload = self._post(body, timeout)
             usage = payload.get("usage") or {}
             thinking = int((usage.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0)
             with self._lock:

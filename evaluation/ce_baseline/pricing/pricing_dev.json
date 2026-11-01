@@ -1,0 +1,302 @@
+{
+ "1_tampered": [
+  [
+   "vat",
+   95,
+   "vat",
+   false,
+   "VAT is not 15% of the amount before VAT",
+   "15% of 127,805.00 is 19,170.75; the line is 19,062.75 (stated as 15%)."
+  ]
+ ],
+ "1_clean": [
+  [
+   "item",
+   128,
+   "C2",
+   false,
+   "Item C2: amount is not quantity x rate",
+   "0.3 x 1 250.00 = 375.00, but the amount written is 315.00."
+  ]
+ ],
+ "3_tampered": [
+  [
+   "vat",
+   97,
+   "vat",
+   false,
+   "VAT is not 15% of the amount before VAT",
+   "15% of 3,749,665.10 is 562,449.77; the line is 4,325,918.21 (stated as 15%)."
+  ],
+  [
+   "item",
+   118,
+   "2.1",
+   true,
+   "Item 2.1: amount is not quantity x rate",
+   "10867 x 14.50 = 157,571.50, but the amount written is 157,511.50."
+  ],
+  [
+   "item",
+   119,
+   "3.1",
+   true,
+   "Item 3.1: amount is not quantity x rate",
+   "10867 x 32.80 = 356,437.60, but the amount written is 356,431.60."
+  ],
+  [
+   "item",
+   120,
+   "4.1",
+   true,
+   "Item 4.1: amount is not quantity x rate",
+   "10867 x 168.00 = 1,825,656.00, but the amount written is 1,852,656.00."
+  ],
+  [
+   "vat",
+   121,
+   "vat",
+   true,
+   "VAT is not 15% of the amount before VAT",
+   "15% of 3,794,665.10 is 569,199.77; the line is 531,253.11 (stated as 15%)."
+  ]
+ ],
+ "3_clean": [
+  [
+   "page",
+   118,
+   "carried",
+   true,
+   "Page total does not equal the items on the page",
+   "Brought forward 0.00 plus the page's items 509,000.00 is 509,000.00, but the page carries forward 559,000.00."
+  ]
+ ],
+ "6_tampered": [
+  [
+   "page",
+   222,
+   "carried",
+   false,
+   "Page total does not equal the items on the page",
+   "Brought forward 0.00 plus the page's items 12,156,070.00 is 12,156,070.00, but the page carries forward 12,167,770.00."
+  ],
+  [
+   "item",
+   226,
+   "202.01.01",
+   true,
+   "Item 202.01.01: amount is not quantity x rate",
+   "500 x 130.50 = 65,250.00, but the amount written is 6,525.00."
+  ],
+  [
+   "page",
+   226,
+   "carried",
+   false,
+   "Page total does not equal the items on the page",
+   "Brought forward 0.00 plus the page's items 378,075.00 is 378,075.00, but the page carries forward 437,400.00."
+  ],
+  [
+   "item",
+   227,
+   "302.01.06",
+   false,
+   "Item 302.01.06: amount is not quantity x rate",
+   "42 x 231.50 = 9,723.00, but the amount written is 9,915.00."
+  ],
+  [
+   "item",
+   227,
+   "302.01.15",
+   false,
+   "Item 302.01.15: amount is not quantity x rate",
+   "42 x 511.00 = 21,462.00, but the amount written is 21,114.00."
+  ],
+  [
+   "item",
+   227,
+   "302.01.26",
+   false,
+   "Item 302.01.26: amount is not quantity x rate",
+   "42 x 458.50 = 19,257.00, but the amount written is 19,251.00."
+  ],
+  [
+   "item",
+   231,
+   "B304.01.02",
+   false,
+   "Item B304.01.02: amount is not quantity x rate",
+   "600 x 1 211.50 = 726,900.00, but the amount written is 718,500.00."
+  ],
+  [
+   "item",
+   231,
+   "B304.01.03",
+   true,
+   "Item B304.01.03: amount is not quantity x rate",
+   "500 x 1 280.00 = 640,000.00, but the amount written is 640,500.00."
+  ],
+  [
+   "item",
+   231,
+   "B304.01.04",
+   false,
+   "Item B304.01.04: amount is not quantity x rate",
+   "500 x 1 511.50 = 755,750.00, but the amount written is 155,150.00."
+  ],
+  [
+   "item",
+   231,
+   "B304.01.08",
+   true,
+   "Item B304.01.08: amount is not quantity x rate",
+   "200 x 2 055.00 = 411,000.00, but the amount written is 411,100.00."
+  ],
+  [
+   "page",
+   231,
+   "carried",
+   false,
+   "Page total does not equal the items on the page",
+   "Brought forward 0.00 plus the page's items 4,254,100.00 is 4,254,100.00, but the page carries forward 5,024,100.00."
+  ],
+  [
+   "page",
+   232,
+   "carried",
+   true,
+   "Page total does not equal the items on the page",
+   "Brought forward 5,024,700.00 plus the page's items 0.00 is 5,024,700.00, but the page carries forward 5,084,700.00."
+  ],
+  [
+   "vat",
+   234,
+   "vat",
+   true,
+   "VAT is not 15% of the amount before VAT",
+   "15% of 36,383,172.65 is 5,457,475.90; the line is 5,093,644.17 (stated as 15%)."
+  ],
+  [
+   "percent",
+   234,
+   "escalation",
+   true,
+   "Escalation is not the stated percentage of its base",
+   "10% of 33,075,611.50 is 3,307,561.15; the line is 4,961,341.73."
+  ],
+  [
+   "total",
+   234,
+   "subtotal",
+   true,
+   "Subtotal does not equal the sum of its sections",
+   "The sections add up to 33,084,611.50; the subtotal is 33,075,611.50."
+  ],
+  [
+   "handover",
+   227,
+   "to228",
+   true,
+   "Carried forward differs from what the next page brings forward",
+   "Page 227 carries forward 631,116.50; page 228 brings forward 774,054.00."
+  ],
+  [
+   "handover",
+   231,
+   "to232",
+   true,
+   "Carried forward differs from what the next page brings forward",
+   "Page 231 carries forward 5,024,100.00; page 232 brings forward 5,024,700.00."
+  ],
+  [
+   "sections",
+   226,
+   "summary437400",
+   true,
+   "Amount carried to the summary is not in the summary",
+   "Page 226 carries 437,400.00 to the summary; the summary's section amounts are 21,066,470.00, 68,455.00, 138,037.50, 446,400.00, 5,267,129.00, 591,000."
+  ],
+  [
+   "sections",
+   232,
+   "summary5084700",
+   true,
+   "Amount carried to the summary is not in the summary",
+   "Page 232 carries 5,084,700.00 to the summary; the summary's section amounts are 21,066,470.00, 68,455.00, 138,037.50, 446,400.00, 5,267,129.00, 591,00"
+  ]
+ ],
+ "6_clean": [
+  [
+   "item",
+   228,
+   "101.03.02",
+   false,
+   "Item 101.03.02: amount is not quantity x rate",
+   "5 x 3 221.00 = 16,105.00, but the amount written is 16,135.00."
+  ],
+  [
+   "item",
+   230,
+   "202.01.04",
+   false,
+   "Item 202.01.04: amount is not quantity x rate",
+   "250 x 151.00 = 37,750.00, but the amount written is 39,250.00."
+  ],
+  [
+   "item",
+   230,
+   "202.01.05",
+   false,
+   "Item 202.01.05: amount is not quantity x rate",
+   "150 x 115.00 = 17,250.00, but the amount written is 26,250.00."
+  ],
+  [
+   "page",
+   231,
+   "carried",
+   true,
+   "Page total does not equal the items on the page",
+   "Brought forward 0.00 plus the page's items 646,324.50 is 646,324.50, but the page carries forward 647,116.50."
+  ],
+  [
+   "page",
+   232,
+   "carried",
+   true,
+   "Page total does not equal the items on the page",
+   "Brought forward 647,116.50 plus the page's items 126,877.50 is 773,994.00, but the page carries forward 774,054.00."
+  ],
+  [
+   "item",
+   234,
+   "B303.03.01",
+   true,
+   "Item B303.03.01: amount is not quantity x rate",
+   "6000 x 46.50 = 279,000.00, but the amount written is 219,000.00."
+  ],
+  [
+   "page",
+   234,
+   "carried",
+   true,
+   "Page total does not equal the items on the page",
+   "Brought forward 0.00 plus the page's items 531,000.00 is 531,000.00, but the page carries forward 591,000.00."
+  ],
+  [
+   "page",
+   235,
+   "carried",
+   false,
+   "Page total does not equal the items on the page",
+   "Brought forward 0.00 plus the page's items 4,964,700.00 is 4,964,700.00, but the page carries forward 5,024,100.00."
+  ],
+  [
+   "handover",
+   235,
+   "to236",
+   false,
+   "Carried forward differs from what the next page brings forward",
+   "Page 235 carries forward 5,024,100.00; page 236 brings forward 5,024,700.00."
+  ]
+ ]
+}

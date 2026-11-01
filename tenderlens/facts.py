@@ -45,6 +45,8 @@ class Facts:
         # vision_cache.py) - lets _ask() skip a call already answered before an instance restart. None
         # (the default, every other caller) means "no cache" - exactly today's behaviour, unchanged.
         self.job_id: str | None = None
+        self.pricing: list = []        # pricing.Discrepancy found in the priced schedules (see pricing.run_pricing_check)
+        self.pricing_pages: list[int] = []
         self.misread_variants: list[str] = []  # handwriting a focused crop re-read cleared or set aside (Step 3B)
         self.stage_times: dict[str, float] = {}  # seconds per pipeline stage; filled in by cli.audit_pack
         self.vision_complete = True  # False only when vision was configured, attempted, and some call still
@@ -64,6 +66,8 @@ class Facts:
         self.items.extend(other.items)
         self.unread.extend(other.unread)
         self.misread_variants.extend(other.misread_variants)
+        self.pricing.extend(other.pricing)
+        self.pricing_pages = sorted(set(self.pricing_pages) | set(other.pricing_pages))
         mine, theirs = self.vision_log, other.vision_log
         for k in ("calls", "failed", "pages_read", "pages_inspected", "cache_hits"):
             mine[k] += theirs[k]
@@ -442,7 +446,8 @@ VISION_SYSTEM = (
 )
 
 
-def _ask(llm: ModelClient, facts: Facts, prompt: str, images: list[str], page_no: int | None = None):
+def _ask(llm: ModelClient, facts: Facts, prompt: str, images: list[str], page_no: int | None = None,
+         timeout: float | None = None):
     """Called from worker threads under concurrency (vision_extract/inspect_pages/signature_match each run
     a wave of these on a thread pool), so facts.vision_log is updated under a lock, and the catch is
     deliberately broad (not a specific allowlist): a call that fails in a way nobody anticipated must still
@@ -465,7 +470,8 @@ def _ask(llm: ModelClient, facts: Facts, prompt: str, images: list[str], page_no
     with facts._lock:
         facts.vision_log["calls"] += 1
     try:
-        data = llm.complete_json(VISION_SYSTEM, prompt, images=images)
+        data = (llm.complete_json(VISION_SYSTEM, prompt, images=images) if timeout is None
+                else llm.complete_json(VISION_SYSTEM, prompt, images=images, timeout=timeout))
         vision_cache.set(facts.job_id, prompt, images, data)
         return data
     except Exception as err:  # noqa: BLE001 - intentionally broad; see docstring

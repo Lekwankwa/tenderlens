@@ -186,7 +186,7 @@ class Auditor:
     def run(self) -> AuditResult:
         for fn in (self.required_documents, self.page_completeness, self.page_order, self.signatures,
                    self.handwritten_entries, self.signatories, self.vision_inspection, self.template_blanks,
-                   self.sbd62_consistency, self.local_content, self.identifiers, self.names, self.quote_checks, self.unresolved_areas,
+                   self.sbd62_consistency, self.local_content, self.identifiers, self.names, self.quote_checks, self.pricing_checks, self.unresolved_areas,
                    self.spec_checks, self.validity_dates, self.declarations_vs_registers, self.certificates,
                    self.bbbee, self.stray_marks, self.initials, self.ocr_quality, self.not_verifiable):
             try:
@@ -1272,6 +1272,20 @@ class Auditor:
                 "SBD 6.1 clause 1.5 (proof of B-BBEE must be submitted with the bid); CSD report",
                 [self.E(self.f.best("csd.bbbee_status").page, "B-BBEE section of the CSD report"),
                  self.E(self.pn("bbbee_affidavit"), "newer affidavit")], tier="observation")
+
+    def pricing_checks(self):
+        """Arithmetic discrepancies in the priced schedules (see pricing.py). Only a discrepancy that a second reading of the
+        page reproduced is an issue; one it did not reproduce is kept as an observation."""
+        for d in self.f.pricing:
+            self.find("medium", "arithmetic", d.title,
+                      f"{d.detail} Page {d.page}, read by the vision model"
+                      + (" and confirmed by a second reading." if d.confirmed else "; a second reading did not reproduce it."),
+                      "Check the figures on the page and have the bidder correct the arithmetic.",
+                      "Priced schedules must add up and use the stated rates",
+                      [self.E(d.page, d.ref or "priced schedule", source="vision")],
+                      tier="issue" if d.confirmed else "observation")
+        if self.f.pricing_pages and not self.f.pricing:
+            self.ok(f"Priced schedules add up ({len(self.f.pricing_pages)} page(s) checked)", pages=self.f.pricing_pages[:8])
 
     def unresolved_areas(self):
         """A slice of pages the provider would not answer for, even after the retries (timeouts, resets, gateway errors).
