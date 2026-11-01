@@ -64,6 +64,11 @@ class StorageError(RuntimeError):
     """Base class. str(err) is always safe to show a user or log - never a session URL or any credential."""
 
 
+class UploadGone(StorageError):
+    """The uploaded file is no longer in the bucket - most often because the audit it was uploaded for has already run (files are
+    deleted once they have been copied to the work area, so nothing is kept). The person has to attach it again."""
+
+
 class StorageUnavailable(StorageError):
     """GCS_BUCKET isn't configured, or the bucket/API couldn't be reached."""
 
@@ -241,7 +246,15 @@ def open_for_processing(object_name: str, dest_dir: Path) -> Path:
     (see Step 4) - this function's only responsibility is getting the bytes from the bucket to local disk."""
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / Path(object_name).name
-    _get_backend().download_to_file(object_name, dest)
+    try:
+        _get_backend().download_to_file(object_name, dest)
+    except StorageError:
+        raise
+    except Exception as err:  # noqa: BLE001 - the GCS client's NotFound, or a missing object in a test backend
+        if getattr(err, "code", None) == 404 or isinstance(err, (KeyError, FileNotFoundError)):
+            raise UploadGone("The uploaded file is no longer in storage. Files are removed as soon as an audit has "
+                             "read them, so attach the file(s) again before pressing Audit the pack.") from None
+        raise StorageError("Could not read the uploaded file back from storage.") from err
     return dest
 
 

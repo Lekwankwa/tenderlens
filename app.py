@@ -436,8 +436,15 @@ if run:
                 # both paths produce the same internal file object. Multiple pack files are concatenated in
                 # the order they were added, same as the small-file path's merge_uploads().
                 st.write("Fetching the uploaded files from storage.")
-                rfq = [storage.open_for_processing(f["object_name"], tmp) for f in gcs_tender]
-                pack_paths = [storage.open_for_processing(f["object_name"], tmp) for f in gcs_pack]
+                try:
+                    rfq = [storage.open_for_processing(f["object_name"], tmp) for f in gcs_tender]
+                    pack_paths = [storage.open_for_processing(f["object_name"], tmp) for f in gcs_pack]
+                except storage.StorageError as e:
+                    # most often "the files were removed after the last audit": nothing was claimed or run, so say what to do
+                    log_check(False, False)
+                    status.update(label="Attach the files again", state="error")
+                    st.warning(str(e))
+                    st.stop()
                 pack_hasher = hashlib.sha1()
                 for p in pack_paths:
                     pack_hasher.update(p.read_bytes())

@@ -212,3 +212,27 @@ def test_unconfigured_bucket_raises_storage_unavailable(monkeypatch):
     monkeypatch.setenv("GCS_BUCKET", "")
     with pytest.raises(storage.StorageUnavailable):
         storage.create_upload_session("pack", "a.pdf", 1000, "application/pdf", "job-1")
+
+
+def test_fetching_an_upload_that_has_already_been_removed_says_to_attach_it_again(tmp_path, monkeypatch):
+    class Gone(Exception):
+        code = 404                       # what google.api_core.exceptions.NotFound carries
+
+    class Backend(FakeBackend):
+        def download_to_file(self, object_name, dest):
+            raise Gone("No such object")
+
+    monkeypatch.setattr(storage, "_get_backend", lambda: Backend())
+    with pytest.raises(storage.UploadGone, match="attach the file"):
+        storage.open_for_processing("uploads/abc/tender-1.pdf", tmp_path)
+
+
+def test_other_failures_reading_an_upload_stay_a_storage_error(tmp_path, monkeypatch):
+    class Backend(FakeBackend):
+        def download_to_file(self, object_name, dest):
+            raise ConnectionError("reset")
+
+    monkeypatch.setattr(storage, "_get_backend", lambda: Backend())
+    with pytest.raises(storage.StorageError) as e:
+        storage.open_for_processing("uploads/abc/tender-1.pdf", tmp_path)
+    assert not isinstance(e.value, storage.UploadGone)
