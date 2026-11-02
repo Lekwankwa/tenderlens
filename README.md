@@ -18,9 +18,8 @@ across documents, page counts) is decided by code, so those results are repeatab
 | **Live app** | https://tenderlens-366896648857.africa-south1.run.app/ |
 | **Access code** | `TL-CMZK-X6NQ-8DCX-EF2S` (enter it in the sidebar) |
 | **Pre-generated report** | https://tenderlens-report.netlify.app |
-| **Demo video** | _VIDEO LINK_ |
 
-A full live audit of a long tender pack takes **roughly 5 minutes**. **If you don't have the time, the demo video and the
+A full live audit of a long tender pack takes **roughly 5 minutes**. **If you don't have the time, the demo video (sent to you separately) and the
 pre-generated report show exactly what the live app produces** from the sample files below.
 
 ### Try the live app (about 5 minutes)
