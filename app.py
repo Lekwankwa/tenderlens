@@ -497,16 +497,21 @@ if run:
 
             worker = threading.Thread(target=run_audit, daemon=True)
             worker.start()
-            drawn: dict = {"table": None, "req": False}
+            drawn: dict = {"table": None, "req": False, "bar": None}
 
             def draw():
                 done, total = live.counts()
+                # Only send an element to the browser when it has changed: re-sending an identical progress bar every half
+                # second re-renders the page under the reader's hand, which makes it jitter and resist scrolling.
                 if total:
-                    bar.progress(min(done / total, 1.0), text=f"Auditing page {min(done + 1, total)}/{total}"
-                                 f"  ({done} finished)")
+                    state = (min(done / total, 1.0), f"Auditing page {min(done + 1, total)}/{total}  ({done} finished)")
                 elif prog["stage"]:
-                    bar.progress(0.0, text=f"{stage_label.get(prog['stage'], prog['stage'])}: "
-                                           f"{prog['done']} of {prog['total']}")
+                    state = (0.0, f"{stage_label.get(prog['stage'], prog['stage'])}: {prog['done']} of {prog['total']}")
+                else:
+                    state = None
+                if state is not None and state != drawn["bar"]:
+                    drawn["bar"] = state
+                    bar.progress(state[0], text=state[1])
                 rows = [(r.number, r.form, r.status, "; ".join(r.leads)) for r in live.snapshot()]
                 if rows and rows != drawn["table"]:
                     drawn["table"] = rows
@@ -533,6 +538,7 @@ if run:
                 worker.join(0.5)
             draw()
             bar.empty()
+            table.empty()   # the live table is a scrollable box; once the audit is done it should not sit in the page
             if "error" in outcome:
                 raise outcome["error"]
             req, res, facts, pages = outcome["result"]

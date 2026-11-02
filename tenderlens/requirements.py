@@ -57,6 +57,7 @@ class Requirements:
     documents: list[Requirement] = field(default_factory=list)
     conditions: list[Requirement] = field(default_factory=list)
     spec: dict = field(default_factory=dict)
+    checklist: list[dict] = field(default_factory=list)  # checklist.Item.to_dict() of a long tender's full requirement list
     notes: list[str] = field(default_factory=list)  # provenance / dropped items
 
     def to_dict(self):
@@ -342,4 +343,13 @@ def build_requirements(rfq_pdfs: Path | list[Path], spec_text: str, spec_name: s
             llm_r = llm_extract(llm, email_text, email_name, spec_text, spec_name)
         except Exception as ex:  # noqa: BLE001 - whatever the model returned, the audit goes on with the rules alone
             rules_r.notes.append(f"AI model call failed ({type(ex).__name__}: {ex}); used rules only.")
-    return merge(llm_r, rules_r)
+    out = merge(llm_r, rules_r)
+    if llm is not None and llm.configured and os.environ.get("TENDERLENS_CHECKLIST", "1") != "0":
+        from .checklist import build_checklist
+        try:
+            items, notes = build_checklist(llm, email_text + "\n" + spec_text)
+            out.checklist = [i.to_dict() for i in items]
+            out.notes.extend(notes)
+        except Exception as ex:  # noqa: BLE001 - the audit goes on without the checklist
+            out.notes.append(f"Checklist failed ({type(ex).__name__}); skipped.")
+    return out

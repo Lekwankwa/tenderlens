@@ -47,6 +47,7 @@ class Facts:
         self.job_id: str | None = None
         self.pricing: list = []        # pricing.Discrepancy found in the priced schedules (see pricing.run_pricing_check)
         self.pricing_pages: list[int] = []
+        self.verdicts: list = []       # verify.Verdict for each checklist requirement (see verify.run_verification)
         self.misread_variants: list[str] = []  # handwriting a focused crop re-read cleared or set aside (Step 3B)
         self.stage_times: dict[str, float] = {}  # seconds per pipeline stage; filled in by cli.audit_pack
         self.vision_complete = True  # False only when vision was configured, attempted, and some call still
@@ -67,6 +68,7 @@ class Facts:
         self.unread.extend(other.unread)
         self.misread_variants.extend(other.misread_variants)
         self.pricing.extend(other.pricing)
+        self.verdicts.extend(other.verdicts)
         self.pricing_pages = sorted(set(self.pricing_pages) | set(other.pricing_pages))
         mine, theirs = self.vision_log, other.vision_log
         for k in ("calls", "failed", "pages_read", "pages_inspected", "cache_hits"):
@@ -219,6 +221,12 @@ ID_PATTERNS = {
 # Context-bound patterns: a bare 10- or 13-digit number is too ambiguous (bank account numbers,
 # SARS request references and vendor numbers look exactly like tax and ID numbers).
 TAX_CONTEXT = r"(?:Tax(?:payer)?\s*(?:Reference)?\s*Number(?:\(s\))?[:\s]*(?:IT\s*-\s*)?)(\d{10})(?!\d)"
+# Same rule for the other numbers a bidder repeats from document to document: only when a label sits right in front.
+CONTEXT_IDS = {
+    "id.vat_no": r"VAT\s*(?:registration\s*)?(?:No\.?|Number|Reg(?:istration)?\.?\s*No\.?)[:\s]*(4\d{9})(?!\d)",
+    "id.crs_no": r"(?:CRS|CIDB)\s*(?:registration\s*)?(?:No\.?|Number)[:\s]*(\d{6,10})(?!\d)",
+    "id.bank_acc": r"Account\s*(?:No\.?|Number)[:\s]*(\d[\d ]{7,14}\d)(?!\d)",
+}
 ID_CONTEXT_PAGES = {"cipc", "bbbee_affidavit", "bbbee_certificate"}
 
 
@@ -244,6 +252,10 @@ def ocr_facts(pages: list[Page], facts: Facts) -> None:
                 facts.add(field, v, p.number, "ocr", p.mean_conf / 100, locate_value(p, v) or locate(p, v[:8]))
         for m in (re.finditer(TAX_CONTEXT, p.text, re.I) if own_page else ()):
             facts.add("id.tax_no", m.group(1), p.number, "ocr", p.mean_conf / 100, locate(p, m.group(1)[:6]))
+        for field, pat in (CONTEXT_IDS.items() if own_page else ()):
+            for m in re.finditer(pat, p.text, re.I):
+                v = re.sub(r"\s", "", m.group(1))
+                facts.add(field, v, p.number, "ocr", p.mean_conf / 100, locate(p, v[:6]))
         if p.doc_type in ID_CONTEXT_PAGES:
             for m in re.finditer(r"(?<!\d)\d{13}(?!\d)", p.text):
                 if plausible_sa_id(m.group(0)):

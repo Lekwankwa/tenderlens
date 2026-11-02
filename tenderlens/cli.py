@@ -17,6 +17,8 @@ from .ingest import (DPI, classify_pages, find_spec_sheet, load_pdf, load_templa
 from .llm import ModelClient, load_env
 from .report import render_html, to_json
 from .pricing import PricingReader, run_pricing_check
+from .verify import run_verification
+from .checklist import Item
 from .requirements import build_requirements
 
 def _tender_text(rfq, spec) -> str | None:
@@ -232,6 +234,9 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
                 vision, pages, f, passes=passes, timing=t,
                 prefetched=pricing_stream.collect(pages) if pricing_stream else None,
                 reader_facts=pricing_stream.facts if pricing_stream else None))
+            # req may still be a pending text call: the lane reads it on its own thread, so it never holds up the others
+            start(4, lambda f, t: run_verification(vision, pages, f, req_items(req),
+                                                   (req() if callable(req) else req).closing_date))
             if inspect != "off":
                 start(2, lambda f, t: signature_match(vision, pages, f, progress=checks, timing=t))
             first = None
@@ -271,6 +276,12 @@ def _vision_and_audit(req, pages, blank, vision, inspect, passes, pack_stage, tr
     res = Auditor(req, pages, facts, blank, tinfo["unmatched"], pack_stage=pack_stage).run()
     res.ocr_variants.extend(facts.misread_variants)
     return facts, res, req
+
+
+def req_items(req) -> list[Item]:
+    """The long-tender checklist carried by the requirements (empty for a short RFQ/Tender or when it was switched off)."""
+    r = req() if callable(req) else req
+    return [Item(**d) for d in getattr(r, "checklist", [])]
 
 
 def rerun_vision(req, pages, blank, vision, inspect="forms", passes=2, pack_stage="final", transcript=None,

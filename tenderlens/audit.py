@@ -90,6 +90,7 @@ class AuditResult:
     ocr_variants: list[str] = field(default_factory=list)
     human_only: list[str] = field(default_factory=list)
     page_types: dict[int, str] = field(default_factory=dict)
+    verification: list[dict] = field(default_factory=list)  # one row per checklist requirement (see verify.py)
 
 
 def edit_distance(a: str, b: str) -> int:
@@ -187,7 +188,7 @@ class Auditor:
     def run(self) -> AuditResult:
         for fn in (self.required_documents, self.page_completeness, self.page_order, self.signatures,
                    self.handwritten_entries, self.signatories, self.vision_inspection, self.template_blanks,
-                   self.sbd62_consistency, self.local_content, self.identifiers, self.names, self.quote_checks, self.pricing_checks, self.voided_forms, self.unresolved_areas,
+                   self.sbd62_consistency, self.local_content, self.identifiers, self.names, self.quote_checks, self.pricing_checks, self.requirement_checks, self.voided_forms, self.unresolved_areas,
                    self.spec_checks, self.validity_dates, self.declarations_vs_registers, self.certificates,
                    self.bbbee, self.stray_marks, self.initials, self.ocr_quality, self.not_verifiable):
             try:
@@ -747,6 +748,9 @@ class Auditor:
             "Tax reference number": ["id.tax_no", "sbd4.tax_no"],
             "SA ID number": ["id.sa_id", "sbd4.id_no"],
             "Email address": ["id.email"],
+            "VAT number": ["id.vat_no"],
+            "CIDB (CRS) number": ["id.crs_no"],
+            "Bank account number": ["id.bank_acc"],
         }
         for label, fields in pools.items():
             vals = [(f.value.replace(" ", ""), f) for fld in fields for f in self.f.all(fld) if isinstance(f.value, str)]
@@ -1320,6 +1324,31 @@ class Auditor:
                       tier="issue" if d.confirmed else "observation")
         if self.f.pricing_pages and not self.f.pricing:
             self.ok(f"Priced schedules add up ({len(self.f.pricing_pages)} page(s) checked)", pages=self.f.pricing_pages[:8])
+
+    def requirement_checks(self):
+        """The long-tender checklist (see checklist.py / verify.py): code compared what the model read with the tender's
+        rule. A failure is an issue only when a second, reworded read failed the same way and quoted the page; a
+        requirement nothing in the pack resembles, or a failure the second read did not repeat, is an observation."""
+        self.res.verification = [{"label": v.item.label, "kind": v.item.kind, "rule": v.item.rule, "status": v.status,
+                                  "reason": v.reason, "pages": v.pages, "quote": v.quote, "confirmed": v.confirmed}
+                                 for v in getattr(self.f, "verdicts", [])]
+        done = [v for v in getattr(self.f, "verdicts", []) if v.status != "unread"]
+        for v in done:
+            if v.status == "pass":
+                continue
+            kind = {"missing": "missing_document", "fail": "requirement"}[v.status]
+            confirmed = v.confirmed and v.status == "fail"
+            self.find("medium", kind, f"{'Missing' if v.status == 'missing' else 'Does not meet'}: {v.item.label}",
+                      v.reason + (f" Quoted: \"{v.quote}\"." if v.quote else "")
+                      + (" Confirmed by a second, reworded reading." if confirmed else " A second reading did not confirm it."),
+                      "Check the page and ask the bidder for the correct document.",
+                      f"Tender: \"{v.item.source_quote}\"",
+                      [self.E(v.pages[0], v.item.label, source="vision")] if v.pages else [],
+                      tier="issue" if confirmed else "observation")
+        passed = [v for v in done if v.status == "pass"]
+        if passed:
+            self.ok(f"Tender checklist items met ({len(passed)} of {len(done)} checked)",
+                    pages=[n for v in passed for n in v.pages[:1]][:8])
 
     def unresolved_areas(self):
         """A slice of pages the provider would not answer for, even after the retries (timeouts, resets, gateway errors).

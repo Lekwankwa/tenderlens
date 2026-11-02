@@ -266,4 +266,5 @@ def to_json(req: Requirements, res: AuditResult) -> str:
                       "evidence": [ev(x) for x in f.evidence]} for f in res.findings],
         "passed": [{"title": p.title, "note": p.note, "pages": p.pages} for p in res.passed],
         "ocr_variants": res.ocr_variants, "human_only": res.human_only,
+        "verification": getattr(res, "verification", []),
     }, indent=1)
