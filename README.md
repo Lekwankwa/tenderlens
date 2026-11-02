@@ -91,14 +91,5 @@ is a strong first pass for a human reviewer, not a replacement for one. Details 
 - Page images are sent to Fireworks AI (USA) so the model can read them. Upload only what you are allowed to share.
   See [`PRIVACY.md`](PRIVACY.md).
 
-## Run it yourself
-```
-./install.sh                           # macOS / Linux.  Windows: .\install.ps1
-export FIREWORKS_API_KEY=...           # or put it in .env
-streamlit run app.py
-```
-Command line: `python -m tenderlens run --rfq <rfq.pdf> --pack <response-pack.pdf> --blank samples/blank --out out`.
-Tests: `python -m pytest tests -q`.
-
 TenderLens is a review aid built with AI and fixed rules. AI can make mistakes and miss things; check anything that
 matters against the original documents.
