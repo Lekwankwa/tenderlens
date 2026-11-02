@@ -24,8 +24,8 @@ pre-generated report show exactly what the live app produces** from the sample f
 
 ### Try the live app (about 5 minutes)
 
-No tender on hand? Two sample files are provided, both as download buttons in the app's sidebar (under **1. RFQ/Tender
-documents** and **2. The bidder's response pack**) and in this repo's [`demo/`](demo/) folder:
+No tender on hand? Two sample files are in this repo's [`demo/`](demo/) folder. Download them from GitHub first
+(open the file, then click the download icon, or use "Download raw file"):
 
 - [`demo/1_RFQ_Tender_1CE.pdf`](demo/1_RFQ_Tender_1CE.pdf): a real, public construction tender (the buyer's side).
 - [`demo/2_Bidder_Response_Pack_tampered.pdf`](demo/2_Bidder_Response_Pack_tampered.pdf): a synthetic bidder's response
@@ -35,8 +35,8 @@ Steps:
 
 1. Open the [live app](https://tenderlens-366896648857.africa-south1.run.app/) and enter the access code
    `TL-CMZK-X6NQ-8DCX-EF2S` in the sidebar.
-2. Under **1. RFQ/Tender documents**, attach the sample RFQ/Tender PDF.
-3. Under **2. The bidder's response pack**, attach the sample response pack PDF.
+2. Under **1. RFQ/Tender documents**, attach the sample RFQ/Tender PDF from `demo/`.
+3. Under **2. The bidder's response pack**, attach the sample response pack PDF from `demo/`.
 4. Under **3. Pack stage**, press **Draft pack**.
 5. Tick the box confirming you acknowledge the privacy notice.
 6. Press **Audit the pack**.

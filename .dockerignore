@@ -43,3 +43,6 @@ Dockerfile
 deploy.sh
 
 tools/tender_documents/
+
+# sample PDFs are for the GitHub repo only; the app no longer serves them
+demo/
