@@ -140,7 +140,7 @@ _RECORDER_JS = """
         }
         let screen;
         try {
-            screen = await navigator.mediaDevices.getDisplayMedia({video: {frameRate: 30}, audio: true});
+            screen = await navigator.mediaDevices.getDisplayMedia({video: {frameRate: 30, displaySurface: "monitor"}, audio: true, monitorTypeSurfaces: "include", selfBrowserSurface: "include", surfaceSwitching: "include", systemAudio: "include"});
         } catch (e) { return; }  // the viewer cancelled the picker
         streams.push(screen);
         const tracks = [...screen.getVideoTracks()];
