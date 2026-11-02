@@ -113,6 +113,88 @@ if PILOT:
     </script>
     """, height=0)
 
+# Screen recorder, top right, for demo videos. Same technique as the idle watcher: the script is injected into the
+# PAGE once (an iframe inside Streamlit would be unmounted on rerun and, without display-capture permission,
+# could not call getDisplayMedia at all). It records the screen/tab the viewer picks, plus the microphone if
+# allowed, and downloads a .webm when stopped. Nothing is uploaded anywhere; it never leaves the browser.
+_RECORDER_JS = """
+(function () {
+    if (window.__tlRecorder) return;
+    const btn = document.createElement("button");
+    btn.id = "tl-rec-btn";
+    btn.textContent = "\\u25CF Record";
+    btn.title = "Record your screen to submit a demo video";
+    btn.style.cssText = "position:fixed;top:10px;right:150px;z-index:1000000;padding:6px 14px;border-radius:999px;" +
+        "border:1px solid rgba(255,255,255,.35);background:#16181a;color:#e8e6e2;font:600 13px sans-serif;cursor:pointer";
+    document.body.appendChild(btn);
+    let rec = null, chunks = [], streams = [], tick = null, t0 = 0;
+    const reset = () => {
+        streams.forEach(s => s.getTracks().forEach(t => t.stop())); streams = [];
+        clearInterval(tick); rec = null; btn.textContent = "\\u25CF Record";
+        btn.style.background = "#16181a"; btn.style.color = "#e8e6e2";
+    };
+    async function start() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            alert("Screen recording is not supported in this browser. Use Chrome, Edge or Firefox on a desktop.");
+            return;
+        }
+        let screen;
+        try {
+            screen = await navigator.mediaDevices.getDisplayMedia({video: {frameRate: 30}, audio: true});
+        } catch (e) { return; }  // the viewer cancelled the picker
+        streams.push(screen);
+        const tracks = [...screen.getVideoTracks()];
+        let mic = null;
+        try { mic = await navigator.mediaDevices.getUserMedia({audio: true}); streams.push(mic); } catch (e) {}
+        // mix tab/system audio and the microphone into one track
+        const sources = [screen, mic].filter(s => s && s.getAudioTracks().length);
+        if (sources.length) {
+            const ctx = new AudioContext(), dest = ctx.createMediaStreamDestination();
+            sources.forEach(s => ctx.createMediaStreamSource(s).connect(dest));
+            tracks.push(...dest.stream.getAudioTracks());
+        }
+        const mime = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]
+            .find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || "";
+        chunks = [];
+        rec = new MediaRecorder(new MediaStream(tracks), mime ? {mimeType: mime} : {});
+        rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+        rec.onstop = () => {
+            const type = rec.mimeType || "video/webm";
+            const blob = new Blob(chunks, {type});
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "tenderlens-demo-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") +
+                (type.includes("mp4") ? ".mp4" : ".webm");
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+            reset();
+        };
+        screen.getVideoTracks()[0].addEventListener("ended", () => { if (rec && rec.state !== "inactive") rec.stop(); });
+        rec.start(1000);
+        t0 = Date.now();
+        btn.style.background = "#b3261e"; btn.style.color = "#fff";
+        tick = setInterval(() => {
+            const s = Math.floor((Date.now() - t0) / 1000);
+            btn.textContent = "\\u25A0 Stop " + String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+        }, 500);
+    }
+    btn.addEventListener("click", () => { if (rec && rec.state !== "inactive") rec.stop(); else start(); });
+    window.__tlRecorder = true;
+})();
+"""
+st.components.v1.html(f"""
+<script>
+(function () {{
+    const top = window.parent;
+    if (top.__tlRecorderInstalled) return;
+    top.__tlRecorderInstalled = true;
+    const s = top.document.createElement("script");
+    s.textContent = {json.dumps(_RECORDER_JS)};
+    top.document.head.appendChild(s);
+}})();
+</script>
+""", height=0)
+
 st.markdown("""
 <style>
 #MainMenu, footer {visibility:hidden}
@@ -237,10 +319,14 @@ with st.sidebar:
             st.error(f"Too many wrong codes. Try again in {locked:.0f}s.", icon=None)
         else:
             raw_code = st.text_input("Pilot access code", key="pilot_code", placeholder="TL-XXXX-XXXX-XXXX-XXXX")
+            # A placeholder, so the "N packs left" line can be redrawn after an audit spends a pack: the
+            # sidebar is drawn before the audit runs, and nothing reruns afterwards, so it used to stay frozen.
+            code_status_slot = st.empty()
             if raw_code:
                 code_status = store.validate(raw_code)
                 pilot.record_attempt(st.session_state, code_status.ok)
-                (st.success if code_status.ok else st.error)(code_status.message(), icon=None)
+                with code_status_slot.container():
+                    (st.success if code_status.ok else st.error)(code_status.message(), icon=None)
         with st.expander("Pilot terms"):
             st.caption(pilot.pilot_terms())
     rfqtender_ups = pack_ups = []
@@ -556,6 +642,10 @@ if run:
                 credit_used = claim_store.settle_pack(claim_hash, claim_file_sha, claim_kind, check_complete,
                                                       req.reference, n_issue)
             log_check(check_complete, credit_used)
+            if claim_store is not None:
+                fresh = claim_store.validate(st.session_state.get("pilot_code", ""))
+                with code_status_slot.container():
+                    (st.success if fresh.ok else st.error)(fresh.message(), icon=None)
             st.session_state["out"] = dict(req=req, res=res, facts=facts, pages=pages, R=R, html=html,
                                            json=to_json(req, res), secs=time.time() - t0, pack=pack.name,
                                            bidder=bidder or "Bidder", redact=redact, check_mode=check_mode,
