@@ -225,6 +225,15 @@ div[data-testid="stMetric"] {background:rgba(128,128,128,.07); border:1px solid 
 
 # ----------------------------------------------------------------------------------- helpers
 
+def sample_download(label: str, filename: str, key: str) -> None:
+    """A download button for one of the demo PDFs in demo/, so a visitor with no tender on hand can try the app.
+    Streamlit calls the callable only when the button is pressed, so the 22 MB pack is not read on every rerun."""
+    f = ROOT / "demo" / filename
+    if f.exists():
+        st.download_button(label, data=f.read_bytes, file_name=filename, mime="application/pdf", key=key,
+                           width="stretch")
+
+
 def save_upload(up, name: str, folder: Path) -> Path:
     folder.mkdir(parents=True, exist_ok=True)
     p = folder / name
@@ -329,6 +338,7 @@ with st.sidebar:
                     (st.success if code_status.ok else st.error)(code_status.message(), icon=None)
         with st.expander("Pilot terms"):
             st.caption(pilot.pilot_terms())
+    sample_download("Download a sample RFQ/Tender (1CE)", "1_RFQ_Tender_1CE.pdf", "dl_sample_rfq")
     rfqtender_ups = pack_ups = []
     gcs_tender = gcs_pack = []
     job_id = None  # only the GCS large-upload path tracks job state - see tenderlens/jobs.py
@@ -348,6 +358,8 @@ with st.sidebar:
         gcs_tender = upload_component.upload_slot("RFQ/Tender document(s) (PDF)", "tender", job_id,
                                                    key="upload_tender")
         st.markdown("<div class='tl-step'>2 &middot; The bidder's response pack</div>", unsafe_allow_html=True)
+        sample_download("Download a sample response pack (tampered)", "2_Bidder_Response_Pack_tampered.pdf",
+                        "dl_sample_pack")
         gcs_pack = upload_component.upload_slot("Response pack (PDF)", "pack", job_id, key="upload_pack")
     else:
         rfqtender_ups = st.file_uploader("RFQ/Tender documents (PDF)", type="pdf", key="rfqtender",
@@ -355,6 +367,8 @@ with st.sidebar:
         if len(rfqtender_ups) > 10:
             st.error(f"{len(rfqtender_ups)} files selected; at most 10 RFQ/Tender documents are read.", icon=None)
         st.markdown("<div class='tl-step'>2 &middot; The bidder's response pack</div>", unsafe_allow_html=True)
+        sample_download("Download a sample response pack (tampered)", "2_Bidder_Response_Pack_tampered.pdf",
+                        "dl_sample_pack")
         pack_ups = st.file_uploader("Response pack (PDF, scans are fine)", type="pdf", key="pack",
                                     accept_multiple_files=True, help="Multiple files are read in the order "
                                     "you add them, as one combined pack.")

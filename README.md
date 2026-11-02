@@ -1,299 +1,105 @@
-# TenderLens (prototype)
+# TenderLens
 
-Audits a South African RFQ response pack against what the buyer asked for, and reports every
-potential issue with the page it appears on, the rule it relates to, and what a person should check.
+**Audit a bidder's tender response pack against what the buyer asked for, before it is submitted.**
+TenderLens reads a South African RFQ/Tender and a bidder's response pack (scans, handwriting, ticks, stamps and
+all), and reports every potential issue with the page it is on, the rule it relates to and what a person should check.
 It is a review aid: it says "needs review", never "disqualified".
 
-> This report was produced with AI and fixed rules. AI can make mistakes and miss
-> things. TenderLens is a review aid, not a verdict: check anything that matters against the original
-> documents.
+Powered by **Meta's Muse Spark Open** (multimodal, served through Fireworks AI): one model reads both the buyer's
+requirements and the scanned pages. Everything that can be decided by ordinary code (sums, dates, identifiers matching
+across documents, page counts) is decided by code, so those results are repeatable.
 
-## Quick start
+---
+
+## 🚀 Quick start for judges
+
+| | |
+|---|---|
+| **Live app** | https://tenderlens-366896648857.africa-south1.run.app/ |
+| **Access code** | `TL-CMZK-X6NQ-8DCX-EF2S` (enter it in the sidebar) |
+| **Pre-generated report** | https://tenderlens-report.netlify.app |
+| **Demo video** | _VIDEO LINK_ |
+
+A full live audit of a long tender pack takes **roughly 5 minutes**. **If you don't have the time, the demo video and the
+pre-generated report show exactly what the live app produces** from the sample files below.
+
+### Try the live app (about 5 minutes)
+
+No tender on hand? Two sample files are provided, both as download buttons in the app's sidebar (under **1. RFQ/Tender
+documents** and **2. The bidder's response pack**) and in this repo's [`demo/`](demo/) folder:
+
+- [`demo/1_RFQ_Tender_1CE.pdf`](demo/1_RFQ_Tender_1CE.pdf): a real, public construction tender (the buyer's side).
+- [`demo/2_Bidder_Response_Pack_tampered.pdf`](demo/2_Bidder_Response_Pack_tampered.pdf): a synthetic bidder's response
+  pack (fictional company) with defects planted in it, for TenderLens to find.
+
+Steps:
+
+1. Open the [live app](https://tenderlens-366896648857.africa-south1.run.app/) and enter the access code
+   `TL-CMZK-X6NQ-8DCX-EF2S` in the sidebar.
+2. Under **1. RFQ/Tender documents**, attach the sample RFQ/Tender PDF.
+3. Under **2. The bidder's response pack**, attach the sample response pack PDF.
+4. Under **3. Pack stage**, press **Draft pack**.
+5. Tick the box confirming you acknowledge the privacy notice.
+6. Press **Audit the pack**.
+7. Wait roughly **5 minutes** while the report is generated (the progress panel shows each stage). Then explore the
+   verdict banner, the issues with cropped page evidence, the checks that passed, the page viewer, and the HTML/JSON
+   report downloads.
+
+You can also use your own tender and response pack (PDF, scans are fine).
+
+---
+
+## What it does
+
+1. **Requirements.** The model reads the RFQ/Tender and returns a checklist. Every item must carry a verbatim
+   `source_quote`; items whose quote is not in the source are dropped. A rules pass runs alongside as a cross-check.
+2. **Response facts.** Scans are OCR'd (Tesseract). Handwriting, ticks, dates, amounts and stamps are read by the
+   multimodal model. Every fact is tagged `ocr`, `vision` or `manual`.
+3. **Audit (ordinary code).** Required documents and page counts, signatures and initials, unresolved template blanks,
+   cross-document identifiers, quote arithmetic, specification match, expiry dates, declarations against CSD/CIPC/SARS
+   documents, stray marks.
+4. **Report.** Self-contained HTML plus JSON, with the page evidence beside each finding.
+
+### Two tiers, so noise stays out of the headline
+- **Issues:** a requirement the buyer states is not met, or two documents contradict each other.
+- **Observations** (collapsed, never counted in the headline): worth knowing, not a failure.
+
+### Guardrails against model error
+- A single vision reading is never enough for an issue. Anything that would raise one is asked again as a differently
+  worded question, and only a second agreeing look makes it an issue.
+- Where two readings of a number differ by a character or two, both are re-read at higher magnification before anything
+  is raised.
+- The model reads fields; code makes the decisions.
+
+## Tech stack
+- **Model:** Meta Muse Spark Open (`accounts/fireworks/models/muse-spark-open`) via Fireworks AI's OpenAI-compatible
+  API, for both text and vision.
+- **App:** Python, Streamlit. Tesseract and Poppler for OCR and page rendering; OpenCV/NumPy/Pillow for image checks.
+- **Hosting:** Google Cloud Run (Johannesburg).
+
+## Measured, honestly
+Benchmarked on nine public tenders paired with synthetic clean and tampered response packs (383 planted defects in
+total). On the strictest scoring, a defect only counts when the finding is about that defect, TenderLens matched
+**69 of the 383** planted defects, and the clean packs produced **150 issue-tier findings across 9 packs** after the
+false-positive fixes (down from 285). Hand-checking puts true detection at roughly 14-18% on those packs: it
+is a strong first pass for a human reviewer, not a replacement for one. Details are in
+[`evaluation/ce_baseline/benchmarks/fp2/README.md`](evaluation/ce_baseline/benchmarks/fp2/README.md).
+
+## Limits
+- Signature authenticity, forged stamps and digitally edited PDFs cannot be judged.
+- No live look-ups (SARS, CSD, CIPC, Treasury registers).
+- Handwriting reading depends on scan quality; anything marked *manual* or *vision* should be spot-checked.
+- Page images are sent to Fireworks AI (USA) so the model can read them. Upload only what you are allowed to share.
+  See [`PRIVACY.md`](PRIVACY.md).
+
+## Run it yourself
 ```
-./install.sh                                # macOS / Linux.  Windows: .\install.ps1 in PowerShell
-.venv/bin/python -m tenderlens ui           # starts Ollama if needed, fetches the configured model(s), opens the web app
-```
-`install.sh` / `install.ps1` install Tesseract, Poppler and Ollama, create the Python environment and copy `.env.example`
-to `.env`. `python -m tenderlens ui` then starts Ollama if it isn't running, pulls any configured model that isn't on
-disk yet, and opens the Streamlit interface. The interface's sidebar has its own **System** panel (Tesseract, Poppler,
-text model, vision model, each Ready or Missing) with a button that does the same start-and-fetch without leaving the
-app. `python -m tenderlens check-llm` does the same checks from the command line.
-
-## Flow
-1. **Requirements** (`requirements.py`): the AI model reads the RFQ (the cover email/letter and, if the buyer sent them
-   as separate files, its attachments - up to 10, concatenated in order) and the spec, and returns a JSON checklist.
-   Every item must carry a verbatim `source_quote`; items whose quote is not in the source are dropped.
-   A rules pass runs alongside as a cross-check and as the offline fallback. Disagreements are recorded, not hidden.
-2. **Response facts** (`ingest.py`, `facts.py`): scans are OCR'd (Tesseract). Handwriting and ticks are read by a
-   multimodal AI model (`vision_extract`) or, if none is attached, from a manual transcription file.
-   Every fact is tagged `ocr`, `vision` or `manual`.
-3. **Audit** (`audit.py`, `vision.py`): ordinary code, so results are repeatable. Checks: required documents and page
-   counts, signatures, unresolved template blanks (bidder vs buyer), SBD 6.2 consistency, cross-document identifiers,
-   quote arithmetic, spec match, expiry dates, declarations vs CSD/CIPC/SARS, stray marks, highlights left in.
-4. **Report** (`report.py`): self-contained HTML (+ JSON). Embedded page images are redacted by default (`redact.py`).
-
-## What counts as an issue
-A pack that already won should come back clean, so the report separates two tiers:
-- **Issues**: a requirement the RFQ states is not met (missing document, missing or duplicated page, unsigned form, wrong
-  quantity, price or validity), or two documents contradict each other (a number, name, date or reference that differs).
-- **Observations** (collapsed, never counted in the headline): context that is worth knowing but is not a failure, such as
-  an expired B-BBEE entry on the CSD printout when a newer affidavit is attached, or a very small mark on a form.
-
-The tool does not flag style (a company name where a person's name was asked, "Company" ticked instead of "(Pty) Ltd",
-one decimal on a price). Those were in an early version and were noise.
-
-When two readings of the same number differ by a character or two, the tool re-reads both at higher magnification. Two
-agreeing reads settle it. Failing that, it treats the difference as a scanner misread only if the characters are ones the scan
-resolution confuses (1/4, 5/8 ...) AND at least two other pages agree. Otherwise it raises an issue.
-
-## What it checks
-- **Documents and pages:** required documents present; each standard form has all its pages; blank and duplicated pages;
-  pages in order (a form's pages sit together, "page n of m" footers count up, and each page's wording follows the blank
-  form's order); CSD sections present and in order.
-- **Typed content:** the quotation against the RFQ and specification (quantity, arithmetic, validity, reference, closing
-  date, submission email, item description, delivery address); identifiers and names across documents.
-- **Certificates:** CIPC status "In Business"; CSD business status, active flag, restricted flag, tax status, report age;
-  SARS PIN purpose, issue and expiry; the affidavit's own content (turnover statement, level against ownership,
-  recognition %, 12-month validity, commissioned date).
-- **Handwriting (needs a vision model or a transcript):** every tick, name, date and amount on the quotation, SBD 4, 6.1,
-  8, 9 and the affidavit: blank entries, both boxes ticked, a "Yes" where the clean answer is "No", impossible or late dates,
-  forms dated on different days, a different person signing, points claimed against the B-BBEE level, years in business
-  against the company's age, witness count, the commissioner's stamp and both signatures.
-- **What only a vision model sees (`inspect_pages`):** crossed-out printed text, overwriting or correction fluid, handwritten
-  notes outside the form fields, rotated or cut-off pages, a "signature" that is not a pen signature, and a signature that
-  looks like another hand's (observation only).
-- **Image analysis (no model):** signatures, initials, margin marks, leftover template highlighting.
-
-A single vision reading is never enough for an issue. Any reading that would raise one is asked again as a differently worded
-question; if the second look agrees it is an issue, otherwise it stays an observation. A person's transcript counts as
-confirmed unless its confidence is under 0.8. See `OLLAMA.md`.
-
-## Tamper tests
-`python tests/tamper.py` starts from the winning pack, changes one thing at a time and checks the result. The untouched pack
-must give 0 issues. The rest remove a page, change a typed figure or identifier on the quote or a supporting document, blank
-a signature, add a pen scribble, remove initials, shuffle pages, change a certificate's content, or alter a handwritten
-answer. Results are in `out/tamper/summary.md`.
-
-Rows marked *(reading simulated)* change what the handwriting reader reports, not the image: they test the rules that act on
-a reading, not the vision model's eyes. How well a particular model reads is measured separately with
-`python -m tenderlens eval-vision`.
-
-Handwriting transcribed by hand is tied to the page image it was read from (hash), so it follows a page that moves and is
-dropped for a page that was altered: a transcription of a different image proves nothing.
-
-## Interface (Streamlit)
-```
-pip install -r requirements.txt
+./install.sh                           # macOS / Linux.  Windows: .\install.ps1
+export FIREWORKS_API_KEY=...           # or put it in .env
 streamlit run app.py
 ```
-Upload the RFQ, the specification and the response pack in the sidebar, then press **Audit the pack**. The page shows a
-verdict banner, the issues with cropped page evidence, what the buyer asked for, the checks that passed, a page viewer and how
-each fact was read. The HTML and JSON reports download from the top right. Results are cached by page, so re-running a pack is fast.
+Command line: `python -m tenderlens run --rfq <rfq.pdf> --pack <response-pack.pdf> --blank samples/blank --out out`.
+Tests: `python -m pytest tests -q`.
 
-**No demo files ship with this repo.** `samples/response/` and `samples/rfq/` hold a real RFQ and a real bidder's response
-pack with real identifiers, so they're git-ignored on purpose (see "Privacy" below) - a fresh clone (including this repo's
-public copy) does not have them. To try the app, upload your own RFQ/spec and response pack PDFs - any South African
-government tender RFQ and SBD-form response pack will do. There is currently no bundled or synthetic demo pack.
-
-## Run (command line)
-```
-sudo apt install tesseract-ocr poppler-utils   # or your platform's equivalent
-pip install -r requirements.txt
-python -m tenderlens run \
-  --rfq path/to/your-rfq.pdf --spec path/to/your-spec.pdf \
-  --pack path/to/your-response-pack.pdf --blank samples/blank \
-  --bidder "Bidder Name" --out out
-```
-(`samples/blank` - the blank SBD form templates - ships with the repo and is tracked; `--rfq`/`--spec`/`--pack` are
-yours to supply, since no sample RFQ or response pack ships with this repo - see "Interface" above. The paths this
-command used to show, `samples/rfq/...` and `samples/response/...`, are this project's own git-ignored working
-files, not something a fresh clone has.)
-`--rfq` takes one or more PDFs (up to 10): the cover email/letter plus any attachments the buyer sent as separate
-files (annexures, a BOQ, blank SBD templates). Their text is concatenated in the order given before anything is
-extracted, so `--rfq email.pdf annexure_a.pdf annexure_b.pdf` works. `--spec` is its own, optional, single file -
-it has its own checks (item description, quantity, delivery address) that need to know specifically which document
-is the specification, so it isn't folded into the RFQ files.
-
-## Local content
-SBD 6.2 and Annexure C are only treated as required when the *buyer's* documents say local content applies (a designated
-sector or a stated threshold). The RFQ's "where there is local content" wording alone does not trigger them, and neither
-does a percentage the bidder wrote on a form. Override with `--local-content yes|no`.
-
-## Using Fireworks AI (Muse Spark Open)
-TenderLens's only model provider is **Fireworks AI**, with **one model for both steps: Muse Spark Open**
-(`accounts/fireworks/models/muse-spark-open`; multimodal, so text and vision use the same endpoint, model and key).
-The endpoint and model are built in; the key is the only setting. Put it in `.env` (copy `.env.example`; needs
-`python-dotenv`, in `requirements-dev.txt`) or the environment; real environment variables win over the file:
-```
-export FIREWORKS_API_KEY=...
-```
-With no key the tool runs rules-only and says so at the top of the report. `check-llm` tests the endpoint
-with one tiny call; `eval-vision` scores the vision model against a manual transcript. Token totals (and an
-estimated cost, if you've set a price per million tokens) are printed by `run` and shown in the app's "How this
-was read" tab.
-
-**Local alternative: Ollama.** Self-hosting keeps bid documents on your own infrastructure, at the cost of
-being much slower on ordinary laptop hardware (see "Known limits") and needing a smaller local model. The client
-speaks the OpenAI-compatible chat API, so pointing `FIREWORKS_API_BASE` and `FIREWORKS_MODEL` at Ollama works.
-Step-by-step setup is in `OLLAMA.md`.
-
-## Privacy
-`samples/response` and `samples/rfq` hold real identifiers and are git-ignored. Analysis runs on the originals; images in the
-report have IDs, tax numbers, bank numbers, phone numbers, PINs, handwritten ID/tax fields, the director table and
-signatures blacked out. `--strict-redact` also masks registration and CSD numbers. `--no-redact` is for private use only.
-Redaction is layered but not perfect: look at the report before you share it.
-
-**With the hosted model connected (Fireworks AI), page images are NOT redacted before being sent** - the model
-has to see the handwriting, IDs and signatures to read them. That's a third party outside South Africa. The app
-shows a short reminder of this near the upload boxes; self-hosting with Ollama (see `OLLAMA.md`) keeps everything
-on your own machine instead.
-
-## Pilot mode
-**Off by default.** With `TENDERLENS_PILOT` unset (or anything other than `1`), the app is the plain demo: no code
-box, no pack counting. Set `TENDERLENS_PILOT=1` (locally, or as a Secret on a host) to turn the gate back on when
-you're ready to run a pilot.
-
-`TENDERLENS_PILOT=1` gates uploading your own files behind a one-time invite code. With it unset or `0`, the app
-behaves exactly as it does without this section.
-
-```
-.venv/bin/python -m tenderlens pilot create --name "Acme Builders" --email acme@example.com --packs 3 --days 21
-TENDERLENS_PILOT=1 streamlit run app.py
-```
-`create` prints the code once (`TL-XXXX-XXXX-XXXX-XXXX`) and never stores it, only a SHA-256 hash; typed-in codes are
-normalised (case, spaces and dashes don't matter, and O/I/L are read as 0/1/1) before hashing, so minor typos still work.
-Five wrong codes in a row locks the sidebar for a minute. `pilot list` / `pilot show CODE` / `pilot extend CODE
-[--days N] [--packs N]` (also reactivates a withdrawn code) / `pilot revoke CODE` manage existing codes.
-
-**Counting.** A pack is spent the first time a given file's SHA-256 is audited under a code; re-running the identical
-file is free, a changed file is a new pack, a crashed audit refunds the pack it had just claimed, and if two requests
-race for the last pack exactly one succeeds (an atomic SQLite transaction, not a lock we hope holds).
-
-**Storage.** Only invite details (name, optional email, pack limit, expiry), the code's hash, and per pack a file
-fingerprint (SHA-256, not the file), the RFQ reference, the issue count and timestamps - never document contents,
-names read from the pack, or the PDF itself. Kept in a SQLite file at `TENDERLENS_PILOT_DB` (default `pilot/pilot.db`,
-**committed to git on purpose** - see below). Uploaded files and their page images are deleted from the server 24
-hours after they were made.
-
-**Hosting warning, not solved here:** if this runs somewhere that wipes its disk on restart (Streamlit Community
-Cloud, or a Cloud Run instance scaling to zero or restarting), `pilot/pilot.db` goes with it and every code's pack
-count resets to whatever was last committed to git. That's why it's committed at all - re-deploying restores the
-codes and counts as of the last commit, rather than losing them outright - but anything created or spent *after*
-that commit (a new code, a used pack) is gone the next time the instance restarts. That's a real limitation of
-running this prototype this way, not something this code works around - use a host with a persistent disk (or
-point `TENDERLENS_PILOT_DB` at one), or move the counters to a real database, if pack counts need to survive
-restarts reliably.
-
-**Pre-deploy checklist (Cloud Run, or anywhere else that wipes disk on restart):** before building the image,
-regenerate the pilot codes you want live (`pilot create`/`extend`/`revoke` as needed) and commit the resulting
-`pilot/pilot.db`. The image ships whatever was last committed; anything done against a *running* instance's copy
-is lost on its next restart, so pilot.db in the repo is the actual source of truth for what a fresh deploy starts
-from, not a cache of it.
-
-## Known limits (be honest about these in a pitch)
-- Built and tested on one pack. Thresholds in `vision.py` (stray marks, signatures) were tuned on it.
-- **Muse Spark's connectivity has been smoke-tested (a tiny text-only `ping()` call succeeded) but not yet run
-  against a real pack's page images.** The vision path is tested with a scripted stand-in for the model
-  (`tests/test_vision.py`), which proves the prompts' answers are parsed, cleaned, merged, double-checked and
-  tiered correctly, but not how well Muse Spark specifically reads these scans - that's what `eval-vision` and
-  a real pack run are for. Sample reports in this repo's history were produced with an earlier model, before the
-  switch to Muse Spark.
-- Tesseract misreads things (it read "5/2/1" as "5/2/4"). See the rule above; the report lists what was set aside.
-- Without a vision model, a pen strike-through over printed text and scribbles in white space inside a form are not detected
-  (the image rules only see margin marks). With one, they are leads that need a second confirming look.
-- Altered printed wording in a standard form is only caught when it breaks a page-count, order or consistency rule; the
-  tool does not compare each clause with the blank form.
-- Signature authenticity, forged stamps and digitally edited PDFs cannot be judged. The signature comparison is a lead
-  for a person, never proof.
-- Order across different documents (for example the quotation last) is not policed; only the order inside a form is.
-- A missing page is detected when the form has a known page count (SBD 4, 6.1, 6.2, 8, 9, local content declaration), when a whole
-  document is missing, or when a CSD section is missing. A page in the middle of a long free-form printout (for example the
-  commodity list on the CSD report) cannot be proven missing.
-- Documents the RFQ does not ask for (the CIPC certificate) are not checked for presence, by design.
-- No live look-ups (SARS PIN, CSD, CIPC, Treasury restricted-supplier and tender-defaulter registers), and price
-  reasonableness, invitation lists and email timestamps are outside what the pack shows.
-- `pilot/pilot.db` lives on the running instance's own disk, not a shared database. Pack counts, and any pilot
-  codes created after the last deploy, reset whenever that instance restarts, scales to zero, or is redeployed -
-  see "Hosting warning" above. Moving the counters to a real database (Supabase, for example) is the fix once
-  this needs to run as more than a pilot.
-
-## Hosting on Google Cloud Run
-The pilot runs as a container on Google Cloud Run (Johannesburg - `africa-south1`), instead of Streamlit
-Community Cloud, to get past that host's throttling. **Documents are processed on Google Cloud (Johannesburg);
-page images are still sent to Fireworks AI (USA) for the vision model to read, same as every other
-deployment of this app** - the pilot terms shown in the app say so when this is how it's hosted
-(`TENDERLENS_HOSTING_NOTE`, set by `deploy.sh`).
-
-**Build and run locally** (Docker required - see "If Docker Desktop isn't installed" below if you don't have it):
-```
-docker build -t tenderlens .
-docker run -p 8080:8080 --memory=4g --cpus=2 \
-  -e FIREWORKS_API_KEY=your-key-here \
-  tenderlens
-```
-Open `http://localhost:8080`. Leave `FIREWORKS_API_KEY` out entirely to bring it up with no model
-configured (the System panel shows what's missing; nothing paid runs) - useful for a first smoke test.
-
-**Deploy:**
-1. Install the `gcloud` CLI and run `gcloud auth login`.
-2. Set a budget alert *before* deploying anything (see the command list below).
-3. `export GCP_PROJECT_ID=...` and `export FIREWORKS_API_KEY=...` (your own shell, never a committed file).
-4. `./deploy.sh` - reads `deploy.sh` first; it explains every flag and is safe to re-run.
-
-**Update:** change the code, then run `./deploy.sh` again - it rebuilds the image, pushes a new tag, and
-deploys a new Cloud Run revision with the same settings. Routes traffic to the new revision automatically.
-
-**Logs:** `gcloud run services logs read tenderlens --region=africa-south1 --limit=100`, or the Cloud Run
-page in the Google Cloud Console (Logs tab) for live tailing and filtering.
-
-**Roll back:** `gcloud run revisions list --service=tenderlens --region=africa-south1` to find the previous
-revision's name, then `gcloud run services update-traffic tenderlens --region=africa-south1 --to-revisions=<previous-revision>=100`.
-
-**If Docker Desktop isn't installed:** you don't need it to deploy - `deploy.sh` builds the image with Google
-Cloud Build (`gcloud builds submit`), not local Docker, so `./deploy.sh` works with just the `gcloud` CLI
-installed. You only need Docker locally for the "build and run locally" smoke test above; if you'd rather
-skip that and verify on Cloud Run directly, install the `gcloud` CLI instead and go straight to "Deploy".
-
-**Known limits (this deployment, in addition to the list above):**
-- Uploads are capped at 30 MB per pilot pack (`TENDERLENS_MAX_UPLOAD_MB`, `--server.maxUploadSize`) - a clear
-  message is shown in the app rather than a raw rejection.
-- Tested up to about 40 pages at this scan quality within the 4 GiB / 2 vCPU instance; larger packs may be
-  slow or run out of memory.
-- A few minutes per pack for a Complete check is normal, not a hang.
-- "The AI service is busy right now..." means Fireworks AI's shared capacity is saturated, not that this
-  deployment is down - see the retry/incomplete-check handling earlier in this README.
-- No 300-page tenders yet. That needs direct-to-storage upload (not through the app server), batching the
-  pages, and a background job instead of one request held open for the whole run - none of that exists yet.
-- Temporary page images are purged after `TENDERLENS_PURGE_HOURS` (set to 2 here, since Cloud Run's disk
-  counts toward the instance's memory; the Streamlit Community Cloud deployment, which doesn't set this
-  variable, keeps the original 24-hour default).
-- `--max-instances=1` (see `deploy.sh`'s own comments) - pilot pack counts are not safe across more than one
-  instance yet; see "Pilot mode" above.
-
-**Exact commands to run yourself, in order:**
-```
-# 1. Set a budget alert FIRST (replace BILLING_ACCOUNT_ID; find it with: gcloud billing accounts list)
-gcloud billing budgets create \
-  --billing-account=BILLING_ACCOUNT_ID \
-  --display-name="TenderLens pilot" \
-  --budget-amount=5USD \
-  --threshold-rule=percent=0.5 \
-  --threshold-rule=percent=0.9 \
-  --threshold-rule=percent=1.0
-# (add email recipients for the alert in the Cloud Console - Billing > Budgets & alerts - gcloud alone
-#  does not set up the notification channel)
-
-# 2. Authenticate and pick the project
-gcloud auth login
-gcloud config set project YOUR_PROJECT_ID
-
-# 3. Set the required variables in your own shell (never in a committed file)
-export GCP_PROJECT_ID=YOUR_PROJECT_ID
-export FIREWORKS_API_KEY=YOUR_FIREWORKS_API_KEY
-
-# 4. Deploy
-./deploy.sh
-```
-
-## Tests
-`python -m pytest tests -q`
+TenderLens is a review aid built with AI and fixed rules. AI can make mistakes and miss things; check anything that
+matters against the original documents.
